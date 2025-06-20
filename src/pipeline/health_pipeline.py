@@ -13,8 +13,9 @@ from src.analysis.metrics_aggregator import MetricsAggregator
 from src.reporting.report_generator import ReportGenerator
 from src.storage.onedrive_client import OneDriveClient
 from src.reporting.pdf_converter import PDFConverter
-from src.utils.logging_utils import HealthLogger
+from src.utils.logging_utils import HealthLogger, DEBUG_MODE
 from src.utils.date_utils import DateUtils
+from src.utils.progress_indicators import ProgressIndicator
 
 class HealthPipeline:
     """Main pipeline for health data processing."""
@@ -70,23 +71,25 @@ class HealthPipeline:
             Dictionary with raw API data
         """
         self.logger.debug(f"Fetching data date range: {fetch_start.date()} to {fetch_end.date()}")
-        
-        from src.utils.logging_utils import DEBUG_MODE
         # Fetch data from APIs
         if not DEBUG_MODE:
-            print("Fetching Oura data from API...")
+            ProgressIndicator.step_start("Fetching Oura data from API")
         oura_raw = {
             'activity': self.oura.get_activity_data(fetch_start, fetch_end),
             'resilience': self.oura.get_resilience_data(fetch_start, fetch_end)
         }
+        if not DEBUG_MODE:
+            ProgressIndicator.step_complete()
         
         if not DEBUG_MODE:
-            print("Fetching Whoop data from API...")
+            ProgressIndicator.step_start("Fetching Whoop data from API")
         whoop_raw = {
             'workouts': self.whoop.get_workouts(fetch_start, fetch_end),
             'recovery': self.whoop.get_recovery_data(fetch_start, fetch_end),
             'sleep': self.whoop.get_sleep(fetch_start, fetch_end)
         }
+        if not DEBUG_MODE:
+            ProgressIndicator.step_complete()
         
         return {
             'oura': oura_raw,
@@ -104,17 +107,19 @@ class HealthPipeline:
         Returns:
             Path to generated report file
         """
-        from src.utils.logging_utils import DEBUG_MODE
         
         # Process raw data
         if not DEBUG_MODE:
-            print("Transforming and normalizing the data...")
+            ProgressIndicator.step_start("Transforming and normalizing the data")
             
         # Process Oura data
         self.processor.oura_data = self.processor.process_oura_data(raw_data['oura'], start_date, end_date)
         
         # Process Whoop data
         self.processor.whoop_data = self.processor.process_whoop_data(raw_data['whoop'])
+        
+        if not DEBUG_MODE:
+            ProgressIndicator.step_complete()
         
         # Print processed DataFrames in debug mode
         if DEBUG_MODE:
@@ -150,8 +155,10 @@ class HealthPipeline:
         
         # Generate report
         if not DEBUG_MODE:
-            print("Converting the data into a markdown report...")
+            ProgressIndicator.step_start("Converting the data into a markdown report")
         report = self.generator.generate_weekly_status(start_date, end_date)
+        if not DEBUG_MODE:
+            ProgressIndicator.step_complete()
         
         # Save report to file
         report_file = os.path.join('data', f'{end_date.strftime("%Y-%m-%d")}-weekly-status.md')
@@ -160,7 +167,10 @@ class HealthPipeline:
         self.logger.log_data_counts('report file', 1)
         
         if not DEBUG_MODE:
-            print(f"\nMarkdown report complete! Please open {report_file} with your editor and make adjustments as needed.\nRun with --pdf to see the final output and --upload to create a OneDrive link.")
+            ProgressIndicator.section_header("Report Generation Complete")
+            ProgressIndicator.step_complete(f"Markdown report saved to {report_file}")
+            ProgressIndicator.bullet_item("Please open with your editor and make adjustments as needed")
+            ProgressIndicator.bullet_item("Run with --pdf to see the final output and --upload to create a OneDrive link")
             
         return report_file
     
@@ -173,17 +183,16 @@ class HealthPipeline:
         Returns:
             Path to generated PDF file
         """
-        from src.utils.logging_utils import DEBUG_MODE
         
         if not DEBUG_MODE:
-            print(f"Creating PDF from markdown report...")
+            ProgressIndicator.step_start("Creating PDF from markdown report")
             
         pdf_file = markdown_file.replace('.md', '.pdf')
         self.converter.convert(markdown_file, pdf_file)
         self.logger.log_data_counts('pdf file', 1)
         
         if not DEBUG_MODE:
-            print(f"PDF created at {pdf_file}\n")
+            ProgressIndicator.step_complete(f"PDF saved to {pdf_file}")
             
         return pdf_file
     
@@ -197,10 +206,9 @@ class HealthPipeline:
         Returns:
             URL of uploaded file if successful, None otherwise
         """
-        from src.utils.logging_utils import DEBUG_MODE
         
         if not DEBUG_MODE:
-            print("Uploading to OneDrive...")
+            ProgressIndicator.section_header("OneDrive Upload")
             
         # Create folder name with timestamp
         folder_name = f"Health Data/{end_date.strftime('%Y-%m-%d')}"
@@ -212,24 +220,25 @@ class HealthPipeline:
         for file_path in file_paths:
             try:
                 if not DEBUG_MODE:
-                    print(f"Uploading {os.path.basename(file_path)}...", end="", flush=True)
+                    ProgressIndicator.step_start(f"Uploading {os.path.basename(file_path)}")
                     
                 pdf_url = self.storage.upload_file(file_path, folder_name)
                 self.logger.log_data_counts('uploaded file', 1)
                 success_count += 1
                 
                 if not DEBUG_MODE:
-                    print(" done.")
+                    ProgressIndicator.step_complete()
             except Exception as e:
                 if not DEBUG_MODE:
-                    print(f" failed: {str(e)}")
+                    ProgressIndicator.step_error(f"Failed: {str(e)}")
                 self.logger.log_skipped_date(end_date, f"Failed to upload {os.path.basename(file_path)}: {str(e)}")
         
         if not DEBUG_MODE:
             if success_count > 0 and pdf_url:
-                print(f"\nUpload complete! OneDrive link: {pdf_url}\n")
+                # Show the OneDrive link in the same section
+                ProgressIndicator.step_complete(f"OneDrive link: {pdf_url}")
             else:
-                print("\nNo files were uploaded to OneDrive.\n")
+                ProgressIndicator.step_warning("No files were uploaded to OneDrive.")
                 
         return pdf_url if success_count > 0 else None
     
@@ -245,6 +254,8 @@ class HealthPipeline:
         
         # Get data and generate report
         if args.fetch:
+            if not DEBUG_MODE:
+                ProgressIndicator.section_header("Data Collection")
             # Fetch and process data
             raw_data = self.fetch_api_data(fetch_start, fetch_end)
             self.processor.process_raw_data(raw_data['oura'], raw_data['whoop'], report_start, report_end)
@@ -254,9 +265,12 @@ class HealthPipeline:
         
         # Convert to PDF
         if args.pdf:
+            if not DEBUG_MODE:
+                ProgressIndicator.section_header("PDF Conversion")
             # Get markdown file path
             report_file = DateUtils.get_report_path(report_end)
             if not os.path.exists(report_file):
+                ProgressIndicator.step_error(f"Report file not found: {report_file}")
                 self.logger.log_skipped_date(None, f"Report file not found: {report_file}")
                 sys.exit(1)
             pdf_file = self.create_pdf(report_file)
@@ -272,6 +286,7 @@ class HealthPipeline:
             # Upload and create sharing link
             pdf_url = self.upload_to_onedrive([pdf_file], report_end)
             if pdf_url:
-                print("\nHi Coach!")
+                ProgressIndicator.section_header("Ready to Share")
+                print("Hi Coach!")
                 print(f"See this week's progress report: {pdf_url}")
 
