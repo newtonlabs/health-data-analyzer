@@ -1,0 +1,70 @@
+# macOS
+.DS_Store
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Windsurf
+.windsurf/
+
+# Data files
+data/
+*.csv
+
+# Token files and secrets
+*.json
+.whoop_tokens.json
+.oura_tokens.json
+.msal_token_cache.json
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.keystore
+*.jks
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Logs
+*.log
+src/backup
+src/backup/*

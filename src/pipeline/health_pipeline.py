@@ -1,0 +1,277 @@
+"""Health data pipeline for collecting and processing health data."""
+import os
+import sys
+import argparse
+import pandas as pd
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+
+from src.data_sources.oura_client import OuraClient
+from src.data_sources.whoop_client import WhoopClient
+from src.analysis.health_data_processor import HealthDataProcessor
+from src.analysis.metrics_aggregator import MetricsAggregator
+from src.reporting.report_generator import ReportGenerator
+from src.storage.onedrive_client import OneDriveClient
+from src.reporting.pdf_converter import PDFConverter
+from src.utils.logging_utils import HealthLogger
+from src.utils.date_utils import DateUtils
+
+class HealthPipeline:
+    """Main pipeline for health data processing."""
+    
+    def __init__(self, skip_auth=False):
+        """Initialize pipeline components.
+        
+        Args:
+            skip_auth: If True, skip authentication with external services
+        """
+        # Set up utilities
+        self.logger = HealthLogger(__name__)
+        self.processor = HealthDataProcessor()
+        self.metrics = MetricsAggregator(self.processor)
+        self.generator = ReportGenerator(self.metrics)
+        self.converter = PDFConverter()
+        self.storage = OneDriveClient()
+        
+        # Set up clients
+        self.oura = OuraClient()
+        self.whoop = WhoopClient()
+        
+        # Authenticate with services if needed
+        if not skip_auth:
+            self._authenticate()
+    
+    def _authenticate(self) -> None:
+        """Authenticate with all services."""
+        # Authenticate with Oura
+        if not self.oura.is_authenticated():
+            self.logger.log_skipped_date(None, "Failed to authenticate with Oura")
+            sys.exit(1)
+        
+        # Authenticate with Whoop
+        if not self.whoop.is_authenticated():
+            if not self.whoop.authenticate():
+                self.logger.log_skipped_date(None, "Failed to authenticate with Whoop")
+                sys.exit(1)
+        
+        # Authenticate with OneDrive
+        if not self.storage.authenticate():
+            self.logger.log_skipped_date(None, "Failed to authenticate with OneDrive")
+            sys.exit(1)
+    
+    def fetch_api_data(self, fetch_start: datetime, fetch_end: datetime) -> Dict[str, Any]:
+        """Fetch data from Oura and Whoop APIs.
+        
+        Args:
+            fetch_start: Start date for data fetch
+            fetch_end: End date for data fetch
+            
+        Returns:
+            Dictionary with raw API data
+        """
+        self.logger.debug(f"Fetching data date range: {fetch_start.date()} to {fetch_end.date()}")
+        
+        from src.utils.logging_utils import DEBUG_MODE
+        # Fetch data from APIs
+        if not DEBUG_MODE:
+            print("Fetching Oura data from API...")
+        oura_raw = {
+            'activity': self.oura.get_activity_data(fetch_start, fetch_end),
+            'resilience': self.oura.get_resilience_data(fetch_start, fetch_end)
+        }
+        
+        if not DEBUG_MODE:
+            print("Fetching Whoop data from API...")
+        whoop_raw = {
+            'workouts': self.whoop.get_workouts(fetch_start, fetch_end),
+            'recovery': self.whoop.get_recovery_data(fetch_start, fetch_end),
+            'sleep': self.whoop.get_sleep(fetch_start, fetch_end)
+        }
+        
+        return {
+            'oura': oura_raw,
+            'whoop': whoop_raw
+        }
+    
+    def generate_report(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> str:
+        """Generate weekly status report.
+        
+        Args:
+            raw_data: Raw API data
+            start_date: Start date for report period
+            end_date: End date for report period
+            
+        Returns:
+            Path to generated report file
+        """
+        from src.utils.logging_utils import DEBUG_MODE
+        
+        # Process raw data
+        if not DEBUG_MODE:
+            print("Transforming and normalizing the data...")
+            
+        # Process Oura data
+        self.processor.oura_data = self.processor.process_oura_data(raw_data['oura'], start_date, end_date)
+        
+        # Process Whoop data
+        self.processor.whoop_data = self.processor.process_whoop_data(raw_data['whoop'])
+        
+        # Print processed DataFrames in debug mode
+        if DEBUG_MODE:
+            self.logger.debug("\n===== PROCESSED DATA SUMMARY =====")
+            
+            # Print Oura DataFrames
+            if self.processor.oura_data is not None:
+                if isinstance(self.processor.oura_data, dict):
+                    self.logger.debug(f"Oura data contains {len(self.processor.oura_data)} DataFrames")
+                    for name, df in self.processor.oura_data.items():
+                        self.logger.debug_dataframe(df, f"Oura {name}")
+                elif isinstance(self.processor.oura_data, pd.DataFrame):
+                    # If it's a single DataFrame, print it directly
+                    self.logger.debug_dataframe(self.processor.oura_data, "Oura activity")
+                else:
+                    # Don't print any message about the type
+                    pass
+            else:
+                self.logger.debug("No Oura data available")
+            
+            # Print Whoop DataFrames
+            if self.processor.whoop_data is not None:
+                if isinstance(self.processor.whoop_data, dict):
+                    self.logger.debug(f"Whoop data contains {len(self.processor.whoop_data)} DataFrames")
+                    for name, df in self.processor.whoop_data.items():
+                        self.logger.debug_dataframe(df, f"Whoop {name}")
+                else:
+                    self.logger.debug(f"Whoop data is not a dictionary: {type(self.processor.whoop_data)}")
+            else:
+                self.logger.debug("No Whoop data available")
+                
+            self.logger.debug("===== END DATA SUMMARY =====")
+        
+        # Generate report
+        if not DEBUG_MODE:
+            print("Converting the data into a markdown report...")
+        report = self.generator.generate_weekly_status(start_date, end_date)
+        
+        # Save report to file
+        report_file = os.path.join('data', f'{end_date.strftime("%Y-%m-%d")}-weekly-status.md')
+        with open(report_file, 'w') as f:
+            f.write(report)
+        self.logger.log_data_counts('report file', 1)
+        
+        if not DEBUG_MODE:
+            print(f"\nMarkdown report complete! Please open {report_file} with your editor and make adjustments as needed.\nRun with --pdf to see the final output and --upload to create a OneDrive link.")
+            
+        return report_file
+    
+    def create_pdf(self, markdown_file: str) -> str:
+        """Convert markdown report to PDF.
+        
+        Args:
+            markdown_file: Path to markdown file
+            
+        Returns:
+            Path to generated PDF file
+        """
+        from src.utils.logging_utils import DEBUG_MODE
+        
+        if not DEBUG_MODE:
+            print(f"Creating PDF from markdown report...")
+            
+        pdf_file = markdown_file.replace('.md', '.pdf')
+        self.converter.convert(markdown_file, pdf_file)
+        self.logger.log_data_counts('pdf file', 1)
+        
+        if not DEBUG_MODE:
+            print(f"PDF created at {pdf_file}\n")
+            
+        return pdf_file
+    
+    def upload_to_onedrive(self, file_paths: List[str], end_date: datetime) -> Optional[str]:
+        """Upload files to OneDrive and create sharing links.
+        
+        Args:
+            file_paths: List of files to upload
+            end_date: End date for folder name
+            
+        Returns:
+            URL of uploaded file if successful, None otherwise
+        """
+        from src.utils.logging_utils import DEBUG_MODE
+        
+        if not DEBUG_MODE:
+            print("Uploading to OneDrive...")
+            
+        # Create folder name with timestamp
+        folder_name = f"Health Data/{end_date.strftime('%Y-%m-%d')}"
+        
+        # Upload files
+        success_count = 0
+        pdf_url = None
+        
+        for file_path in file_paths:
+            try:
+                if not DEBUG_MODE:
+                    print(f"Uploading {os.path.basename(file_path)}...", end="", flush=True)
+                    
+                pdf_url = self.storage.upload_file(file_path, folder_name)
+                self.logger.log_data_counts('uploaded file', 1)
+                success_count += 1
+                
+                if not DEBUG_MODE:
+                    print(" done.")
+            except Exception as e:
+                if not DEBUG_MODE:
+                    print(f" failed: {str(e)}")
+                self.logger.log_skipped_date(end_date, f"Failed to upload {os.path.basename(file_path)}: {str(e)}")
+        
+        if not DEBUG_MODE:
+            if success_count > 0 and pdf_url:
+                print(f"\nUpload complete! OneDrive link: {pdf_url}\n")
+            else:
+                print("\nNo files were uploaded to OneDrive.\n")
+                
+        return pdf_url if success_count > 0 else None
+    
+    def run(self, args: argparse.Namespace) -> None:
+        """Run the pipeline.
+        
+        Args:
+            args: Command line arguments
+        """
+        # Get date ranges once
+        report_start, report_end, fetch_start, fetch_end = DateUtils.get_date_ranges()
+        self.logger.debug(f"Date ranges: report_start={report_start}, report_end={report_end}, fetch_start={fetch_start}, fetch_end={fetch_end}")
+        
+        # Get data and generate report
+        if args.fetch:
+            # Fetch and process data
+            raw_data = self.fetch_api_data(fetch_start, fetch_end)
+            self.processor.process_raw_data(raw_data['oura'], raw_data['whoop'], report_start, report_end)
+            
+            # Generate report
+            report_file = self.generate_report(raw_data, report_start, report_end)
+        
+        # Convert to PDF
+        if args.pdf:
+            # Get markdown file path
+            report_file = DateUtils.get_report_path(report_end)
+            if not os.path.exists(report_file):
+                self.logger.log_skipped_date(None, f"Report file not found: {report_file}")
+                sys.exit(1)
+            pdf_file = self.create_pdf(report_file)
+        
+        # Upload files
+        if args.upload:
+            # Get PDF file path
+            pdf_file = DateUtils.get_report_path(report_end, extension='.pdf')
+            if not os.path.exists(pdf_file):
+                self.logger.log_skipped_date(None, "PDF file not found. Run with --pdf first.")
+                sys.exit(1)
+            
+            # Upload and create sharing link
+            pdf_url = self.upload_to_onedrive([pdf_file], report_end)
+            if pdf_url:
+                print("\nHi Coach!")
+                print(f"See this week's progress report: {pdf_url}")
+
