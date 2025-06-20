@@ -3,46 +3,54 @@ import os
 import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+import traceback
+import logging
+
+# Create a logger
+logger = logging.getLogger(__name__)
 
 class TokenManager:
-    _instance = None
-    _initialized = False
-    
+    """Singleton per token file path for managing OAuth tokens."""
+    _instances = {}
+
     def __new__(cls, token_file: str = None):
-        if cls._instance is None:
-            cls._instance = super(TokenManager, cls).__new__(cls)
-        return cls._instance
-        
-    def __init__(self, token_file: str = None):
-        """Initialize token manager.
-        
-        Args:
-            token_file: Path to token storage file. Only used on first initialization.
-        """
-        # Skip if already initialized
-        if TokenManager._initialized:
-            return
-            
         if token_file is None:
-            raise ValueError("token_file is required for first initialization")
-            
-        TokenManager._initialized = True
+            raise ValueError("token_file is required for TokenManager")
+        if token_file not in cls._instances:
+            instance = super(TokenManager, cls).__new__(cls)
+            cls._instances[token_file] = instance
+        return cls._instances[token_file]
+
+    def __init__(self, token_file: str = None):
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+        if token_file is None:
+            raise ValueError("token_file is required for TokenManager")
         self.token_file = token_file
         self.tokens: Dict[str, Any] = {}
         self.token_expiry: Optional[datetime] = None
+        self.logger = logging.getLogger(__name__)
         self._load_tokens()
+        self._initialized = True
         
     def _load_tokens(self) -> None:
         """Load tokens from file and set expiry."""
+        self.logger.debug(f"[TokenManager] Attempting to read tokens from {self.token_file}")
         try:
             with open(self.token_file, 'r') as f:
                 self.tokens = json.load(f)
+                self.logger.debug(f"[TokenManager] Read tokens from {self.token_file}: {self.tokens}")
                 # Calculate token expiry if we have expires_in
                 if 'expires_in' in self.tokens and 'timestamp' in self.tokens:
                     expires_in = self.tokens['expires_in']
                     timestamp = datetime.fromisoformat(self.tokens['timestamp'])
                     self.token_expiry = timestamp + timedelta(seconds=expires_in)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except FileNotFoundError:
+            self.logger.debug(f"[TokenManager] Token file {self.token_file} does not exist")
+            self.tokens = {}
+            self.token_expiry = None
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"[TokenManager] Failed to read tokens from {self.token_file}: {str(e)}")
             self.tokens = {}
             self.token_expiry = None
             

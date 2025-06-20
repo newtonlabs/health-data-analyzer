@@ -105,15 +105,21 @@ class HealthLogger:
         """
         self.logger.debug(f"Found {count} {data_type} records")
         
-    def debug(self, message: str):
-        """Log debug message (only shown in debug mode).
+    def debug(self, msg: str):
+        """Log debug message.
         
         Args:
-            message: Debug message
+            msg: Debug message
         """
-        if not DEBUG_MODE:
-            return
-        self.logger.info(f"DEBUG: {message}")
+        self.logger.debug(msg)
+        
+    def warning(self, msg: str):
+        """Log warning message.
+        
+        Args:
+            msg: Warning message
+        """
+        self.logger.warning(msg)
         
     def debug_dataframe(self, df, name: str, max_rows: int = 10):
         """Print a DataFrame in a readable format when in debug mode.

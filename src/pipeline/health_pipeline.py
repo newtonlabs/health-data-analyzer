@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 
 from src.data_sources.oura_client import OuraClient
 from src.data_sources.whoop_client import WhoopClient
+from src.data_sources.withings_client import WithingsClient
 from src.analysis.health_data_processor import HealthDataProcessor
 from src.analysis.metrics_aggregator import MetricsAggregator
 from src.reporting.report_generator import ReportGenerator
@@ -20,23 +21,27 @@ from src.utils.progress_indicators import ProgressIndicator
 class HealthPipeline:
     """Main pipeline for health data processing."""
     
-    def __init__(self, skip_auth=False):
+    def __init__(self, skip_auth: bool = False):
         """Initialize pipeline components.
         
         Args:
             skip_auth: If True, skip authentication with external services
         """
-        # Set up utilities
+        # Initialize logger
         self.logger = HealthLogger(__name__)
-        self.processor = HealthDataProcessor()
-        self.metrics = MetricsAggregator(self.processor)
-        self.generator = ReportGenerator(self.metrics)
-        self.converter = PDFConverter()
-        self.storage = OneDriveClient()
         
-        # Set up clients
-        self.oura = OuraClient()
-        self.whoop = WhoopClient()
+        # Initialize clients
+        if not skip_auth:
+            self.whoop = WhoopClient()
+            self.oura = OuraClient()
+            self.withings = WithingsClient()
+            self.storage = OneDriveClient()
+        
+        # Initialize data processing components
+        self.processor = HealthDataProcessor()
+        self.aggregator = MetricsAggregator(self.processor)
+        self.report_gen = ReportGenerator(self.aggregator)
+        self.converter = PDFConverter()
         
         # Authenticate with services if needed
         if not skip_auth:
@@ -54,6 +59,12 @@ class HealthPipeline:
             if not self.whoop.authenticate():
                 self.logger.log_skipped_date(None, "Failed to authenticate with Whoop")
                 sys.exit(1)
+                
+        # Authenticate with Withings
+        if not self.withings.is_authenticated():
+            if not self.withings.authenticate():
+                self.logger.log_skipped_date(None, "Failed to authenticate with Withings")
+                sys.exit(1)
         
         # Authenticate with OneDrive
         if not self.storage.authenticate():
@@ -61,7 +72,7 @@ class HealthPipeline:
             sys.exit(1)
     
     def fetch_api_data(self, fetch_start: datetime, fetch_end: datetime) -> Dict[str, Any]:
-        """Fetch data from Oura and Whoop APIs.
+        """Fetch data from Oura, Whoop, and Withings APIs.
         
         Args:
             fetch_start: Start date for data fetch
@@ -91,9 +102,32 @@ class HealthPipeline:
         if not DEBUG_MODE:
             ProgressIndicator.step_complete()
         
+        if not DEBUG_MODE:
+            ProgressIndicator.step_start("Fetching Withings weight data from API")
+        # For Withings, always fetch the last 14 days including today
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        withings_fetch_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        withings_fetch_start = (now - timedelta(days=13)).replace(hour=0, minute=0, second=0, microsecond=0)
+        withings_raw = {
+            'weight': self.withings.get_weight_data(withings_fetch_start, withings_fetch_end)
+        }
+        if not DEBUG_MODE:
+            ProgressIndicator.step_complete()
+            
+        self.logger.debug("Withings API data fetched successfully")
+        if DEBUG_MODE:
+            import json
+            self.logger.debug(
+                "===== WITHINGS API RESPONSE =====\n" +
+                json.dumps(withings_raw, indent=2) +
+                "\n===== END WITHINGS API RESPONSE ====="
+            )
+        
         return {
             'oura': oura_raw,
-            'whoop': whoop_raw
+            'whoop': whoop_raw,
+            'withings': withings_raw
         }
     
     def generate_report(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> str:
@@ -117,6 +151,15 @@ class HealthPipeline:
         
         # Process Whoop data
         self.processor.whoop_data = self.processor.process_whoop_data(raw_data['whoop'])
+        
+        # Process Withings data
+        if 'withings' in raw_data:
+            self.processor.withings_data = self.processor.process_withings_data(raw_data['withings'], start_date, end_date)
+            
+            # Log weight data in debug mode
+            if DEBUG_MODE and self.processor.withings_data and 'weight' in self.processor.withings_data:
+                weight_df = self.processor.withings_data['weight']
+                self.logger.debug(f"\n===== DataFrame: Withings Weight Data =====\nShape: {weight_df.shape[0]} rows × {weight_df.shape[1]} columns\nColumns: {', '.join(weight_df.columns)}\n\n{weight_df.to_string()}\n====================================\n")
         
         if not DEBUG_MODE:
             ProgressIndicator.step_complete()
@@ -156,7 +199,7 @@ class HealthPipeline:
         # Generate report
         if not DEBUG_MODE:
             ProgressIndicator.step_start("Converting the data into a markdown report")
-        report = self.generator.generate_weekly_status(start_date, end_date)
+        report = self.report_gen.generate_weekly_status(start_date, end_date)
         if not DEBUG_MODE:
             ProgressIndicator.step_complete()
         
@@ -258,7 +301,13 @@ class HealthPipeline:
                 ProgressIndicator.section_header("Data Collection")
             # Fetch and process data
             raw_data = self.fetch_api_data(fetch_start, fetch_end)
-            self.processor.process_raw_data(raw_data['oura'], raw_data['whoop'], report_start, report_end)
+            self.processor.process_raw_data(
+                oura_raw=raw_data['oura'], 
+                whoop_raw=raw_data['whoop'], 
+                withings_raw=raw_data['withings'],
+                start_date=report_start, 
+                end_date=report_end
+            )
             
             # Generate report
             report_file = self.generate_report(raw_data, report_start, report_end)

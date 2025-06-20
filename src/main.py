@@ -20,10 +20,23 @@ from src.utils.progress_indicators import ProgressIndicator, Colors
 # Load environment variables
 load_dotenv()
 
+def get_version() -> str:
+    """Get the application version from version.txt file.
+    
+    Returns:
+        The version string from version.txt, or '0.0.0' if file not found
+    """
+    try:
+        version_file = Path(__file__).parent.parent / 'version.txt'
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return '0.0.0'
+
 def display_welcome_banner() -> None:
     """Display a welcome banner with application information."""
     app_name = "Health Data Analyzer"
-    version = "1.0.0"
+    version = get_version()
     banner = f"""
 {Colors.BLUE}{Colors.BOLD}{app_name} v{version}{Colors.RESET}
 {'=' * (len(app_name) + len(version) + 3)}

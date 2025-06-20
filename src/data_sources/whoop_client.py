@@ -76,7 +76,8 @@ class WhoopClient:
         self.state = None
         
         # Set up token manager and logger
-        self.token_manager = TokenManager(token_file or os.path.expanduser('~/.whoop_tokens.json'))
+        # Always use a dedicated token file for Whoop
+        self.token_manager = TokenManager(os.path.expanduser('~/.whoop_tokens.json'))
         self.logger = HealthLogger(__name__)
         
         # Try to load existing tokens
