@@ -536,9 +536,10 @@ class HealthDataProcessor:
             
             # Add day of week for better readability
             df_latest['day'] = [d.strftime('%a') if d is not None else '' for d in df_latest.index]
-            # Convert weight from kg to pounds and round to 2 decimal places
+            # Convert weight from kg to pounds and round to the configured precision
             KG_TO_LB = 2.20462
-            df_latest['weight'] = (df_latest['weight'] * KG_TO_LB).round(2)
+            weight_precision = AnalyzerConfig.NUMERIC_PRECISION.get('weight', 1)
+            df_latest['weight'] = (df_latest['weight'] * KG_TO_LB).round(weight_precision)
             
             # Reorder columns for consistency with other DataFrames
             df_latest = df_latest[['date', 'day', 'weight']]

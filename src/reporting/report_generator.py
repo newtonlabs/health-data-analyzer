@@ -43,6 +43,7 @@ class ReportGenerator:
         """Convert DataFrame to markdown table format.
         
         Ensures consistent formatting of numeric values before conversion.
+        Replaces all NaN values with a dash (-).
         """
         # Create a copy to avoid modifying the original DataFrame
         formatted_df = df.copy()
@@ -50,9 +51,12 @@ class ReportGenerator:
         # Define columns that should be displayed as integers
         integer_columns = ['CALORIES', 'STEPS']
         
+        # First, replace all NaN values with a dash
+        formatted_df = formatted_df.fillna('-')
+        
         # For each column, ensure consistent string formatting
         for col in formatted_df.columns:
-            # Skip non-numeric columns and special columns like 'RECOVERY' that have HTML formatting
+            # Skip non-numeric columns, special columns, and columns that are already dashes
             if formatted_df[col].dtype.kind not in 'ifc' or col in ['recovery', 'RECOVERY']:
                 continue
             
@@ -62,11 +66,13 @@ class ReportGenerator:
                 # Use vectorized operations for better performance
                 is_integer_col = col in integer_columns
                 if is_integer_col:
-                    formatted_df[col] = formatted_df[col].round().astype('Int64').astype(str)
+                    formatted_df[col] = formatted_df[col].apply(
+                        lambda x: f"{int(x)}" if pd.notnull(x) and x != '-' else '-'
+                    )
                 else:
                     # Format with one decimal place
                     formatted_df[col] = formatted_df[col].apply(
-                        lambda x: f"{float(x):.1f}" if pd.notnull(x) else '-'
+                        lambda x: f"{float(x):.1f}" if pd.notnull(x) and x != '-' else '-'
                     )
         
         # Use pandas to_markdown with consistent formatting

@@ -20,7 +20,8 @@ class AnalyzerConfig:
         'resting_hr': 1,
         'spo2': 1,
         'sleep_need': 1,
-        'sleep_actual': 1
+        'sleep_actual': 1,
+        'weight': 1  # Weight with 1 decimal place
     }
     
     # Excluded sports from analysis (used by metrics aggregation)

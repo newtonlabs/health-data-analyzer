@@ -220,6 +220,7 @@ class MetricsAggregator:
         3. Get resilience data from Oura
         4. Format recovery and resilience data into lookups
         5. Update base DataFrame with metrics
+        6. Add weight data if available
         
         Args:
             start_date: Start date for filtering data
@@ -235,6 +236,7 @@ class MetricsAggregator:
             - hr: Resting heart rate in bpm
             - sleep_need: Hours of sleep needed
             - sleep_actual: Actual hours of sleep
+            - weight: Weight in pounds (if available)
         """
         # Step 1: Create base DataFrame
         df = self._create_date_range_df(start_date, end_date)
@@ -260,6 +262,9 @@ class MetricsAggregator:
         # Add resilience level data if available (only include level, not score)
         if resilience_by_date:
             df['resilience_level'] = df['date'].map(lambda x: resilience_by_date.get(x, {}).get('resilience_level'))
+        
+        # Step 6: Add weight data if available
+        df = self._add_weight_data(df, start_date, end_date)
             
         # Log the final DataFrame in debug mode
         from src.utils.logging_utils import DEBUG_MODE
@@ -451,6 +456,47 @@ class MetricsAggregator:
             df.loc[df['date'] == date_key, 'activity'] = workout['sport']
         
         return df
+        
+    def _add_weight_data(self, df: pd.DataFrame, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """Add weight data to DataFrame.
+        
+        Args:
+            df: DataFrame to add weight data to
+            start_date: Start date for filtering data
+            end_date: End date for filtering data
+            
+        Returns:
+            DataFrame with weight data added
+        """
+        # Default to no weight data
+        df['weight'] = None
+        
+        # Early return if no Withings data available
+        if self.processor.withings_data is None or 'weight' not in self.processor.withings_data:
+            return df
+            
+        # Get weight data
+        weight_df = self.processor.withings_data['weight']
+        
+        # Create weight lookup by date
+        weight_by_date = {}
+        for _, row in weight_df.iterrows():
+            if 'date' in row and 'weight' in row:
+                weight_by_date[row['date']] = row['weight']
+        
+        # Update DataFrame with weight data
+        for date in df['date']:
+            if date in weight_by_date:
+                df.loc[df['date'] == date, 'weight'] = weight_by_date[date]
+        
+        # Format weight values using the configured precision
+        from .analyzer_config import AnalyzerConfig
+        weight_precision = AnalyzerConfig.NUMERIC_PRECISION.get('weight', 1)
+        df['weight'] = df['weight'].apply(
+            lambda x: round(float(x), weight_precision) if not pd.isna(x) and x != '-' else None
+        )
+        
+        return df
     
     def weekly_macros_and_activity(self, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Get weekly macros and activity metrics.
@@ -460,7 +506,8 @@ class MetricsAggregator:
         2. Get nutrition data
         3. Add steps data
         4. Add activity data
-        5. Format output
+        5. Add weight data
+        6. Format output
         
         Args:
             start_date: Start date for filtering data
@@ -476,6 +523,7 @@ class MetricsAggregator:
             - fat: Fat in grams
             - activity: Sport name or 'Rest'
             - steps: Daily step count
+            - weight: Weight in pounds (if available)
         """
         # Step 1: Create base DataFrame with date range
         df = self._create_date_range_df(start_date, end_date)
@@ -514,8 +562,14 @@ class MetricsAggregator:
         # Step 4: Add activity data
         df = self._add_activity_data(df, start_date, end_date)
         
-        # Step 5: Format output
-        df = df[['date', 'day', 'calories', 'protein', 'carbs', 'fat', 'activity', 'steps']]
+        # Step 5: Add weight data
+        df = self._add_weight_data(df, start_date, end_date)
+        
+        # Step 6: Format output
+        columns = ['date', 'day', 'calories', 'protein', 'carbs', 'fat', 'activity', 'steps']
+        if 'weight' in df.columns:
+            columns.append('weight')
+        df = df[columns]
         
         # Log the final DataFrame in debug mode
         from src.utils.logging_utils import DEBUG_MODE
