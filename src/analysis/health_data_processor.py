@@ -108,12 +108,13 @@ class HealthDataProcessor:
             # Display the processed weight data in debug mode
             if DEBUG_MODE and 'weight' in self.withings_data:
                 self.logger.debug_dataframe(self.withings_data['weight'], "Withings Weight Data")
-            # Always print directly for guaranteed visibility, regardless of DEBUG_MODE or content
-            print("===== Withings Weight DataFrame (direct print) =====")
-            print(self.withings_data['weight'])
-            print("Shape:", self.withings_data['weight'].shape)
-            print("Columns:", self.withings_data['weight'].columns.tolist())
-            print("==============================================")
+            # Only print debug info when in DEBUG_MODE
+            if DEBUG_MODE:
+                print("===== Withings Weight DataFrame (direct print) =====")
+                print(self.withings_data['weight'])
+                print("Shape:", self.withings_data['weight'].shape)
+                print("Columns:", self.withings_data['weight'].columns.tolist())
+                print("==============================================")
     
     def process_oura_data(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> Dict[str, pd.DataFrame]:
         """Process data from Oura API.
