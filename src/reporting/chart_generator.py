@@ -251,108 +251,108 @@ class NutritionChartGenerator(ChartGenerator):
         self.target_strength = target_strength
         self.target_rest = target_rest
     
-    def generate(self, df: pd.DataFrame, filename: str = "nutrition_chart.png") -> str:
-        """
-        Generate a chart for calorie intake with targets based on activity type.
+    # def generate(self, df: pd.DataFrame, filename: str = "nutrition_chart.png") -> str:
+    #     """
+    #     Generate a chart for calorie intake with targets based on activity type.
         
-        Args:
-            df: DataFrame with columns ['date', 'calories', 'activity'] 
-                (date as string, calories as numeric, activity as 'Rest' or 'Strength')
-            filename: Output filename for the chart image
-        Returns:
-            Path to the saved chart image
-        """
-        # Defensive: check required columns
-        if not {'date', 'calories', 'activity'}.issubset(df.columns):
-            raise ValueError("DataFrame must contain 'date', 'calories', and 'activity' columns")
+    #     Args:
+    #         df: DataFrame with columns ['date', 'calories', 'activity'] 
+    #             (date as string, calories as numeric, activity as 'Rest' or 'Strength')
+    #         filename: Output filename for the chart image
+    #     Returns:
+    #         Path to the saved chart image
+    #     """
+    #     # Defensive: check required columns
+    #     if not {'date', 'calories', 'activity'}.issubset(df.columns):
+    #         raise ValueError("DataFrame must contain 'date', 'calories', and 'activity' columns")
             
-        # Constants
-        x_numeric = np.arange(len(df['date']))
-        width = 0.6
+    #     # Constants
+    #     x_numeric = np.arange(len(df['date']))
+    #     width = 0.6
         
-        # Colors
-        strength_color = ReportingConfig.COLORS['protein']  # dark red
-        rest_color = ReportingConfig.COLORS['fat']      # medium gray
-        bar_colors = [strength_color if act == "Strength" else rest_color for act in df['activity']]
+    #     # Colors
+    #     strength_color = ReportingConfig.COLORS['protein']  # dark red
+    #     rest_color = ReportingConfig.COLORS['fat']      # medium gray
+    #     bar_colors = [strength_color if act == "Strength" else rest_color for act in df['activity']]
         
-        # Plot setup (matching recovery chart height)
-        fig, ax = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height_compact']))
-        fig.patch.set_facecolor('white')
-        ax.set_facecolor('white')
+    #     # Plot setup (matching recovery chart height)
+    #     fig, ax = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height_compact']))
+    #     fig.patch.set_facecolor('white')
+    #     ax.set_facecolor('white')
         
-        # Draw rounded bars
-        for i, (x_pos, cal, act, color) in enumerate(zip(x_numeric, df['calories'], df['activity'], bar_colors)):
-            # Skip if calories is 0 (no data)
-            if cal == 0:
-                continue
+    #     # Draw rounded bars
+    #     for i, (x_pos, cal, act, color) in enumerate(zip(x_numeric, df['calories'], df['activity'], bar_colors)):
+    #         # Skip if calories is 0 (no data)
+    #         if cal == 0:
+    #             continue
                 
-            ax.add_patch(patches.FancyBboxPatch(
-                (x_pos - width/2, 0), width, cal,
-                boxstyle="round,pad=0.01", edgecolor='none',
-                facecolor=color, alpha=0.7, zorder=2
-            ))
+    #         ax.add_patch(patches.FancyBboxPatch(
+    #             (x_pos - width/2, 0), width, cal,
+    #             boxstyle="round,pad=0.01", edgecolor='none',
+    #             facecolor=color, alpha=0.7, zorder=2
+    #         ))
             
-            # Add calorie labels on top of bars
-            ax.annotate(f'{cal:.0f}',
-                        xy=(x_pos, cal),
-                        xytext=(0, 4),
-                        textcoords="offset points",
-                        ha='center', va='bottom',
-                        color='black', fontsize=9, zorder=3)
+    #         # Add calorie labels on top of bars
+    #         ax.annotate(f'{cal:.0f}',
+    #                     xy=(x_pos, cal),
+    #                     xytext=(0, 4),
+    #                     textcoords="offset points",
+    #                     ha='center', va='bottom',
+    #                     color='black', fontsize=9, zorder=3)
         
-        # Draw target indicators (ticks and dots)
-        for i, (x_pos, act) in enumerate(zip(x_numeric, df['activity'])):
-            y = self.target_strength if act == "Strength" else self.target_rest
-            ax.hlines(y, x_pos - width/4, x_pos + width/4, color='black', linewidth=2, zorder=4)
-            ax.plot(x_pos, y, 'o', markersize=5, color='black', zorder=5)
+    #     # Draw target indicators (ticks and dots)
+    #     for i, (x_pos, act) in enumerate(zip(x_numeric, df['activity'])):
+    #         y = self.target_strength if act == "Strength" else self.target_rest
+    #         ax.hlines(y, x_pos - width/4, x_pos + width/4, color='black', linewidth=2, zorder=4)
+    #         ax.plot(x_pos, y, 'o', markersize=5, color='black', zorder=5)
         
-        # Axis config
-        max_cal = max(df['calories'].max(), self.target_strength) if not df['calories'].empty else self.target_strength
-        ax.set_ylim(0, max_cal + 300)
-        ax.set_xticks(x_numeric)
+    #     # Axis config
+    #     max_cal = max(df['calories'].max(), self.target_strength) if not df['calories'].empty else self.target_strength
+    #     ax.set_ylim(0, max_cal + 300)
+    #     ax.set_xticks(x_numeric)
         
-        # Create day of week labels directly
-        day_labels = []
-        for date_str in df['date']:
-            try:
-                # Try different date formats
-                if '-' in date_str:
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                else:
-                    # Try MM-DD format
-                    current_year = datetime.now().year
-                    date_obj = datetime.strptime(f"{current_year}-{date_str}", '%Y-%m-%d')
-                # Get abbreviated day name
-                day_labels.append(date_obj.strftime('%a'))
-            except ValueError:
-                day_labels.append(date_str)
+    #     # Create day of week labels directly
+    #     day_labels = []
+    #     for date_str in df['date']:
+    #         try:
+    #             # Try different date formats
+    #             if '-' in date_str:
+    #                 date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+    #             else:
+    #                 # Try MM-DD format
+    #                 current_year = datetime.now().year
+    #                 date_obj = datetime.strptime(f"{current_year}-{date_str}", '%Y-%m-%d')
+    #             # Get abbreviated day name
+    #             day_labels.append(date_obj.strftime('%a'))
+    #         except ValueError:
+    #             day_labels.append(date_str)
         
-        ax.set_xticklabels(day_labels)
+    #     ax.set_xticklabels(day_labels)
         
-        # Minimal styling with no labels
-        ax.set_xlabel("", color='#666666', fontsize=9)
-        ax.set_ylabel("", color='#666666', fontsize=9)
-        ax.tick_params(axis='both', colors='#666666', labelsize=8)
+    #     # Minimal styling with no labels
+    #     ax.set_xlabel("", color='#666666', fontsize=9)
+    #     ax.set_ylabel("", color='#666666', fontsize=9)
+    #     ax.tick_params(axis='both', colors='#666666', labelsize=8)
         
-        # Subtle border on left/bottom
-        for spine in ['top', 'right']:
-            ax.spines[spine].set_visible(False)
-        for spine in ['left', 'bottom']:
-            ax.spines[spine].set_visible(True)
-            ax.spines[spine].set_color('#CCCCCC')
-            ax.spines[spine].set_linewidth(1)
+    #     # Subtle border on left/bottom
+    #     for spine in ['top', 'right']:
+    #         ax.spines[spine].set_visible(False)
+    #     for spine in ['left', 'bottom']:
+    #         ax.spines[spine].set_visible(True)
+    #         ax.spines[spine].set_color('#CCCCCC')
+    #         ax.spines[spine].set_linewidth(1)
         
-        # Grid styling
-        ax.yaxis.grid(True, linestyle='--', linewidth=0.4, color='#E0E0E0')
-        ax.xaxis.grid(False)
+    #     # Grid styling
+    #     ax.yaxis.grid(True, linestyle='--', linewidth=0.4, color='#E0E0E0')
+    #     ax.xaxis.grid(False)
         
-        # No legend for a cleaner look
+    #     # No legend for a cleaner look
         
-        plt.tight_layout()
-        output_path = os.path.join(self.charts_dir, filename)
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        return output_path
+    #     plt.tight_layout()
+    #     output_path = os.path.join(self.charts_dir, filename)
+    #     plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    #     plt.close()
+    #     return output_path
         
     def generate_stacked(self, df: pd.DataFrame, filename: str = "stacked_nutrition.png") -> str:
         """
@@ -493,6 +493,60 @@ class NutritionChartGenerator(ChartGenerator):
         # Grid styling - both horizontal and vertical (behind the bars)
         ax.grid(True, linestyle=':', linewidth=0.7, alpha=ReportingConfig.STYLING['grid_opacity'], color=ReportingConfig.COLORS['grid'], zorder=0)
         
+        # Add weight data if available
+        weight_legend = []
+        if 'weight' in df.columns:
+            print("\nDEBUG: Weight column exists in stacked chart with values:")
+            print(df['weight'].tolist())
+            
+            if not df['weight'].isna().all():
+                # Create secondary y-axis for weight
+                ax2 = ax.twinx()
+                
+                # Filter out NaN values for weight
+                weight_data = df[['date', 'weight']].copy()
+                weight_data = weight_data.dropna(subset=['weight'])
+                
+                if not weight_data.empty:
+                    # Get indices for the weight data points
+                    weight_indices = []
+                    weight_values = []
+                    for i, date in enumerate(df['date']):
+                        matching_rows = weight_data[weight_data['date'] == date]
+                        if not matching_rows.empty:
+                            weight_indices.append(i)
+                            weight_values.append(matching_rows['weight'].values[0])
+                    
+                    if weight_indices and weight_values:
+                        # Plot weight line with markers
+                        weight_color = '#1f77b4'  # blue for weight line
+                        weight_line = ax2.plot(np.array(weight_indices), weight_values, 'o-', 
+                                               color=weight_color, linewidth=2, markersize=5, 
+                                               label='Weight', zorder=6)
+                        
+                        # Add weight labels above each point
+                        for idx, val in zip(weight_indices, weight_values):
+                            ax2.annotate(f'{val:.1f}',
+                                        xy=(idx, val),
+                                        xytext=(0, 5),
+                                        textcoords="offset points",
+                                        ha='center', va='bottom',
+                                        color=weight_color, fontsize=9, fontweight='bold', zorder=7)
+                        
+                        # Configure secondary y-axis
+                        min_weight = min(weight_values) - 5 if weight_values else 150
+                        max_weight = max(weight_values) + 5 if weight_values else 200
+                        ax2.set_ylim(min_weight, max_weight)
+                        ax2.set_ylabel('Weight (lbs)', color=weight_color, fontsize=9)
+                        ax2.tick_params(axis='y', colors=weight_color, labelsize=8)
+                        ax2.spines['right'].set_visible(True)
+                        ax2.spines['right'].set_color(weight_color)
+                        ax2.spines['right'].set_linewidth(1)
+                        
+                        # Add weight line to legend
+                        weight_legend = [plt.Line2D([0], [0], color=weight_color, lw=2, marker='o', 
+                                                  markersize=5, label='Weight (lbs)')]
+        
         # Create combined legend with macros and targets
         macro_legend = [
             plt.Rectangle((0,0), 1, 1, color=protein_color, label='Protein'),
@@ -507,18 +561,29 @@ class NutritionChartGenerator(ChartGenerator):
                       label=f'Rest ({self.target_rest} kcal)')
         ]
         
-        # Add two legends - macros on left, targets on right with balanced spacing
+        # Add legends - macros on left, targets on right, weight in middle if available
         macro_leg = ax.legend(handles=macro_legend, loc='lower left', 
-                             bbox_to_anchor=(0.0, -0.2), ncol=3, 
-                             frameon=False, fontsize=9)
+                              bbox_to_anchor=(0.0, -0.2), ncol=3, 
+                              frameon=False, fontsize=9)
         ax.add_artist(macro_leg)
         
+        # Add weight legend in the middle if available
+        if weight_legend:
+            weight_leg = ax.legend(handles=weight_legend, loc='lower center', 
+                                  bbox_to_anchor=(0.5, -0.2), ncol=1, 
+                                  frameon=False, fontsize=9)
+            ax.add_artist(weight_leg)
+        
         target_leg = ax.legend(handles=target_legend, loc='lower right', 
-                              bbox_to_anchor=(1.0, -0.2), ncol=2, 
-                              frameon=False, fontsize=9)
+                               bbox_to_anchor=(1.0, -0.2), ncol=2, 
+                               frameon=False, fontsize=9)
         
         # Style the legend text
-        for leg in [macro_leg, target_leg]:
+        legends = [macro_leg, target_leg]
+        if weight_legend:
+            legends.append(weight_leg)
+            
+        for leg in legends:
             for text in leg.get_texts():
                 text.set_color("#666666")
         

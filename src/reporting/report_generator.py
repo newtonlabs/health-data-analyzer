@@ -284,6 +284,22 @@ class ReportGenerator:
             Markdown string for embedding the chart, or None if generation fails
         """
         try:
+            # Print the macros_df to stdout for debugging
+            print("\n==== MACROS DATAFRAME CONTENTS ====\n")
+            print(f"DataFrame shape: {macros_df.shape}")
+            print(f"DataFrame columns: {macros_df.columns.tolist()}")
+            print("\nDataFrame values:")
+            print(macros_df.to_string())
+            
+            # Check if weight column exists
+            if 'weight' in macros_df.columns:
+                print("\nWeight column exists with values:")
+                for i, (date, weight) in enumerate(zip(macros_df['date'], macros_df['weight'])):
+                    print(f"  {i}: {date} -> {weight}")
+            else:
+                print("\nWeight column does not exist in the DataFrame")
+            print("\n==== END MACROS DATAFRAME CONTENTS ====\n")
+            
             # Create chart generator with configurable targets from config
             chart_gen = NutritionChartGenerator(
                 target_strength=ReportingConfig.CALORIC_TARGETS['strength'],
@@ -305,7 +321,11 @@ class ReportGenerator:
             
             if has_macro_data:
                 # Use the stacked chart with macronutrient breakdown
-                chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity']].copy()
+                # Include weight data if available
+                if 'weight' in macros_df.columns:
+                    chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity', 'weight']].copy()
+                else:
+                    chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity']].copy()
                 
                 # Skip days with no data
                 chart_df = chart_df[(chart_df['protein'] > 0) | (chart_df['carbs'] > 0) | (chart_df['fat'] > 0)]
