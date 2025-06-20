@@ -1,0 +1,13 @@
+#!/bin/bash
+# Script to run the health data analyzer with the correct environment variables
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Set library paths for WeasyPrint
+export DYLD_LIBRARY_PATH="/opt/homebrew/lib:/opt/homebrew/opt/glib/lib:/opt/homebrew/opt/pango/lib:$DYLD_LIBRARY_PATH"
+export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:/opt/homebrew/opt/glib/lib:/opt/homebrew/opt/pango/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+export LD_LIBRARY_PATH="/opt/homebrew/lib:/opt/homebrew/opt/glib/lib:/opt/homebrew/opt/pango/lib:$LD_LIBRARY_PATH"
+
+# Run the application with the provided arguments
+python src/main.py "$@"

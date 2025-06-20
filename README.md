@@ -8,30 +8,30 @@ The application processes the data, generates visually rich reports with charts,
 
 ## Command Line Options
 
-The application supports several command line flags for different operation modes:
+The application supports several command line flags for different operation modes. Use the `tracker` script which properly sets up all required environment variables:
 
 ```bash
 # Generate data and reports
-python src/main.py --fetch                       # Fetch yesterday's data and generate report
-python src/main.py --fetch --date 2025-06-15     # Fetch data for specific date
+./tracker --fetch                       # Fetch yesterday's data and generate report
+./tracker --fetch --date 2025-06-15     # Fetch data for specific date
 
 # Convert markdown to PDF
-python src/main.py --pdf                         # Convert yesterday's report to PDF
-python src/main.py --pdf --date 2025-06-15       # Convert specific date's report to PDF
+./tracker --pdf                         # Convert yesterday's report to PDF
+./tracker --pdf --date 2025-06-15       # Convert specific date's report to PDF
 
 # Upload to OneDrive
-python src/main.py --upload                      # Upload yesterday's files to OneDrive
-python src/main.py --upload --date 2025-06-15    # Upload specific date's files
+./tracker --upload                      # Upload yesterday's files to OneDrive
+./tracker --upload --date 2025-06-15    # Upload specific date's files
 
 # Combine operations
-python src/main.py --fetch --pdf                 # Fetch data, generate report, and convert to PDF
-python src/main.py --fetch --pdf --upload        # Complete pipeline: fetch, generate, convert, and upload
+./tracker --fetch --pdf                 # Fetch data, generate report, and convert to PDF
+./tracker --fetch --pdf --upload        # Complete pipeline: fetch, generate, convert, and upload
 
 # Enable debug mode for verbose logging
-python src/main.py --fetch --debug               # Run with detailed logging
+./tracker --fetch --debug               # Run with detailed logging
 
 # Show help
-python src/main.py                               # Show command line options
+./tracker                               # Show command line options
 ```
 
 The application supports three main operations that can be combined:
@@ -59,10 +59,22 @@ The project requires Python 3.9 or higher and several packages:
 - `weasyprint`: For PDF generation
 
 ### System Dependencies
-On macOS, you'll need Pango for PDF generation:
+On macOS, you'll need several system libraries for PDF generation with WeasyPrint:
+
 ```bash
+# Install Pango and its dependencies
 brew install pango
+
+# These dependencies are automatically installed with Pango, but listed here for reference:
+# brew install glib
+# brew install cairo
+# brew install fontconfig
+# brew install freetype
+# brew install harfbuzz
+# brew install fribidi
 ```
+
+The `tracker` script automatically sets up the necessary environment variables to ensure that the WeasyPrint library can find these system dependencies. It configures the dynamic linker paths (`DYLD_LIBRARY_PATH`, `DYLD_FALLBACK_LIBRARY_PATH`, and `LD_LIBRARY_PATH`) to include the Homebrew library paths where these dependencies are installed.
 
 ## Setup
 
@@ -96,6 +108,11 @@ cp .env.example .env
 
 # Edit .env with your credentials
 vim .env  # or use your preferred editor
+```
+
+4. Make the tracker script executable:
+```bash
+chmod +x tracker
 ```
 
 ## API Setup Instructions
@@ -159,8 +176,10 @@ The application integrates with three external services: Whoop, Oura, and OneDri
 
 Run the complete pipeline (fetch data, generate report, convert to PDF, and upload):
 ```bash
-python src/main.py --fetch --pdf --upload
+./tracker --fetch --pdf --upload
 ```
+
+The `tracker` script handles all the necessary environment setup for proper PDF generation with WeasyPrint.
 
 ### Viewing Reports
 
