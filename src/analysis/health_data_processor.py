@@ -383,10 +383,8 @@ class HealthDataProcessor:
         # Extract recovery info from the score object
         recovery_info = recovery.get('score', {})
         
-        # Only log in debug mode to avoid excessive output
-        from src.utils.logging_utils import DEBUG_MODE
-        if DEBUG_MODE:
-            self.logger.log_recovery_processing(created, recovery_date, recovery_info)
+        # Recovery processing logs are completely disabled to reduce debug output clutter
+        # The detailed recovery data will still be processed and included in the final report
         
         return {
             'date': recovery_date,
