@@ -1,9 +1,10 @@
 """Module for processing raw health data into clean DataFrames."""
-import os
 from datetime import datetime, timedelta
+import os
 from typing import Dict, Any
 
 import pandas as pd
+import numpy as np
 
 from src.utils.logging_utils import HealthLogger
 from src.data_sources.nutrition_data import NutritionData
@@ -42,6 +43,7 @@ class HealthDataProcessor:
         # Hold processed data in memory
         self.oura_data = None
         self.whoop_data = None
+        self.withings_data = None
     
     def _create_date_range_df(self, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Create base DataFrame with date range."""
@@ -50,27 +52,68 @@ class HealthDataProcessor:
         df['date'] = df['date'].dt.strftime('%m-%d')
         return df
     
-    def process_raw_data(self, oura_raw: Dict[str, Any], whoop_raw: Dict[str, Any], start_date: datetime, end_date: datetime) -> None:
+    def process_raw_data(self, oura_raw: Dict[str, Any], whoop_raw: Dict[str, Any], withings_raw: Dict[str, Any] = None, start_date: datetime = None, end_date: datetime = None) -> None:
         """Process raw data from all sources.
         
         Steps:
         1. Process Oura data
         2. Process Whoop data
-        3. Load nutrition data
+        3. Process Withings data
+        4. Load nutrition data
         
         Args:
             oura_raw: Raw Oura API data
             whoop_raw: Raw Whoop API data
+            withings_raw: Raw Withings API data (optional)
             start_date: Start date for processing
             end_date: End date for processing
         """
         # Process each source
         if oura_raw:
             self.oura_data = self.process_oura_data(oura_raw, start_date, end_date)
+            
+            # Display the processed Oura data in debug mode
+            if self.oura_data:
+                if 'activity' in self.oura_data:
+                    self.logger.debug_dataframe(self.oura_data['activity'], "Oura Activity Data")
+                if 'resilience' in self.oura_data:
+                    self.logger.debug_dataframe(self.oura_data['resilience'], "Oura Resilience Data")
         
         # Process Whoop data
         if whoop_raw:
             self.whoop_data = self.process_whoop_data(whoop_raw)
+            
+            # Display the processed Whoop data in debug mode
+            if self.whoop_data:
+                if 'workouts' in self.whoop_data:
+                    self.logger.debug_dataframe(self.whoop_data['workouts'], "Whoop Workouts Data")
+                if 'recovery' in self.whoop_data:
+                    self.logger.debug_dataframe(self.whoop_data['recovery'], "Whoop Recovery Data")
+                if 'sleep' in self.whoop_data:
+                    self.logger.debug_dataframe(self.whoop_data['sleep'], "Whoop Sleep Data")
+            
+        # Process Withings data
+        import json
+        from src.pipeline.health_pipeline import DEBUG_MODE
+        if withings_raw:
+            # Always print the full Withings API response in debug mode
+            if DEBUG_MODE:
+                self.logger.debug(
+                    "===== WITHINGS API RESPONSE =====\n" +
+                    json.dumps(withings_raw, indent=2) +
+                    "\n===== END WITHINGS API RESPONSE ====="
+                )
+            self.withings_data = self.process_withings_data(withings_raw, start_date, end_date)
+            self.logger.debug(f"Processed Withings data: {self.withings_data['weight'].shape[0]} weight records")
+            # Display the processed weight data in debug mode
+            if DEBUG_MODE and 'weight' in self.withings_data:
+                self.logger.debug_dataframe(self.withings_data['weight'], "Withings Weight Data")
+            # Always print directly for guaranteed visibility, regardless of DEBUG_MODE or content
+            print("===== Withings Weight DataFrame (direct print) =====")
+            print(self.withings_data['weight'])
+            print("Shape:", self.withings_data['weight'].shape)
+            print("Columns:", self.withings_data['weight'].columns.tolist())
+            print("==============================================")
     
     def process_oura_data(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> Dict[str, pd.DataFrame]:
         """Process data from Oura API.
@@ -409,3 +452,96 @@ class HealthDataProcessor:
             if col in AnalyzerConfig.NUMERIC_PRECISION:
                 df[col] = df[col].round(AnalyzerConfig.NUMERIC_PRECISION[col])
         return df
+        
+    def process_withings_data(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> Dict[str, pd.DataFrame]:
+        """Process data from Withings API.
+        
+        Steps:
+        1. Process weight measurements
+        2. Return results
+        
+        Args:
+            raw_data: Raw Withings API response containing weight data
+            start_date: Start date for filtering data
+            end_date: End date for filtering data
+            
+        Returns:
+            Dictionary of DataFrames with processed data
+        """
+        result = {}
+        
+        # Import and define timezone early to avoid NameError
+        import pytz
+        from datetime import timezone
+        local_tz = pytz.timezone('America/New_York')
+        
+        weight_data = []
+        if 'weight' in raw_data:
+            # Process each measurement group from the Withings API
+            measuregrps = raw_data['weight'].get('measuregrps', [])
+            self.logger.debug(f"Processing {len(measuregrps)} Withings measurement groups")
+            
+            for group in measuregrps:
+                timestamp = group.get('date')
+                if not timestamp:
+                    continue
+                
+                # Convert timestamp from UTC to local time
+                dt_utc = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                dt_local = dt_utc.astimezone(local_tz)
+                
+                # Skip if outside date range
+                if start_date and dt_local.date() < start_date.date():
+                    continue
+                if end_date and dt_local.date() > end_date.date():
+                    continue
+                
+                # Process weight measurements (type 1)
+                for measure in group.get('measures', []):
+                    if measure.get('type') == 1:
+                        # Convert value using unit multiplier (e.g., -3 means ×10^-3)
+                        value = measure.get('value', 0) * (10 ** measure.get('unit', 0))
+                        weight_data.append({
+                            'date': dt_local.date(),
+                            'weight': value,
+                            'timestamp': timestamp
+                        })
+            
+            # Create DataFrame with both date and timestamp
+            df = pd.DataFrame(weight_data, columns=['date', 'weight', 'timestamp'])
+            self.logger.debug("Withings weight data after extraction:")
+            self.logger.debug(f"Shape: {df.shape}, Columns: {df.columns.tolist()}")
+            
+            if df.empty:
+                return {'weight': pd.DataFrame(columns=['date', 'day', 'weight'])}
+            
+            # Sort by timestamp so the latest measurement per day is always kept
+            df_sorted = df.sort_values('timestamp')
+            df_latest = df_sorted.groupby('date', as_index=True).last()
+            
+            # Build full 7-day index (yesterday to 6 days prior) to ensure all days are included
+            today = datetime.now(local_tz).date()
+            yesterday = today - timedelta(days=1)
+            week_start = yesterday - timedelta(days=6)
+            full_index = [week_start + timedelta(days=i) for i in range(7)]
+            
+            # Reindex to include all days in the reporting window
+            df_latest = df_latest.reindex(full_index)
+            self.logger.debug(f"Reindexing to include all days in the reporting window: week_start={week_start}, yesterday={yesterday}")
+            self.logger.debug(f"Dates after grouping and reindexing: {df_latest.index.tolist()}")
+            
+            # Format date as MM-DD to match other DataFrames
+            df_latest['date'] = [d.strftime('%m-%d') if d is not None else '' for d in df_latest.index]
+            
+            # Add day of week for better readability
+            df_latest['day'] = [d.strftime('%a') if d is not None else '' for d in df_latest.index]
+            # Convert weight from kg to pounds and round to 2 decimal places
+            KG_TO_LB = 2.20462
+            df_latest['weight'] = (df_latest['weight'] * KG_TO_LB).round(2)
+            
+            # Reorder columns for consistency with other DataFrames
+            df_latest = df_latest[['date', 'day', 'weight']]
+            return {'weight': df_latest}
+        else:
+            # Return empty DataFrame with expected columns if no data
+            return {'weight': pd.DataFrame(columns=['date', 'day', 'weight'])}
