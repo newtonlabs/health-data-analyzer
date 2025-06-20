@@ -529,6 +529,86 @@ class NutritionChartGenerator(ChartGenerator):
         return output_path
 
 
+class WeightChartGenerator(ChartGenerator):
+    """Generates chart visualization for weight data over time."""
+    
+    def generate(self, df: pd.DataFrame, filename: str = "weight_chart.png") -> str:
+        """
+        Generate a line chart for weight data over time.
+        
+        Args:
+            df: DataFrame with columns ['date', 'weight']
+                (date as string, weight in pounds)
+            filename: Output filename for the chart image
+        Returns:
+            Path to the saved chart image
+        """
+        # Defensive: check required columns
+        if not {'date', 'weight'}.issubset(df.columns):
+            raise ValueError("DataFrame must contain 'date' and 'weight' columns")
+        
+        # Filter out NaN values
+        df = df.dropna(subset=['weight'])
+        
+        # Early return if no data
+        if df.empty:
+            return None
+            
+        # Constants
+        x_numeric = np.arange(len(df['date']))
+        weight_color = '#1f77b4'  # blue for weight line
+        
+        # Plot setup
+        fig, ax = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height_compact']))
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('white')
+        
+        # Plot weight line with markers
+        ax.plot(x_numeric, df['weight'], 'o-', color=weight_color, 
+                linewidth=2, markersize=6, label='Weight', zorder=3)
+        
+        # Add weight labels above each point
+        for i, val in enumerate(df['weight']):
+            ax.annotate(f'{val:.1f}',
+                        xy=(x_numeric[i], val),
+                        xytext=(0, 5),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        color=weight_color, fontsize=9, fontweight='bold', zorder=4)
+        
+        # Create day of week labels
+        day_labels = self._get_day_of_week_labels(df['date'])
+        
+        # Axis config
+        min_weight = df['weight'].min() - 2 if not df['weight'].empty else 150
+        max_weight = df['weight'].max() + 2 if not df['weight'].empty else 200
+        ax.set_ylim(min_weight, max_weight)
+        ax.set_xticks(x_numeric)
+        ax.set_xticklabels(day_labels)
+        
+        # Add title
+        ax.set_title('Weight Tracking', fontsize=12, color='#444444')
+        ax.set_ylabel('Weight (lbs)', color='#666666', fontsize=10)
+        
+        # Grid styling
+        ax.yaxis.grid(True, linestyle='--', linewidth=0.4, color='#E0E0E0')
+        ax.xaxis.grid(False)
+        
+        # Subtle border on left/bottom
+        for spine in ['top', 'right']:
+            ax.spines[spine].set_visible(False)
+        for spine in ['left', 'bottom']:
+            ax.spines[spine].set_visible(True)
+            ax.spines[spine].set_color('#CCCCCC')
+            ax.spines[spine].set_linewidth(1)
+        
+        plt.tight_layout()
+        output_path = os.path.join(self.charts_dir, filename)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        return output_path
+
+
 class MacroRatioChartGenerator(ChartGenerator):
     """Generates HTML/CSS visualization for macronutrient ratios."""
     
