@@ -381,24 +381,20 @@ class NutritionChartGenerator(ChartGenerator):
         ax.set_ylabel("", color='#666666', fontsize=9)
         ax.tick_params(axis='both', colors='#666666', labelsize=8)
         
-        # Subtle border on left/bottom/right (matching recovery chart)
-        for spine in ['top']:
-            ax.spines[spine].set_visible(False)
-        for spine in ['left', 'bottom', 'right']:
-            ax.spines[spine].set_visible(True)
-            ax.spines[spine].set_color('#CCCCCC')
-            ax.spines[spine].set_linewidth(1)
+        # Configure spines/borders - consistent with recovery chart
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(True)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_color(ReportingConfig.COLORS['grid'])
+        ax.spines['bottom'].set_color(ReportingConfig.COLORS['grid'])
         
         # Grid styling - both horizontal and vertical (behind the bars)
         ax.grid(True, linestyle=':', linewidth=0.7, alpha=ReportingConfig.STYLING['grid_opacity'], color=ReportingConfig.COLORS['grid'], zorder=0)
         
         # Add weight data if available
         weight_legend = []
-        if 'weight' in df.columns:
-            print("\nDEBUG: Weight column exists in stacked chart with values:")
-            print(df['weight'].tolist())
-            
-            if not df['weight'].isna().all():
+        if 'weight' in df.columns and not df['weight'].isna().all():
                 # Create secondary y-axis for weight
                 ax2 = ax.twinx()
                 
@@ -417,34 +413,37 @@ class NutritionChartGenerator(ChartGenerator):
                             weight_values.append(matching_rows['weight'].values[0])
                     
                     if weight_indices and weight_values:
-                        # Plot weight line with markers
-                        weight_color = '#1f77b4'  # blue for weight line
+                        # Plot weight line with markers - use even lighter grey
+                        weight_color = ReportingConfig.COLORS['grid']  # very light grey for weight line
                         weight_line = ax2.plot(np.array(weight_indices), weight_values, 'o-', 
                                                color=weight_color, linewidth=2, markersize=5, 
                                                label='Weight', zorder=6)
                         
-                        # Add weight labels above each point
-                        for idx, val in zip(weight_indices, weight_values):
-                            ax2.annotate(f'{val:.1f}',
-                                        xy=(idx, val),
-                                        xytext=(0, 5),
-                                        textcoords="offset points",
-                                        ha='center', va='bottom',
-                                        color=weight_color, fontsize=9, fontweight='bold', zorder=7)
+                        # Removed numerical labels to make the chart cleaner
                         
                         # Configure secondary y-axis
                         min_weight = min(weight_values) - 5 if weight_values else 150
                         max_weight = max(weight_values) + 5 if weight_values else 200
                         ax2.set_ylim(min_weight, max_weight)
-                        ax2.set_ylabel('Weight (lbs)', color=weight_color, fontsize=9)
-                        ax2.tick_params(axis='y', colors=weight_color, labelsize=8)
-                        ax2.spines['right'].set_visible(True)
-                        ax2.spines['right'].set_color(weight_color)
-                        ax2.spines['right'].set_linewidth(1)
                         
-                        # Add weight line to legend
+                        # Use text color from constants for consistent styling
+                        text_color = ReportingConfig.COLORS['text']  # Gray for text elements
+                        border_color = ReportingConfig.COLORS['grid']  # Light gray for borders
+                        
+                        # Style the y-axis label and ticks with text color - use all caps like other metrics
+                        ax2.set_ylabel('WEIGHT (lbs)', color=text_color, fontsize=9)
+                        ax2.tick_params(axis='y', colors=text_color, labelsize=8)
+                        
+                        # Configure spines/borders for secondary axis - consistent with recovery chart
+                        ax2.spines['top'].set_visible(False)
+                        ax2.spines['left'].set_visible(False)
+                        ax2.spines['right'].set_visible(True)
+                        ax2.spines['bottom'].set_visible(False)
+                        ax2.spines['right'].set_color(ReportingConfig.COLORS['grid'])
+                        
+                        # Add weight line to legend - use all caps like other metrics
                         weight_legend = [plt.Line2D([0], [0], color=weight_color, lw=2, marker='o', 
-                                                  markersize=5, label='Weight (lbs)')]
+                                                  markersize=5, label='WEIGHT (lbs)')]
         
         # Create combined legend with macros and targets
         macro_legend = [
@@ -493,84 +492,6 @@ class NutritionChartGenerator(ChartGenerator):
         return output_path
 
 
-class WeightChartGenerator(ChartGenerator):
-    """Generates chart visualization for weight data over time."""
-    
-    def generate(self, df: pd.DataFrame, filename: str = "weight_chart.png") -> str:
-        """
-        Generate a line chart for weight data over time.
-        
-        Args:
-            df: DataFrame with columns ['date', 'weight']
-                (date as string, weight in pounds)
-            filename: Output filename for the chart image
-        Returns:
-            Path to the saved chart image
-        """
-        # Defensive: check required columns
-        if not {'date', 'weight'}.issubset(df.columns):
-            raise ValueError("DataFrame must contain 'date' and 'weight' columns")
-        
-        # Filter out NaN values
-        df = df.dropna(subset=['weight'])
-        
-        # Early return if no data
-        if df.empty:
-            return None
-            
-        # Constants
-        x_numeric = np.arange(len(df['date']))
-        weight_color = '#1f77b4'  # blue for weight line
-        
-        # Plot setup
-        fig, ax = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height_compact']))
-        fig.patch.set_facecolor('white')
-        ax.set_facecolor('white')
-        
-        # Plot weight line with markers
-        ax.plot(x_numeric, df['weight'], 'o-', color=weight_color, 
-                linewidth=2, markersize=6, label='Weight', zorder=3)
-        
-        # Add weight labels above each point
-        for i, val in enumerate(df['weight']):
-            ax.annotate(f'{val:.1f}',
-                        xy=(x_numeric[i], val),
-                        xytext=(0, 5),
-                        textcoords="offset points",
-                        ha='center', va='bottom',
-                        color=weight_color, fontsize=9, fontweight='bold', zorder=4)
-        
-        # Create day of week labels
-        day_labels = self._get_day_of_week_labels(df['date'])
-        
-        # Axis config
-        min_weight = df['weight'].min() - 2 if not df['weight'].empty else 150
-        max_weight = df['weight'].max() + 2 if not df['weight'].empty else 200
-        ax.set_ylim(min_weight, max_weight)
-        ax.set_xticks(x_numeric)
-        ax.set_xticklabels(day_labels)
-        
-        # Add title
-        ax.set_title('Weight Tracking', fontsize=12, color='#444444')
-        ax.set_ylabel('Weight (lbs)', color='#666666', fontsize=10)
-        
-        # Grid styling
-        ax.yaxis.grid(True, linestyle='--', linewidth=0.4, color='#E0E0E0')
-        ax.xaxis.grid(False)
-        
-        # Subtle border on left/bottom
-        for spine in ['top', 'right']:
-            ax.spines[spine].set_visible(False)
-        for spine in ['left', 'bottom']:
-            ax.spines[spine].set_visible(True)
-            ax.spines[spine].set_color('#CCCCCC')
-            ax.spines[spine].set_linewidth(1)
-        
-        plt.tight_layout()
-        output_path = os.path.join(self.charts_dir, filename)
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        return output_path
 
 
 class MacroRatioChartGenerator(ChartGenerator):

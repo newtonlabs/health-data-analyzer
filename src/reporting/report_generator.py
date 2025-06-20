@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 
 from src.analysis.metrics_aggregator import MetricsAggregator
 from src.analysis.analyzer_config import AnalyzerConfig
-from .chart_generator import RecoveryChartGenerator, MacroRatioChartGenerator, NutritionChartGenerator, WeightChartGenerator
+from .chart_generator import RecoveryChartGenerator, MacroRatioChartGenerator, NutritionChartGenerator
 from .resilience_chart_generator import ResilienceChartGenerator
 from .reporting_config import ReportingConfig
 
@@ -284,21 +284,7 @@ class ReportGenerator:
             Markdown string for embedding the chart, or None if generation fails
         """
         try:
-            # Print the macros_df to stdout for debugging
-            print("\n==== MACROS DATAFRAME CONTENTS ====\n")
-            print(f"DataFrame shape: {macros_df.shape}")
-            print(f"DataFrame columns: {macros_df.columns.tolist()}")
-            print("\nDataFrame values:")
-            print(macros_df.to_string())
-            
-            # Check if weight column exists
-            if 'weight' in macros_df.columns:
-                print("\nWeight column exists with values:")
-                for i, (date, weight) in enumerate(zip(macros_df['date'], macros_df['weight'])):
-                    print(f"  {i}: {date} -> {weight}")
-            else:
-                print("\nWeight column does not exist in the DataFrame")
-            print("\n==== END MACROS DATAFRAME CONTENTS ====\n")
+            # Process the macros_df for chart generation
             
             # Create chart generator with configurable targets from config
             chart_gen = NutritionChartGenerator(
@@ -349,34 +335,7 @@ class ReportGenerator:
             print(f"Error generating nutrition chart: {e}")
             return None
     
-    def _generate_weight_chart(self, df: pd.DataFrame, filename: str = "weight_chart.png") -> Optional[str]:
-        """Generate weight chart from DataFrame with weight data.
-        
-        Args:
-            df: DataFrame with weight data
-            filename: Output filename for the chart
-            
-        Returns:
-            Markdown image tag for the chart, or None if chart generation failed
-        """
-        try:
-            # Check if we have weight data
-            if 'weight' not in df.columns or df['weight'].isna().all():
-                return None
-                
-            # Create chart generator
-            chart_gen = WeightChartGenerator()
-            
-            # Create a copy of the DataFrame with just date and weight
-            chart_df = df[['date', 'weight']].copy()
-            
-            # Generate weight chart
-            chart_path = chart_gen.generate(chart_df, filename=filename)
-            return f"![Weight Chart](charts/{filename})\n" if chart_path else None
-        except Exception as e:
-            # Could log the error here
-            print(f"Error generating weight chart: {e}")
-            return None
+
     
     def generate_weekly_status(self, start_date: datetime = None, end_date: datetime = None) -> str:
         """Generate weekly status report in markdown format.
@@ -466,7 +425,6 @@ class ReportGenerator:
         recovery_chart = self._generate_recovery_chart(recovery_df)
         resilience_chart = self._generate_resilience_chart(recovery_df)
         nutrition_chart = self._generate_nutrition_chart(macros_df)
-        weight_chart = self._generate_weight_chart(macros_df)
         
         #----------------------------------------------------------------------
         # 3. MARKDOWN ASSEMBLY USING TEMPLATE
@@ -497,8 +455,6 @@ class ReportGenerator:
 ## Weekly Macronutrients and Activity
 
 {nutrition_chart if nutrition_chart else ''}
-
-{weight_chart if weight_chart else ''}
 
 {macros_table}
 
