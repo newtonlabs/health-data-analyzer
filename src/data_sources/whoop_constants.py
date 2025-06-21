@@ -6,7 +6,7 @@ SPORT_NAMES = {
     63: "Walking",
     65: "Elliptical",
     66: "Stairmaster",
-    123: "Strength"
+    123: "Strength",
 }
 
 

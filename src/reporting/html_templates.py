@@ -1,8 +1,9 @@
 """HTML templates for PDF generation."""
 
+
 def get_report_template():
     """Return the HTML template for the weekly report.
-    
+
     The template uses the following variables:
     - logo_html: HTML for the logo
     - report_start: Start date of the report period (MM-DD format)
@@ -13,7 +14,7 @@ def get_report_template():
     - fat_color: Color for fat segments
     - text_color: Color for text elements
     - heading_color: Color for headings
-    
+
     Returns:
         str: HTML template string
     """

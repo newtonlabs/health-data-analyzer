@@ -1,11 +1,10 @@
 """Constants for Withings API integration."""
 
 
-
-
 # Measurement types
 class MeasurementType:
     """Withings measurement types."""
+
     WEIGHT = 1
     HEIGHT = 4
     FAT_FREE_MASS = 5
@@ -22,5 +21,6 @@ class MeasurementType:
     HYDRATION = 77
     BONE_MASS = 88
     PULSE_WAVE_VELOCITY = 91
+
 
 # No activity or sleep types needed for weight-only implementation
