@@ -46,7 +46,7 @@ class ReportingConfig:
     STYLING = {
         'bar_alpha': 0.7,              # Transparency for bars
         'line_thickness': 1.5,         # Line thickness for sleep lines
-        'chart_height': 3.5,           # Standard chart height for recovery and nutrition charts
+        'chart_height': 4.5,           # Standard chart height for recovery and nutrition charts
         'chart_height_compact': 2.8,   # Compact chart height for minimalist design
         'grid_opacity': 0.5,           # Grid line opacity
     }
