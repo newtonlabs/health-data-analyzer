@@ -237,9 +237,9 @@ def get_report_template():
         /* Macro ratio bar styling */
         .progress-container {{
             display: flex;
-            width: 100%;
-            height: 30px;
-            margin: 1rem 0;
+            width: 80%;  /* Reduced width to allow for centering */
+            height: 20px;
+            margin: 1rem auto;  /* Auto margins for horizontal centering */
             overflow: hidden;
             border-radius: 12px; /* Rounded corners for the entire container */
         }}

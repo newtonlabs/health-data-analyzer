@@ -343,9 +343,17 @@ class NutritionChartGenerator(ChartGenerator):
             # Use bright blue for both strength and rest targets
             line_color = strength_day_color  # Same bright blue for both
             
-            # Make lines wider than the bar with very thin lines (1.0pt)
-            line = ax.hlines(y, x_numeric[i] - width*0.7, x_numeric[i] + width*0.7, 
+            # Calculate start and end points for the target line
+            x_start = x_numeric[i] - width*0.7
+            x_end = x_numeric[i] + width*0.7
+            
+            # Draw the horizontal line
+            line = ax.hlines(y, x_start, x_end, 
                       color=line_color, linewidth=1.5, linestyle=line_style, zorder=4)
+            
+            # Add markers at each end of the line
+            ax.plot([x_start, x_end], [y, y], 'o', color=line_color, 
+                   markersize=4, zorder=5)
             
             # Store handles for legend
             if act == "Strength" and not strength_line_handles:
@@ -465,10 +473,10 @@ class NutritionChartGenerator(ChartGenerator):
         ]
         
         target_legend = [
-            plt.Line2D([0], [0], color=strength_day_color, lw=2, linestyle='-', 
-                      label=f'Strength ({self.target_strength} kcal)'),
-            plt.Line2D([0], [0], color=strength_day_color, lw=2, linestyle='--', 
-                      label=f'Rest ({self.target_rest} kcal)')
+            plt.Line2D([0], [0], color=strength_day_color, lw=2, linestyle='-', marker='o',
+                      markersize=4, markevery=[0, 1], label=f'Strength ({self.target_strength} kcal)'),
+            plt.Line2D([0], [0], color=strength_day_color, lw=2, linestyle='--', marker='o',
+                      markersize=4, markevery=[0, 1], label=f'Rest ({self.target_rest} kcal)')
         ]
         
         # Add legends - macros on left, targets on right, weight in middle if available
