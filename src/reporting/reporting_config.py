@@ -53,7 +53,7 @@ class ReportingConfig:
     
     # Caloric targets by activity type
     CALORIC_TARGETS = {
-        'strength': 1800,  # Target calories for strength training days
+        'strength': 2400,  # Target calories for strength training days
         'rest': 1800       # Target calories for rest days
     }
 

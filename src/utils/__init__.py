@@ -5,7 +5,6 @@ from .date_utils import (
     DateConfig,
     DateStatus
 )
-from .pdf_converter import PDFConverter
 from .logging_utils import HealthLogger
 
 __all__ = [
@@ -13,6 +12,5 @@ __all__ = [
     'DateFormat',
     'DateConfig',
     'DateStatus',
-    'PDFConverter',
     'HealthLogger'
 ]
