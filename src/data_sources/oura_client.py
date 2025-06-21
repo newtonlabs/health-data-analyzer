@@ -1,13 +1,11 @@
 """Oura Ring API client for fetching health data using OAuth2."""
 import os
 import json
-import secrets
-import logging
 import requests
 from datetime import datetime, timedelta
 from typing import Dict, Any
-from urllib.parse import urlencode
 from .token_manager import TokenManager
+from src.utils.logging_utils import HealthLogger, DEBUG_MODE
 
 class OuraError(Exception):
     """Custom exception for Oura API errors."""
@@ -34,7 +32,7 @@ class OuraClient:
         self.state = None
         
         # Set up logging
-        self.logger = logging.getLogger(__name__)
+        self.logger = HealthLogger(__name__)
         
         # Try personal access token first
         self.personal_access_token = personal_access_token or os.getenv('OURA_API_KEY')
@@ -188,13 +186,9 @@ class OuraClient:
             response_data = response.json()
             
             # Log API response in debug mode
-            from src.utils.logging_utils import DEBUG_MODE
             if DEBUG_MODE:
-                # Log to stderr
-                import sys
-                print(f"\n===== OURA API RESPONSE for {endpoint} =====\n{json.dumps(response_data, indent=2)}\n===== END OURA API RESPONSE =====", 
-                      file=sys.stderr)
-            return response.json()
+                self.logger.debug(f"\n===== OURA API RESPONSE for {endpoint} =====\n{json.dumps(response_data, indent=2)}\n===== END OURA API RESPONSE ====")
+            return response_data
         except requests.exceptions.RequestException as e:
             raise OuraError(f"Failed to fetch data from Oura API: {str(e)}")
     

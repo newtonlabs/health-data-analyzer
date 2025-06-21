@@ -1,21 +1,28 @@
 """Module for handling nutrition data from CSV file."""
 import os
 import pandas as pd
+from datetime import datetime
+from typing import Optional
 from src.data_sources.base import DataSource
 
 class NutritionData(DataSource):
-    def __init__(self, data_dir: str = 'data'):
+    def __init__(self, data_dir: str = 'data', filename: str = 'dailysummary.csv'):
         """Initialize NutritionData.
         
         Args:
             data_dir: Directory containing the dailysummary.csv file
+            filename: Name of the nutrition data CSV file
         """
         super().__init__(data_dir)
-        self.data_file = self.get_file_path('dailysummary.csv')
+        self.data_file = self.get_file_path(filename)
     
-    def load_data(self) -> pd.DataFrame:
-        """Load all nutrition data from CSV file.
+    def load_data(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> pd.DataFrame:
+        """Load nutrition data from CSV file for a specified date range.
         
+        Args:
+            start_date: Optional start date for data range
+            end_date: Optional end date for data range
+            
         Returns:
             DataFrame with daily nutrition data including:
             - date: Date of the summary
@@ -55,4 +62,10 @@ class NutritionData(DataSource):
             'fat': 1
         })
         
+        # Filter by date range if provided
+        if start_date:
+            summary = summary[summary['date'] >= start_date]
+        if end_date:
+            summary = summary[summary['date'] <= end_date]
+            
         return summary

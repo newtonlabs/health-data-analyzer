@@ -3,10 +3,7 @@ import os
 import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import logging
-
-# Create a logger
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import HealthLogger
 
 class TokenManager:
     """Singleton per token file path for managing OAuth tokens."""
@@ -23,12 +20,10 @@ class TokenManager:
     def __init__(self, token_file: str = None):
         if hasattr(self, '_initialized') and self._initialized:
             return
-        if token_file is None:
-            raise ValueError("token_file is required for TokenManager")
         self.token_file = token_file
         self.tokens: Dict[str, Any] = {}
         self.token_expiry: Optional[datetime] = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = HealthLogger(__name__)
         self._load_tokens()
         self._initialized = True
         

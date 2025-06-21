@@ -1,5 +1,5 @@
 """Constants for Withings API integration."""
-from typing import Dict, Any, List
+
 
 
 
