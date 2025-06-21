@@ -115,6 +115,22 @@ vim .env  # or use your preferred editor
 chmod +x tracker
 ```
 
+## Code Cleanup
+
+To maintain code quality and consistency, the project uses `black`, `isort`, and `pyupgrade`.
+
+- **`isort`**: Sorts and organizes import statements.
+- **`black`**: Formats Python code to adhere to PEP 8 standards.
+- **`pyupgrade`**: Upgrades code to use newer Python syntax and features.
+
+To run these tools across the codebase:
+
+```bash
+isort src/
+black src/
+pyupgrade --py39-plus src/**/*.py
+```
+
 ## API Setup Instructions
 
 The application integrates with three external services: Whoop, Oura, and OneDrive. Here's how to set up each one:
