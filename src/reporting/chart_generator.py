@@ -441,8 +441,8 @@ class NutritionChartGenerator(ChartGenerator):
                         text_color = ReportingConfig.COLORS['text']  # Gray for text elements
                         border_color = ReportingConfig.COLORS['grid']  # Light gray for borders
                         
-                        # Style the y-axis label and ticks with text color - use all caps like other metrics
-                        ax2.set_ylabel('WEIGHT (lbs)', color=text_color, fontsize=9)
+                        # Style the y-axis label and ticks with text color - use title case
+                        ax2.set_ylabel('Weight (lbs)', color=text_color, fontsize=9)
                         ax2.tick_params(axis='y', colors=text_color, labelsize=8)
                         
                         # Configure spines/borders for secondary axis - consistent with recovery chart
@@ -461,9 +461,9 @@ class NutritionChartGenerator(ChartGenerator):
                             ax2.plot(trend_x, trend_y, '--', color=trend_color, linewidth=1.5, 
                                     alpha=0.9, zorder=5)
                         
-                        # Add weight trend line to legend - use all caps like other metrics
+                        # Add weight trend line to legend - use title case
                         weight_legend = [plt.Line2D([0], [0], color=trend_color, lw=2, linestyle='--',
-                                                   markersize=0, label='WEIGHT TREND')]
+                                                   markersize=0, label='Weight Trend')]
         
         # Create combined legend with macros and targets
         macro_legend = [
