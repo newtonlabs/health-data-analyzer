@@ -81,7 +81,7 @@ class RecoveryChartGenerator(ChartGenerator):
         
         # Add legend at the bottom left with 3 columns for recovery levels
         recovery_leg = ax1.legend(handles=recovery_legend, loc='lower left', 
-                                 bbox_to_anchor=(0.0, -0.2), ncol=ReportingConfig.STYLING['legend_columns'], 
+                                 bbox_to_anchor=(0.0, ReportingConfig.STYLING['legend_vertical_offset']), ncol=ReportingConfig.STYLING['legend_columns'], 
                                  frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
         
         # Style the legend text
@@ -135,7 +135,7 @@ class RecoveryChartGenerator(ChartGenerator):
             
             # Add legend at the bottom right
             sleep_leg = ax2.legend(handles=sleep_legend, loc='lower right', 
-                                 bbox_to_anchor=(1.0, -0.2), ncol=2, 
+                                 bbox_to_anchor=(1.0, ReportingConfig.STYLING['legend_vertical_offset']), ncol=2, 
                                  frameon=False, fontsize=ReportingConfig.STYLING['default_font_size'])
             
             # Style the legend text

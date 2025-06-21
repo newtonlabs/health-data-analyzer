@@ -231,10 +231,10 @@ class NutritionChartGenerator(ChartGenerator):
                         combined_line_legends.extend(weight_legend)
         
         # Create and place macro legend (left)
-        macro_leg = ax.legend(handles=macro_legend, loc='lower left', bbox_to_anchor=(0.0, -0.2), ncol=ReportingConfig.STYLING['legend_columns'], frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
+        macro_leg = ax.legend(handles=macro_legend, loc='lower left', bbox_to_anchor=(0.0, ReportingConfig.STYLING['legend_vertical_offset']), ncol=ReportingConfig.STYLING['legend_columns'], frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
         
         # Create and place combined line legend (right)
-        line_leg = ax.legend(handles=combined_line_legends, loc='lower right', bbox_to_anchor=(1.0, -0.2), ncol=len(combined_line_legends), frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
+        line_leg = ax.legend(handles=combined_line_legends, loc='lower right', bbox_to_anchor=(1.0, ReportingConfig.STYLING['legend_vertical_offset']), ncol=len(combined_line_legends), frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
         
         # Add legends as artists to the figure
         ax.add_artist(macro_leg)
