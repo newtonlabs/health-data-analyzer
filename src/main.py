@@ -33,7 +33,7 @@ def get_version() -> str:
     """
     try:
         version_file = Path(__file__).parent.parent / "version.txt"
-        with open(version_file, "r") as f:
+        with open(version_file) as f:
             return f.read().strip()
     except Exception:
         return "0.0.0"

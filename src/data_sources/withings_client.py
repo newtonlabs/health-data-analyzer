@@ -116,8 +116,8 @@ class WithingsClient:
             self.logger.debug("Found saved authentication tokens")
 
     def _make_request(
-        self, endpoint: str, params: Dict[str, Any] = None, method: str = "POST"
-    ) -> Dict[str, Any]:
+        self, endpoint: str, params: dict[str, Any] = None, method: str = "POST"
+    ) -> dict[str, Any]:
         """Make a request to the Withings API.
 
         Args:
@@ -206,7 +206,7 @@ class WithingsClient:
 
     def get_weight_data(
         self, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get weight measurements for a specified time range.
 
         Args:

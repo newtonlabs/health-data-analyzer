@@ -48,9 +48,9 @@ class HealthDataProcessor:
 
     def process_raw_data(
         self,
-        oura_raw: Dict[str, Any],
-        whoop_raw: Dict[str, Any],
-        withings_raw: Dict[str, Any] = None,
+        oura_raw: dict[str, Any],
+        whoop_raw: dict[str, Any],
+        withings_raw: dict[str, Any] = None,
         start_date: datetime = None,
         end_date: datetime = None,
     ) -> None:
@@ -136,8 +136,8 @@ class HealthDataProcessor:
                 self.logger.debug("==============================================")
 
     def process_oura_data(
-        self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime
-    ) -> Dict[str, pd.DataFrame]:
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
+    ) -> dict[str, pd.DataFrame]:
         """Process data from Oura API.
 
         Steps:
@@ -170,7 +170,7 @@ class HealthDataProcessor:
         return result
 
     def _process_oura_activity(
-        self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
     ) -> pd.DataFrame:
         """Process activity data from Oura API.
 
@@ -206,7 +206,7 @@ class HealthDataProcessor:
         return df
 
     def _process_oura_resilience(
-        self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
     ) -> pd.DataFrame:
         """Process resilience data from Oura API.
 
@@ -275,7 +275,7 @@ class HealthDataProcessor:
 
         return df
 
-    def process_whoop_data(self, raw_data: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
+    def process_whoop_data(self, raw_data: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """Extract and clean workout and recovery data from Whoop API response.
 
         Processes two types of data:
@@ -374,7 +374,7 @@ class HealthDataProcessor:
 
         return {"workouts": workouts_df, "recovery": recovery_df}
 
-    def _transform_workout(self, workout: Dict[str, Any]) -> Dict[str, Any]:
+    def _transform_workout(self, workout: dict[str, Any]) -> dict[str, Any]:
         """Transform raw workout data.
 
         Args:
@@ -425,7 +425,7 @@ class HealthDataProcessor:
             "altitude_gain": workout.get("score", {}).get("altitude_gain", 0),
         }
 
-    def _transform_recovery(self, recovery: Dict[str, Any]) -> Dict[str, Any]:
+    def _transform_recovery(self, recovery: dict[str, Any]) -> dict[str, Any]:
         """Transform raw recovery data.
 
         Args:
@@ -490,8 +490,8 @@ class HealthDataProcessor:
         return df
 
     def process_withings_data(
-        self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime
-    ) -> Dict[str, pd.DataFrame]:
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
+    ) -> dict[str, pd.DataFrame]:
         """Process data from Withings API.
 
         Steps:

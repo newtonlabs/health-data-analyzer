@@ -92,7 +92,7 @@ class HealthPipeline:
 
     def fetch_api_data(
         self, fetch_start: datetime, fetch_end: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch data from Oura, Whoop, and Withings APIs.
 
         Args:
@@ -154,7 +154,7 @@ class HealthPipeline:
         return {"oura": oura_raw, "whoop": whoop_raw, "withings": withings_raw}
 
     def generate_report(
-        self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
     ) -> str:
         """Generate weekly status report.
 
@@ -289,7 +289,7 @@ class HealthPipeline:
         return pdf_file
 
     def upload_to_onedrive(
-        self, file_paths: List[str], end_date: datetime
+        self, file_paths: list[str], end_date: datetime
     ) -> Optional[str]:
         """Upload files to OneDrive and create sharing links.
 

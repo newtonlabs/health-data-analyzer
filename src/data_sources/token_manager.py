@@ -15,7 +15,7 @@ class TokenManager:
         if token_file is None:
             raise ValueError("token_file is required for TokenManager")
         self.token_file = token_file
-        self.tokens: Dict[str, Any] = {}
+        self.tokens: dict[str, Any] = {}
         self.token_expiry: Optional[datetime] = None
         self.logger = HealthLogger(__name__)
         self._load_tokens()
@@ -26,7 +26,7 @@ class TokenManager:
             f"[TokenManager] Attempting to read tokens from {self.token_file}"
         )
         try:
-            with open(self.token_file, "r") as f:
+            with open(self.token_file) as f:
                 self.tokens = json.load(f)
                 self.logger.debug(
                     f"[TokenManager] Read tokens from {self.token_file}: {self.tokens}"
@@ -54,7 +54,7 @@ class TokenManager:
             self.tokens = {}
             self.token_expiry = None
 
-    def save_tokens(self, tokens: Dict[str, Any]) -> None:
+    def save_tokens(self, tokens: dict[str, Any]) -> None:
         """Save tokens to file with timestamp.
 
         Args:
@@ -75,7 +75,7 @@ class TokenManager:
         else:
             self.token_expiry = None  # Clear expiry if not provided
 
-    def get_tokens(self) -> Optional[Dict[str, Any]]:
+    def get_tokens(self) -> Optional[dict[str, Any]]:
         """Get current tokens if they exist and are valid.
 
         Returns:

@@ -100,8 +100,8 @@ class WhoopClient:
         return f"https://api.prod.whoop.com/oauth/oauth2/auth?{urlencode(params)}"
 
     def _make_request(
-        self, endpoint: str, params: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, endpoint: str, params: dict[str, Any] = None
+    ) -> dict[str, Any]:
         """Make a request to the Whoop API.
 
         Args:
@@ -140,13 +140,13 @@ class WhoopClient:
 
     def get_recovery_data(
         self, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch recovery data for a date range."""
         # Use the /v1/recovery endpoint as /v1/activity/recovery seems to be deprecated or incorrect.
         # This method is kept for compatibility but internally calls get_recovery.
         return self.get_recovery(start_date, end_date)
 
-    def get_recovery(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+    def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get recovery data for a specified time range.
 
         Args:
@@ -170,7 +170,7 @@ class WhoopClient:
 
     def get_workouts(
         self, start_date: datetime, end_date: datetime, limit: int = 25
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get workouts for a date range.
 
         Args:
@@ -188,7 +188,7 @@ class WhoopClient:
         }
         return self._make_request("v1/activity/workout", params)
 
-    def get_sleep(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+    def get_sleep(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get sleep data for a date range.
 
         Args:

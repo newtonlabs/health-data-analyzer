@@ -16,8 +16,8 @@ class ChartGenerator:
         os.makedirs(self.charts_dir, exist_ok=True)
 
     def _setup_chart_figure(
-        self, figsize: Tuple[float, float]
-    ) -> Tuple[plt.Figure, plt.Axes]:
+        self, figsize: tuple[float, float]
+    ) -> tuple[plt.Figure, plt.Axes]:
         """Initializes a Matplotlib figure and axes with a white background."""
         fig, ax = plt.subplots(figsize=figsize)
         fig.patch.set_facecolor("white")
@@ -27,17 +27,17 @@ class ChartGenerator:
     def _style_axes(
         self,
         ax: plt.Axes,
-        x_labels: Optional[List[str]] = None,
+        x_labels: Optional[list[str]] = None,
         y_label: Optional[str] = None,
         x_label: Optional[str] = None,
         x_ticks: Optional[np.ndarray] = None,
-        y_lim: Optional[Tuple[float, float]] = None,
-        y_ticks: Optional[List[float]] = None,
+        y_lim: Optional[tuple[float, float]] = None,
+        y_ticks: Optional[list[float]] = None,
         secondary_ax: Optional[plt.Axes] = None,
         grid_axis: Optional[str] = "both",
         grid_color: str = ReportingConfig.COLORS["grid"],
-        spines_to_hide: Optional[List[str]] = None,
-        spines_to_color: Optional[Dict[str, str]] = None,
+        spines_to_hide: Optional[list[str]] = None,
+        spines_to_color: Optional[dict[str, str]] = None,
         tick_label_color: str = ReportingConfig.COLORS["text"],
         axis_label_color: str = ReportingConfig.COLORS["text"],
         font_size: int = ReportingConfig.STYLING["default_font_size"],
@@ -110,7 +110,7 @@ class ChartGenerator:
                     )
 
     def _save_chart(
-        self, fig: plt.Figure, filename: str, extra_artists: Optional[Tuple] = None
+        self, fig: plt.Figure, filename: str, extra_artists: Optional[tuple] = None
     ) -> str:
         """Saves the chart to a file and closes the figure."""
         plt.tight_layout()

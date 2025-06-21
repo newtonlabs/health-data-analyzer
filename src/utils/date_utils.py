@@ -115,7 +115,7 @@ class DateUtils:
         return df
 
     @staticmethod
-    def get_day_of_week_labels(date_strings: List[str]) -> List[str]:
+    def get_day_of_week_labels(date_strings: list[str]) -> list[str]:
         """Convert date strings to day of week labels.
 
         Args:

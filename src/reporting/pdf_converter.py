@@ -25,7 +25,7 @@ class PDFConverter:
 
     def markdown_to_pdf(self, markdown_file: str, output_file: str) -> str:
         # Read markdown content
-        with open(markdown_file, "r") as f:
+        with open(markdown_file) as f:
             markdown_content = f.read()
 
         # No need to extract title anymore as it will be handled by the HTML template

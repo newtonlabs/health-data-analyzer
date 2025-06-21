@@ -171,8 +171,8 @@ class OuraClient:
         return bool(self.access_token and self.refresh_token)
 
     def _make_request(
-        self, endpoint: str, params: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, endpoint: str, params: dict[str, Any] = None
+    ) -> dict[str, Any]:
         """Make a request to the Oura API.
 
         Args:
@@ -217,7 +217,7 @@ class OuraClient:
 
     def get_activity_data(
         self, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch activity data for a date range."""
         # Add one day to end_date to ensure we get the full day
         api_end_date = end_date + timedelta(days=1)
@@ -231,7 +231,7 @@ class OuraClient:
 
     def get_resilience_data(
         self, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch resilience data for a date range.
 
         Args:
@@ -251,7 +251,7 @@ class OuraClient:
 
     def get_workouts(
         self, start: datetime = None, end: datetime = None, limit: int = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get workouts collection.
 
         Args:
