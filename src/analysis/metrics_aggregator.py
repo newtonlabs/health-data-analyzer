@@ -220,7 +220,7 @@ class MetricsAggregator:
         3. Get resilience data from Oura
         4. Format recovery and resilience data into lookups
         5. Update base DataFrame with metrics
-        6. Add weight data if available
+        6. (Weight data removed - now only in macros dataframe)
         
         Args:
             start_date: Start date for filtering data
@@ -236,7 +236,6 @@ class MetricsAggregator:
             - hr: Resting heart rate in bpm
             - sleep_need: Hours of sleep needed
             - sleep_actual: Actual hours of sleep
-            - weight: Weight in pounds (if available)
         """
         # Step 1: Create base DataFrame
         df = self._create_date_range_df(start_date, end_date)
@@ -263,8 +262,8 @@ class MetricsAggregator:
         if resilience_by_date:
             df['resilience_level'] = df['date'].map(lambda x: resilience_by_date.get(x, {}).get('resilience_level'))
         
-        # Step 6: Add weight data if available
-        df = self._add_weight_data(df, start_date, end_date)
+        # Step 6: Weight data removed - now only in macros dataframe
+        # df = self._add_weight_data(df, start_date, end_date)
             
         # Log the final DataFrame in debug mode
         from src.utils.logging_utils import DEBUG_MODE

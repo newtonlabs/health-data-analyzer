@@ -413,11 +413,14 @@ class NutritionChartGenerator(ChartGenerator):
                             weight_values.append(matching_rows['weight'].values[0])
                     
                     if weight_indices and weight_values:
-                        # Plot weight line with markers - use even lighter grey
+                        # Define colors for weight line and trend line
                         weight_color = ReportingConfig.COLORS['grid']  # very light grey for weight line
+                        trend_color = ReportingConfig.COLORS['sleep_need']  # bright blue for trend line
+                        
+                        # Plot weight line with markers - use more transparency
                         weight_line = ax2.plot(np.array(weight_indices), weight_values, 'o-', 
-                                               color=weight_color, linewidth=2, markersize=5, 
-                                               label='Weight', zorder=6)
+                                               color=weight_color, linewidth=2, markersize=4, 
+                                               alpha=0.3, label='Weight', zorder=6)
                         
                         # Removed numerical labels to make the chart cleaner
                         
@@ -441,9 +444,18 @@ class NutritionChartGenerator(ChartGenerator):
                         ax2.spines['bottom'].set_visible(False)
                         ax2.spines['right'].set_color(ReportingConfig.COLORS['grid'])
                         
-                        # Add weight line to legend - use all caps like other metrics
-                        weight_legend = [plt.Line2D([0], [0], color=weight_color, lw=2, marker='o', 
-                                                  markersize=5, label='WEIGHT (lbs)')]
+                        # Add a dotted trend line using numpy's polyfit
+                        if len(weight_indices) > 1:  # Need at least 2 points for a trend line
+                            z = np.polyfit(weight_indices, weight_values, 1)
+                            p = np.poly1d(z)
+                            trend_x = np.array([min(weight_indices), max(weight_indices)])
+                            trend_y = p(trend_x)
+                            ax2.plot(trend_x, trend_y, '--', color=trend_color, linewidth=1.5, 
+                                    alpha=0.9, zorder=5)
+                        
+                        # Add weight trend line to legend - use all caps like other metrics
+                        weight_legend = [plt.Line2D([0], [0], color=trend_color, lw=2, linestyle='--',
+                                                   markersize=0, label='WEIGHT TREND')]
         
         # Create combined legend with macros and targets
         macro_legend = [

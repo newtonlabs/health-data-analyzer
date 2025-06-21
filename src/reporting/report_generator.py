@@ -75,9 +75,18 @@ class ReportGenerator:
                         lambda x: f"{float(x):.1f}" if pd.notnull(x) and x != '-' else '-'
                     )
         
-        # Use pandas to_markdown with consistent formatting
+        # Convert to markdown with pandas to_markdown
         # floatfmt parameter ensures consistent decimal places for all numeric values
-        return formatted_df.to_markdown(index=False, numalign='right', floatfmt='.1f')
+        # Set column alignment - right-align numeric columns including WEIGHT
+        colalign = ['left'] * len(formatted_df.columns)
+        for i, col in enumerate(formatted_df.columns):
+            if col in ['CALORIES', 'PROTEIN', 'CARBS', 'FAT', 'STEPS', 'WEIGHT']:
+                colalign[i] = 'right'
+        
+        md_table = formatted_df.to_markdown(index=False, numalign='right', floatfmt='.1f', colalign=colalign)
+        
+        # Return the markdown table directly - styling is applied in html_templates.py
+        return md_table
         
     def _merge_date_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Merge date and day columns into a single column.
@@ -151,7 +160,8 @@ class ReportGenerator:
             'carbs': 'CARBS',
             'fat': 'FAT',
             'steps': 'STEPS',
-            'activity': 'ACTIVITY'
+            'activity': 'ACTIVITY',
+            'weight': 'WEIGHT'
         })
         return self._merge_date_columns(formatted)
     

@@ -178,22 +178,33 @@ def get_report_template():
             margin-top: 0.2em;
         }}
         
-        /* Tables */
+        /* Tables - using compact styling for all tables */
         table {{ 
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 1.5rem;
             table-layout: fixed;
-            font-size: 11px;
+            font-size: 0.75em;
             color: {text_color};
         }}
         
         th {{ 
-            background-color: #000;
+            background-color: {carbs_color};
             color: #fff;
-            padding: 0.4rem;
+            padding: 5px;
             text-align: left;
-            font-weight: 600;
+            font-weight: bold;
+            font-size: 0.85em;
+        }}
+        
+        td {{ 
+            padding: 3px 5px;
+        }}
+        
+        /* Right-justify numeric columns */
+        td.right-align,
+        th.right-align {{ 
+            text-align: right;
         }}
         
         td {{ 
