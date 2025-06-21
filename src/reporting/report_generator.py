@@ -5,7 +5,9 @@ from typing import Dict, Any, Optional, List
 
 from src.analysis.metrics_aggregator import MetricsAggregator
 from src.analysis.analyzer_config import AnalyzerConfig
-from .chart_generator import RecoveryChartGenerator, MacroRatioChartGenerator, NutritionChartGenerator
+from .recovery_chart_generator import RecoveryChartGenerator
+from .nutrition_chart_generator import NutritionChartGenerator
+from .macro_ratio_chart_generator import MacroRatioChartGenerator
 from .resilience_chart_generator import ResilienceChartGenerator
 from .reporting_config import ReportingConfig
 
@@ -328,7 +330,7 @@ class ReportGenerator:
                 
                 # Generate stacked chart
                 stacked_filename = "stacked_" + filename
-                chart_path = chart_gen.generate_stacked(chart_df, filename=stacked_filename)
+                chart_path = chart_gen.generate(chart_df, filename=stacked_filename)
                 return f"![Nutrition Chart](charts/{stacked_filename})\n" if chart_path else None
             else:
                 # Use the simple chart with just calories

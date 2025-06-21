@@ -1,7 +1,7 @@
 """Utility functions for date operations."""
 from datetime import datetime, timedelta
 from enum import Enum, auto
-from typing import Optional
+from typing import List, Optional
 
 
 class DateFormat:
@@ -91,6 +91,39 @@ class DateUtils:
     def format_display_date(dt: datetime) -> str:
         """Format date for display (MM-DD (day))."""
         return dt.strftime(DateFormat.DISPLAY)
+
+    @staticmethod
+    def get_day_of_week_labels(date_strings: List[str]) -> List[str]:
+        """Convert date strings to day of week labels.
+        
+        Args:
+            date_strings: List of date strings in format 'YYYY-MM-DD'
+            
+        Returns:
+            List of day of week labels (e.g., 'Mon', 'Tue', etc.)
+        """
+        day_labels = []
+        for date_str in date_strings:
+            try:
+                # Parse the date string and get the day of week
+                # Handle different date formats
+                if '-' in date_str:
+                    # YYYY-MM-DD format
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                elif '/' in date_str:
+                    # MM/DD/YYYY format
+                    date_obj = datetime.strptime(date_str, '%m/%d/%Y')
+                else:
+                    # Try to parse as MM-DD format
+                    date_obj = datetime.strptime(f"2025-{date_str}", '%Y-%m-%d')
+                    
+                # Get abbreviated day name (Mon, Tue, etc.)
+                day_name = date_obj.strftime('%a')
+                day_labels.append(day_name)
+            except ValueError:
+                # If date parsing fails, use the original string
+                day_labels.append(date_str)
+        return day_labels
     
     @staticmethod
     def normalize_recovery_date(created: datetime) -> datetime:

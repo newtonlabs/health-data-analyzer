@@ -9,6 +9,7 @@ from datetime import datetime
 from .chart_generator import ChartGenerator
 from .reporting_config import ReportingConfig
 from src.analysis.analyzer_config import AnalyzerConfig
+from src.utils.date_utils import DateUtils
 
 class ResilienceChartGenerator(ChartGenerator):
     """
@@ -55,26 +56,7 @@ class ResilienceChartGenerator(ChartGenerator):
         # Adjust margins to match recovery chart
         plt.subplots_adjust(right=0.82, left=0.12)  # Match recovery chart margins
         
-        # Get the dates and format them consistently with the recovery chart
-        # Format as MM-DD (DAY) like "06-12 (Thu)"
-        day_labels = []
-        for date_str in df['date']:
-            try:
-                # Try different date formats
-                for fmt in ['%Y-%m-%d', '%m-%d']:
-                    try:
-                        dt = datetime.strptime(date_str, fmt)
-                        # Format as MM-DD only
-                        day_labels.append(dt.strftime('%m-%d'))
-                        break
-                    except ValueError:
-                        continue
-                else:
-                    # If no format works, use the date string as is
-                    day_labels.append(date_str)
-            except Exception:
-                # Fallback if any error occurs
-                day_labels.append(date_str)
+        day_labels = DateUtils.get_day_of_week_labels(df['date'].tolist())
         
         # Set up x-axis values
         x_numeric = np.arange(len(df['date']))
