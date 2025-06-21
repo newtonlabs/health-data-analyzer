@@ -1,12 +1,8 @@
 import os
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import seaborn as sns
 import pandas as pd
 import numpy as np
-from scipy.interpolate import make_interp_spline
 from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
 
 from .reporting_config import ReportingConfig
 from src.utils.date_utils import DateUtils
@@ -49,9 +45,7 @@ class RecoveryChartGenerator(ChartGenerator):
             raise ValueError("DataFrame must contain 'date' and 'recovery' columns")
 
         # Plot setup - slightly taller chart to accommodate bottom legend
-        fig, ax1 = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height']))
-        fig.patch.set_facecolor('white')
-        ax1.set_facecolor('white')
+        fig, ax1 = self._setup_chart_figure(figsize=(10, ReportingConfig.STYLING['chart_height']))
         
         # Create color-coded bars based on recovery score with three levels
         bar_colors = []
@@ -76,7 +70,7 @@ class RecoveryChartGenerator(ChartGenerator):
                         xytext=(0, 3),
                         textcoords="offset points",
                         ha='center', va='bottom',
-                        color=ReportingConfig.COLORS['text'], fontsize=9)
+                        color=ReportingConfig.COLORS['text'], fontsize=ReportingConfig.STYLING['default_font_size'])
         
         # Add legend at the bottom left with rectangle patches to match nutrition chart
         recovery_legend = [
@@ -87,8 +81,8 @@ class RecoveryChartGenerator(ChartGenerator):
         
         # Add legend at the bottom left with 3 columns for recovery levels
         recovery_leg = ax1.legend(handles=recovery_legend, loc='lower left', 
-                                 bbox_to_anchor=(0.0, -0.2), ncol=3, 
-                                 frameon=False, fontsize=9)
+                                 bbox_to_anchor=(0.0, -0.2), ncol=ReportingConfig.STYLING['legend_columns'], 
+                                 frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
         
         # Style the legend text
         for text in recovery_leg.get_texts():
@@ -106,41 +100,43 @@ class RecoveryChartGenerator(ChartGenerator):
             # Plot lines with updated styling and markers
             sleep_actual_line, = ax2.plot(x_numeric, df['sleep_actual'], 
                                         color=ReportingConfig.COLORS['sleep_actual'], linestyle='--', linewidth=ReportingConfig.STYLING['line_thickness'], 
-                                        marker='o', markersize=4,
+                                        marker='o', markersize=ReportingConfig.STYLING['default_marker_size'],
                                         label="Sleep Actual")
             
             # Use bright blue for sleep need line to match nutrition chart target lines
             sleep_need_line, = ax2.plot(x_numeric, df['sleep_need'], 
                                       color=ReportingConfig.COLORS['sleep_need'], linestyle='-', linewidth=ReportingConfig.STYLING['line_thickness'], 
-                                      marker='s', markersize=4,
+                                      marker='s', markersize=ReportingConfig.STYLING['default_marker_size'],
                                       label="Sleep Need")
             
             # Set up secondary axis for sleep hours
             max_sleep = max(df['sleep_need'].max(), df['sleep_actual'].max())
-            ax2.set_ylim(0, max_sleep * 1.2)
             
-            # Configure y-axis on the right for sleep hours
-            ax2.spines['top'].set_visible(False)
-            ax2.spines['left'].set_visible(False)
-            ax2.spines['bottom'].set_visible(False)
-            ax2.spines['right'].set_visible(True)
-            ax2.spines['right'].set_color(ReportingConfig.COLORS['grid'])
-            ax2.tick_params(axis='y', colors=ReportingConfig.COLORS['text'], labelsize=8)
-            ax2.set_ylabel('Hours', color=ReportingConfig.COLORS['text'], fontsize=9)
-            ax2.yaxis.set_visible(True)
+            self._style_axes(
+                ax=ax2,
+                y_lim=(0, max_sleep * 1.2),
+                y_label='Hours',
+                tick_label_color=ReportingConfig.COLORS['text'],
+                axis_label_color=ReportingConfig.COLORS['text'],
+                font_size=ReportingConfig.STYLING['default_font_size'],
+                tick_font_size=ReportingConfig.STYLING['tick_font_size'],
+                spines_to_hide=['top', 'left', 'bottom'],
+                spines_to_color={'right': ReportingConfig.COLORS['grid']},
+                secondary_ax=ax2 # Pass ax2 as secondary_ax to style its ticks
+            )
             
             # Add legend at the bottom right, similar to nutrition chart
             sleep_legend = [
-                plt.Line2D([0], [0], color="#1E88E5", lw=1.5, linestyle='-', marker='s', markersize=4,
+                plt.Line2D([0], [0], color=ReportingConfig.COLORS['sleep_need'], lw=ReportingConfig.STYLING['default_line_width'], linestyle='-', marker='s', markersize=ReportingConfig.STYLING['default_marker_size'],
                           label="Sleep Need"),
-                plt.Line2D([0], [0], color="#7B1F1F", lw=1.5, linestyle='--', marker='o', markersize=4,
+                plt.Line2D([0], [0], color=ReportingConfig.COLORS['sleep_actual'], lw=ReportingConfig.STYLING['default_line_width'], linestyle='--', marker='o', markersize=ReportingConfig.STYLING['default_marker_size'],
                           label="Sleep Actual")
             ]
             
             # Add legend at the bottom right
             sleep_leg = ax2.legend(handles=sleep_legend, loc='lower right', 
                                  bbox_to_anchor=(1.0, -0.2), ncol=2, 
-                                 frameon=False, fontsize=9)
+                                 frameon=False, fontsize=ReportingConfig.STYLING['default_font_size'])
             
             # Style the legend text
             for text in sleep_leg.get_texts():
@@ -150,34 +146,23 @@ class RecoveryChartGenerator(ChartGenerator):
             ax2.add_artist(sleep_leg)
         
         # Set up primary axis styling
-        ax1.set_ylim(0, 100)
-        
-        # Set x-ticks and convert date labels to day of week
-        ax1.set_xticks(x_numeric)
         day_labels = DateUtils.get_day_of_week_labels(df['date'].tolist())
+
+        self._style_axes(
+            ax=ax1,
+            x_labels=day_labels,
+            x_ticks=x_numeric,
+            y_lim=(0, 100),
+            y_label='Recovery',
+            x_label='',
+            tick_label_color=ReportingConfig.COLORS['text'],
+            axis_label_color=ReportingConfig.COLORS['text'],
+            font_size=ReportingConfig.STYLING['default_font_size'],
+            tick_font_size=ReportingConfig.STYLING['tick_font_size'],
+            grid_line_width=ReportingConfig.STYLING['grid_line_width'],
+            grid_opacity=ReportingConfig.STYLING['grid_opacity'],
+            spines_to_hide=['top', 'right'],
+            spines_to_color={'left': ReportingConfig.COLORS['grid'], 'bottom': ReportingConfig.COLORS['grid']}
+        )
         
-        # Set x-tick labels to day of week
-        ax1.set_xticklabels(day_labels)
-        
-        # Add light gray axis labels
-        ax1.set_ylabel('Recovery', color=ReportingConfig.COLORS['text'], fontsize=9)
-        ax1.set_xlabel('', color=ReportingConfig.COLORS['text'], fontsize=9)
-        ax1.tick_params(axis='x', colors=ReportingConfig.COLORS['text'], labelsize=8)
-        ax1.tick_params(axis='y', colors=ReportingConfig.COLORS['text'], labelsize=8)
-        
-        # Enhanced grid styling - both horizontal and vertical with increased visibility
-        ax1.grid(True, linestyle=':', linewidth=0.7, alpha=ReportingConfig.STYLING['grid_opacity'], color=ReportingConfig.COLORS['grid'])
-        
-        # Configure spines/borders for primary axis - consistent light gray
-        ax1.spines['top'].set_visible(False)
-        ax1.spines['right'].set_visible(False)
-        ax1.spines['left'].set_visible(True)
-        ax1.spines['bottom'].set_visible(True)
-        ax1.spines['left'].set_color(ReportingConfig.COLORS['grid'])
-        ax1.spines['bottom'].set_color(ReportingConfig.COLORS['grid'])
-        
-        plt.tight_layout()
-        output_path = os.path.join(self.charts_dir, filename)
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        return output_path
+        return self._save_chart(fig, filename, extra_artists=(recovery_leg, sleep_leg) if has_sleep_data else (recovery_leg,))

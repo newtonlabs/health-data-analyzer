@@ -2,8 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
+from typing import Optional, List, Dict, Any, Tuple # Keep these for now as they might be used in helper methods later
 
 from .reporting_config import ReportingConfig
 from src.utils.date_utils import DateUtils
@@ -60,9 +59,7 @@ class NutritionChartGenerator(ChartGenerator):
         strength_day_color = ReportingConfig.COLORS['sleep_need']  # Bright blue for strength days
         
         # Plot setup - taller chart for better spacing
-        fig, ax = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height']))
-        fig.patch.set_facecolor('white')
-        ax.set_facecolor('white')
+        fig, ax = self._setup_chart_figure(figsize=(10, ReportingConfig.STYLING['chart_height']))
         
         # Create stacked bars with different colors based on activity type
         bars_protein = []
@@ -76,19 +73,19 @@ class NutritionChartGenerator(ChartGenerator):
                 
             # Create protein bar (bottom) - no border, higher zorder to be in front of grid
             p_bar = ax.bar(x_pos, prot, width, label='Protein' if i == 0 else "", 
-                          color=protein_color, alpha=1.0, zorder=3)
+                          color=protein_color, alpha=ReportingConfig.STYLING['macro_bar_alpha'], zorder=3)
             bars_protein.append(p_bar)
             
             # Create carbs bar (middle) - no border, higher zorder to be in front of grid
             c_bar = ax.bar(x_pos, carb, width, bottom=prot, 
                           label='Carbs' if i == 0 else "", 
-                          color=carbs_color, alpha=1.0, zorder=3)
+                          color=carbs_color, alpha=ReportingConfig.STYLING['macro_bar_alpha'], zorder=3)
             bars_carbs.append(c_bar)
             
             # Create fat bar (top) - no border, higher zorder to be in front of grid
             f_bar = ax.bar(x_pos, f, width, bottom=prot+carb, 
                           label='Fat' if i == 0 else "", 
-                          color=fat_color, alpha=1.0, zorder=3)
+                          color=fat_color, alpha=ReportingConfig.STYLING['macro_bar_alpha'], zorder=3)
             bars_fat.append(f_bar)
         
         # Add calorie labels at the bottom of each bar (much higher up to avoid clipping)
@@ -99,7 +96,7 @@ class NutritionChartGenerator(ChartGenerator):
                             xytext=(0, 0),  # No offset
                             textcoords="offset points",
                             ha='center', va='center',
-                            color='white', fontsize=9, fontweight='bold',\
+                            color='white', fontsize=ReportingConfig.STYLING['default_font_size'], fontweight='bold',\
                             zorder=10)  # Ensure it's on top
         
         # Draw target lines with colors matching macronutrients
@@ -118,11 +115,11 @@ class NutritionChartGenerator(ChartGenerator):
             
             # Draw the horizontal line
             line = ax.hlines(y, x_start, x_end, 
-                      color=line_color, linewidth=1.5, linestyle=line_style, zorder=4)
+                      color=line_color, linewidth=ReportingConfig.STYLING['default_line_width'], linestyle=line_style, zorder=4)
             
             # Add markers at each end of the line
             ax.plot([x_start, x_end], [y, y], 'o', color=line_color, 
-                   markersize=4, zorder=5)
+                   markersize=ReportingConfig.STYLING['default_marker_size'], zorder=5)
             
             # Store handles for legend
             if act == "Strength" and not strength_line_handles:
@@ -130,42 +127,38 @@ class NutritionChartGenerator(ChartGenerator):
             elif act == "Rest" and not rest_line_handles:
                 rest_line_handles.append(line)
         
-        # Axis config - start at 0 to make bars touch x-axis
+        # Axis config and styling
         max_cal = max(total_cals.max() if not total_cals.empty else 0, self.target_strength)
-        ax.set_ylim(0, max_cal + 300)  # No negative space so bars touch x-axis
-        ax.set_xticks(x_numeric)
-        
         day_labels = DateUtils.get_day_of_week_labels(df['date'].tolist())
         
-        ax.set_xticklabels(day_labels)
-        
-        # Minimal styling with no labels
-        ax.set_xlabel("", color='#666666', fontsize=9)
-        ax.set_ylabel("Calories Consumed", color=ReportingConfig.COLORS['text'], fontsize=9)
-        ax.tick_params(axis='both', colors='#666666', labelsize=8)
-        
-        # Configure spines/borders - consistent with recovery chart
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(True)
-        ax.spines['bottom'].set_visible(True)
-        ax.spines['left'].set_color(ReportingConfig.COLORS['grid'])
-        ax.spines['bottom'].set_color(ReportingConfig.COLORS['grid'])
-        
-        # Grid styling - both horizontal and vertical (behind the bars)
-        ax.grid(True, linestyle=':', linewidth=0.7, alpha=ReportingConfig.STYLING['grid_opacity'], color=ReportingConfig.COLORS['grid'])
+        self._style_axes(
+            ax=ax,
+            x_labels=day_labels,
+            x_ticks=x_numeric,
+            y_lim=(0, max_cal + 300),
+            y_label="Calories Consumed",
+            x_label="",
+            tick_label_color=ReportingConfig.COLORS['text'],
+            axis_label_color=ReportingConfig.COLORS['text'],
+            font_size=ReportingConfig.STYLING['default_font_size'],
+            tick_font_size=ReportingConfig.STYLING['tick_font_size'],
+            grid_line_width=ReportingConfig.STYLING['grid_line_width'],
+            grid_opacity=ReportingConfig.STYLING['grid_opacity'],
+            spines_to_hide=['top', 'right'],
+            spines_to_color={'left': ReportingConfig.COLORS['grid'], 'bottom': ReportingConfig.COLORS['grid']}
+        )
 
         # Create legend for macros
         macro_legend = [
-            plt.Rectangle((0,0), 1, 1, color=protein_color, alpha=1.0, label='Protein'),
-            plt.Rectangle((0,0), 1, 1, color=carbs_color, alpha=1.0, label='Carbs'),
-            plt.Rectangle((0,0), 1, 1, color=fat_color, alpha=1.0, label='Fat')
+            plt.Rectangle((0,0), 1, 1, color=protein_color, alpha=ReportingConfig.STYLING['macro_bar_alpha'], label='Protein'),
+            plt.Rectangle((0,0), 1, 1, color=carbs_color, alpha=ReportingConfig.STYLING['macro_bar_alpha'], label='Carbs'),
+            plt.Rectangle((0,0), 1, 1, color=fat_color, alpha=ReportingConfig.STYLING['macro_bar_alpha'], label='Fat')
         ]
         
         # Create legend for activity targets
         target_legend = [
-            plt.Line2D([0], [0], color=strength_day_color, lw=1.5, linestyle='-', marker='o', markersize=4, label=f'Strength Target ({self.target_strength} cal)'),
-            plt.Line2D([0], [0], color=strength_day_color, lw=1.5, linestyle='--', marker='o', markersize=4, label=f'Rest Target ({self.target_rest} cal)')
+            plt.Line2D([0], [0], color=strength_day_color, lw=ReportingConfig.STYLING['default_line_width'], linestyle='-', marker='o', markersize=ReportingConfig.STYLING['default_marker_size'], label=f'Strength Target ({self.target_strength} cal)'),
+            plt.Line2D([0], [0], color=strength_day_color, lw=ReportingConfig.STYLING['default_line_width'], linestyle='--', marker='o', markersize=ReportingConfig.STYLING['default_marker_size'], label=f'Rest Target ({self.target_rest} cal)')
         ]
 
         # Initialize combined line legends with target legends
@@ -197,8 +190,8 @@ class NutritionChartGenerator(ChartGenerator):
                         
                         # Plot weight line with markers - use more transparency
                         ax2.plot(np.array(weight_indices), weight_values, 'o-', 
-                                               color=weight_color, linewidth=2, markersize=4, 
-                                               alpha=0.3, label='Weight', zorder=6)
+                                               color=weight_color, linewidth=ReportingConfig.STYLING['weight_line_width'], markersize=ReportingConfig.STYLING['default_marker_size'], 
+                                               alpha=ReportingConfig.STYLING['weight_line_alpha'], label='Weight', zorder=6)
                         
                         # Removed numerical labels to make the chart cleaner
                         
@@ -212,7 +205,7 @@ class NutritionChartGenerator(ChartGenerator):
                         border_color = ReportingConfig.COLORS['grid']  # Light gray for borders
                         
                         # Style the y-axis label and ticks with text color - use title case
-                        ax2.set_ylabel('Weight (lbs)', color=text_color, fontsize=9)
+                        ax2.set_ylabel('Weight (lbs)', color=text_color, fontsize=ReportingConfig.STYLING['default_font_size'])
                         ax2.tick_params(axis='y', colors=text_color, labelsize=8)
                         
                         # Configure spines/borders for secondary axis - consistent with recovery chart
@@ -228,20 +221,20 @@ class NutritionChartGenerator(ChartGenerator):
                             p = np.poly1d(z)
                             trend_x = np.array([min(weight_indices), max(weight_indices)])
                             trend_y = p(trend_x)
-                            ax2.plot(trend_x, trend_y, '--', color=trend_color, linewidth=1.5, 
-                                    alpha=0.9, zorder=5)
+                            ax2.plot(trend_x, trend_y, '--', color=trend_color, linewidth=ReportingConfig.STYLING['default_line_width'], 
+                                    alpha=ReportingConfig.STYLING['weight_trend_alpha'], zorder=5)
                         
                         # Add weight trend line to legend - use title case
-                        weight_legend = [plt.Line2D([0], [0], color=trend_color, lw=2, linestyle='--', 
-                                                   marker='o', markersize=4, label='Weight Trend')] 
+                        weight_legend = [plt.Line2D([0], [0], color=trend_color, lw=ReportingConfig.STYLING['weight_line_width'], linestyle='--', 
+                                                   marker='None', markersize=0, label='Weight Trend')]  
                         
                         combined_line_legends.extend(weight_legend)
         
         # Create and place macro legend (left)
-        macro_leg = ax.legend(handles=macro_legend, loc='lower left', bbox_to_anchor=(0.0, -0.2), ncol=3, frameon=False, fontsize=9)
+        macro_leg = ax.legend(handles=macro_legend, loc='lower left', bbox_to_anchor=(0.0, -0.2), ncol=ReportingConfig.STYLING['legend_columns'], frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
         
         # Create and place combined line legend (right)
-        line_leg = ax.legend(handles=combined_line_legends, loc='lower right', bbox_to_anchor=(1.0, -0.2), ncol=len(combined_line_legends), frameon=False, fontsize=9)
+        line_leg = ax.legend(handles=combined_line_legends, loc='lower right', bbox_to_anchor=(1.0, -0.2), ncol=len(combined_line_legends), frameon=False, fontsize=ReportingConfig.STYLING['legend_font_size'])
         
         # Add legends as artists to the figure
         ax.add_artist(macro_leg)
@@ -253,8 +246,4 @@ class NutritionChartGenerator(ChartGenerator):
         for text in line_leg.get_texts():
             text.set_color(ReportingConfig.COLORS['text'])
         
-        plt.tight_layout()
-        output_path = os.path.join(self.charts_dir, filename)
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', bbox_extra_artists=(macro_leg, line_leg))
-        plt.close()
-        return output_path
+        return self._save_chart(fig, filename, extra_artists=(macro_leg, line_leg))

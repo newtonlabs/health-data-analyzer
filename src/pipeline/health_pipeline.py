@@ -231,7 +231,7 @@ class HealthPipeline:
             ProgressIndicator.step_start("Creating PDF from markdown report")
             
         pdf_file = markdown_file.replace('.md', '.pdf')
-        self.converter.convert(markdown_file, pdf_file)
+        self.converter.markdown_to_pdf(markdown_file, pdf_file)
         self.logger.log_data_counts('pdf file', 1)
         
         if not DEBUG_MODE:

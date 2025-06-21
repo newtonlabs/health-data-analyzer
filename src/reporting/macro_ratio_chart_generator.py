@@ -1,12 +1,4 @@
-import os
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
-
 from .reporting_config import ReportingConfig
-from src.utils.date_utils import DateUtils
 from .chart_generator import ChartGenerator
 
 class MacroRatioChartGenerator(ChartGenerator):

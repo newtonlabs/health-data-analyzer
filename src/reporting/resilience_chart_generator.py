@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
 
 from .chart_generator import ChartGenerator
 from .reporting_config import ReportingConfig
@@ -48,10 +47,8 @@ class ResilienceChartGenerator(ChartGenerator):
         if not {'date', 'resilience_score'}.issubset(df.columns):
             raise ValueError("DataFrame must contain 'date' and 'resilience_score' columns")
 
-        # Plot setup - half the height of recovery chart but same width
-        fig, ax = plt.subplots(figsize=(10, ReportingConfig.STYLING['chart_height'] / 2))
-        fig.patch.set_facecolor('white')
-        ax.set_facecolor('white')
+        # Plot setup - using compact chart height
+        fig, ax = self._setup_chart_figure(figsize=(10, ReportingConfig.STYLING['chart_height_compact']))
         
         # Adjust margins to match recovery chart
         plt.subplots_adjust(right=0.82, left=0.12)  # Match recovery chart margins
@@ -64,8 +61,8 @@ class ResilienceChartGenerator(ChartGenerator):
         # Plot the line in a medium gray
         ax.plot(x_numeric, df['resilience_score'], 
                color=ReportingConfig.COLORS['text'], 
-               marker='o', markersize=4,
-               linewidth=ReportingConfig.STYLING['line_thickness'],
+               marker='o', markersize=ReportingConfig.STYLING['default_marker_size'],
+               linewidth=ReportingConfig.STYLING['default_line_width'],
                zorder=3)
 
         # Add horizontal band lines and labels
@@ -86,66 +83,46 @@ class ResilienceChartGenerator(ChartGenerator):
                       zorder=1)
             ax.text(-0.75, score, label, 
                    va='center', ha='right', 
-                   fontsize=8, 
+                   fontsize=ReportingConfig.STYLING['resilience_band_font_size'], 
                    color=color,
                    fontweight='bold')
 
         # Set up axes
-        ax.set_ylim(0, 100)
-        ax.set_xlim(-0.5, len(df['date']) - 0.5)
-        
+        self._style_axes(
+            ax=ax,
+            x_labels=day_labels,
+            x_ticks=x_numeric,
+            y_lim=(0, 100),
+            x_label="",
+            tick_label_color=ReportingConfig.COLORS['text'],
+            axis_label_color=ReportingConfig.COLORS['text'],
+            font_size=ReportingConfig.STYLING['default_font_size'],
+            tick_font_size=ReportingConfig.STYLING['tick_font_size'],
+            grid_axis='x',
+            grid_color=ReportingConfig.COLORS['resilience_x_grid'],
+            grid_line_width=ReportingConfig.STYLING['grid_line_width'],
+            grid_opacity=1.0, # Grid always visible for resilience chart
+            spines_to_hide=['top', 'right', 'left'], # Hide left Y-axis for main plot
+            spines_to_color={'bottom': ReportingConfig.COLORS['chart_border']}
+        )
+
         # Create a twin axis on the right for score values
         ax2 = ax.twinx()
-        ax2.set_ylim(0, 100)  # Score scale from 0-100
-        
-        # Set up score ticks at resilience band thresholds (equal zones)
-        score_ticks = [0, 20, 40, 60, 80]
-        ax2.set_yticks(score_ticks)
-        ax2.set_yticklabels(['' for _ in score_ticks])  # Use blank strings for labels
-        
-        # Add 'Score' label to right axis
-        ax2.set_ylabel('Score', fontsize=9, color=ReportingConfig.COLORS['text'], labelpad=10)
-        
-        # Style the right y-axis
-        ax2.tick_params(axis='y', colors=ReportingConfig.COLORS['text'], length=3)
-        ax2.spines['right'].set_visible(True)
-        ax2.spines['right'].set_color(ReportingConfig.COLORS['grid'])
-        
+        self._style_axes(
+            ax=ax2,
+            y_lim=(0, 100),
+            y_label='Score',
+            y_ticks=[0, 20, 40, 60, 80],
+            tick_label_color=ReportingConfig.COLORS['text'],
+            axis_label_color=ReportingConfig.COLORS['text'],
+            font_size=ReportingConfig.STYLING['default_font_size'],
+            tick_font_size=ReportingConfig.STYLING['tick_font_size'],
+            spines_to_hide=['top', 'bottom', 'left'],
+            spines_to_color={'right': ReportingConfig.COLORS['grid']},
+            secondary_ax=ax2
+        )
         # Hide main y-axis completely
         ax.yaxis.set_visible(False)
-        
-        # Set x-axis ticks and labels
-        ax.set_xticks(x_numeric)
-        ax.set_xticklabels(day_labels, color=ReportingConfig.COLORS['text'], fontsize=9)
-
-        # Add grid for x-axis only
-        ax.grid(axis='x', 
-               color='#EDEDED', 
-               linestyle='-', 
-               linewidth=0.5,
-               zorder=0)
-        
-        # Style the spines (borders) to match recovery chart
-        ax.spines['top'].set_visible(False)
-        ax.spines['bottom'].set_visible(True)
-        ax.spines['left'].set_visible(True)
-        ax.spines['right'].set_visible(True)
-        
-        ax.spines['left'].set_color(ReportingConfig.COLORS['grid'])
-        ax.spines['right'].set_color(ReportingConfig.COLORS['grid'])
-        ax.spines['bottom'].set_color('#A9A9A9')  # Slightly darker for bottom border
-        
-        # Style the right axis spine to match recovery chart
-        ax2.spines['top'].set_visible(False)
-        ax2.spines['bottom'].set_visible(False)
-        ax2.spines['left'].set_visible(False)
-        ax2.spines['right'].set_visible(True)
-        ax2.spines['right'].set_color(ReportingConfig.COLORS['grid'])
 
         # Save the chart with the same settings as recovery chart
-        output_path = os.path.join(self.charts_dir, filename)
-        plt.tight_layout()
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        return output_path
+        return self._save_chart(fig, filename)

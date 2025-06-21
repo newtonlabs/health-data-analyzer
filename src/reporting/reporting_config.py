@@ -26,6 +26,8 @@ class ReportingConfig:
         # Text and UI colors
         'text': '#666666',             # Gray for text elements
         'grid': '#cccccc',             # Light gray for grid lines
+        'chart_border': '#A9A9A9',     # Darker gray for chart borders/spines
+        'resilience_x_grid': '#EDEDED' # Very light gray for resilience x-axis grid
     }
     
     # Chart thresholds
@@ -45,10 +47,22 @@ class ReportingConfig:
     # Chart styling
     STYLING = {
         'bar_alpha': 0.7,              # Transparency for bars
-        'line_thickness': 1.5,         # Line thickness for sleep lines
+        'line_thickness': 1.5,         # Line thickness for sleep lines (default)
+        'default_line_width': 1.5,     # Default line width for plots
+        'grid_line_width': 0.7,        # Line width for grid lines
+        'default_marker_size': 4,      # Default marker size for plots
         'chart_height': 4.5,           # Standard chart height for recovery and nutrition charts
         'chart_height_compact': 2.8,   # Compact chart height for minimalist design
         'grid_opacity': 0.5,           # Grid line opacity
+        'default_font_size': 9,        # Default font size for labels and legends
+        'tick_font_size': 8,           # Font size for axis ticks
+        'weight_line_alpha': 0.3,      # Alpha for weight line
+        'weight_trend_alpha': 0.9,     # Alpha for weight trend line
+        'macro_bar_alpha': 1.0,        # Alpha for macro bars and their legends
+        'resilience_band_font_size': 8, # Font size for resilience band labels
+        'weight_line_width': 2,        # Line width for weight line
+        'legend_font_size': 9,         # Default font size for legends
+        'legend_columns': 3,           # Default number of columns for legends
     }
     
     # Caloric targets by activity type

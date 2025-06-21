@@ -1,4 +1,5 @@
 """Module for generating formatted health and fitness reports."""
+import os
 from datetime import datetime, timedelta
 import pandas as pd
 from typing import Dict, Any, Optional, List
@@ -10,6 +11,7 @@ from .nutrition_chart_generator import NutritionChartGenerator
 from .macro_ratio_chart_generator import MacroRatioChartGenerator
 from .resilience_chart_generator import ResilienceChartGenerator
 from .reporting_config import ReportingConfig
+from .chart_generator import ChartGenerator
 
 class ReportGenerator:
     def __init__(self, analyzer: MetricsAggregator):
@@ -20,26 +22,7 @@ class ReportGenerator:
         """
         self.analyzer = analyzer
     
-    def _format_number(self, value, decimal_places=1, integer_columns=None):
-        """Format a number with consistent decimal places.
-        
-        Args:
-            value: The number to format
-            decimal_places: Number of decimal places to display
-            integer_columns: List of column names that should be displayed as integers
-            
-        Returns:
-            Formatted string representation of the number
-        """
-        if pd.isna(value):
-            return '-'
-            
-        # Check if this is a column that should be displayed as an integer
-        if integer_columns and hasattr(value, 'name') and value.name in integer_columns:
-            return f"{int(value)}"
-            
-        # Format with specified decimal places
-        return f"{float(value):.{decimal_places}f}"
+
     
     def _df_to_markdown(self, df: pd.DataFrame) -> str:
         """Convert DataFrame to markdown table format.
@@ -121,7 +104,7 @@ class ReportGenerator:
         score = float(score)
         if score <= ReportingConfig.THRESHOLDS['recovery_low']:
             return 'recovery-low'
-        elif score <= ReportingConfig.THRESHOLDS['recovery_medium'] + 31:  # 34 + 31 = 65
+        elif score < ReportingConfig.THRESHOLDS['recovery_high']:
             return 'recovery-medium'
         else:
             return 'recovery-high'
@@ -210,6 +193,22 @@ class ReportGenerator:
             'strain': 'STRAIN'
         })
         return self._merge_date_columns(formatted)
+
+    def _generate_chart_markdown(self, chart_generator_class, df: pd.DataFrame, filename: str, chart_type_name: str, **kwargs) -> Optional[str]:
+        """Generic helper to generate a chart and return its markdown string."""
+        try:
+            chart_gen = chart_generator_class(**kwargs)
+            chart_path = chart_gen.generate(df, filename=filename)
+            if chart_path:
+                # Extract relative path from charts_dir to ensure correct markdown path
+                # Instantiate a ChartGenerator to get the default charts_dir
+                base_chart_gen = ChartGenerator()
+                relative_chart_path = os.path.relpath(chart_path, base_chart_gen.charts_dir)
+                return f"![{chart_type_name} Chart](charts/{relative_chart_path})\n"
+            return None
+        except Exception as e:
+            print(f"Error generating {chart_type_name} chart: {e}")
+            return None
     
     def _generate_recovery_chart(self, recovery_df: pd.DataFrame, filename: str = "recovery_chart.png") -> Optional[str]:
         """Generate a recovery chart image and return markdown for embedding.
@@ -221,23 +220,21 @@ class ReportGenerator:
         Returns:
             Markdown string for embedding the chart, or None if generation fails
         """
-        try:
-            chart_gen = RecoveryChartGenerator()
+        # Include sleep data columns if they exist
+        columns_to_include = ['date', 'recovery']
+        if 'sleep_need' in recovery_df.columns:
+            columns_to_include.append('sleep_need')
+        if 'sleep_actual' in recovery_df.columns:
+            columns_to_include.append('sleep_actual')
             
-            # Include sleep data columns if they exist
-            columns_to_include = ['date', 'recovery']
-            if 'sleep_need' in recovery_df.columns:
-                columns_to_include.append('sleep_need')
-            if 'sleep_actual' in recovery_df.columns:
-                columns_to_include.append('sleep_actual')
-                
-            chart_df = recovery_df[columns_to_include].dropna(subset=['recovery'])
-            chart_path = chart_gen.generate(chart_df, filename=filename)
-            return f"![Recovery Chart](charts/recovery_chart.png)\n" if chart_path else None
-        except Exception as e:
-            # Could log the error here
-            print(f"Error generating recovery chart: {e}")
-            return None
+        chart_df = recovery_df[columns_to_include].dropna(subset=['recovery'])
+        
+        return self._generate_chart_markdown(
+            chart_generator_class=RecoveryChartGenerator,
+            df=chart_df,
+            filename=filename,
+            chart_type_name="Recovery"
+        )
             
     def _generate_resilience_chart(self, recovery_df: pd.DataFrame, filename: str = "resilience_chart.png") -> Optional[str]:
         """Generate a resilience chart image and return markdown for embedding.
@@ -249,41 +246,38 @@ class ReportGenerator:
         Returns:
             Markdown string for embedding the chart, or None if generation fails
         """
-        try:
-            chart_gen = ResilienceChartGenerator()
+        # Create a copy of the dataframe for the chart
+        chart_df = recovery_df[['date', 'resilience_level']].copy()
+        
+        # Calculate midpoints between thresholds for better visual positioning
+        level_to_score = {}
+        
+        # Get the thresholds from analyzer_config
+        thresholds = AnalyzerConfig.RESILIENCE_LEVEL_SCORES
+        
+        # Calculate midpoints for main levels
+        level_to_score['exceptional'] = (thresholds['exceptional'] + 100) / 2  # Between exceptional and max
+        level_to_score['strong'] = (thresholds['strong'] + thresholds['exceptional']) / 2  # Between strong and exceptional
+        level_to_score['solid'] = (thresholds['solid'] + thresholds['strong']) / 2  # Between solid and strong
+        level_to_score['adequate'] = (thresholds['adequate'] + thresholds['solid']) / 2  # Between adequate and solid
+        level_to_score['limited'] = (thresholds['limited'] + thresholds['adequate']) / 2  # Between limited and adequate
+        
+        # Add mappings for legacy levels
+        level_to_score['weak'] = (thresholds['adequate'] + thresholds['limited']) / 2  # Between limited and adequate
+        level_to_score['compromised'] = (thresholds['adequate'] + thresholds['limited']) / 2  # Same as weak
+        level_to_score['low'] = thresholds['limited'] + 10  # Just above limited
+        
+        # Add resilience_score based on the level
+        chart_df['resilience_score'] = chart_df['resilience_level'].apply(
+            lambda x: level_to_score.get(x.lower(), level_to_score['solid']) if pd.notnull(x) else level_to_score['solid']
+        )
             
-            # Create a copy of the dataframe for the chart
-            chart_df = recovery_df[['date', 'resilience_level']].copy()
-            
-            # Calculate midpoints between thresholds for better visual positioning
-            level_to_score = {}
-            
-            # Get the thresholds from analyzer_config
-            thresholds = AnalyzerConfig.RESILIENCE_LEVEL_SCORES
-            
-            # Calculate midpoints for main levels
-            level_to_score['exceptional'] = (thresholds['exceptional'] + 100) / 2  # Between exceptional and max
-            level_to_score['strong'] = (thresholds['strong'] + thresholds['exceptional']) / 2  # Between strong and exceptional
-            level_to_score['solid'] = (thresholds['solid'] + thresholds['strong']) / 2  # Between solid and strong
-            level_to_score['adequate'] = (thresholds['adequate'] + thresholds['solid']) / 2  # Between adequate and solid
-            level_to_score['limited'] = (thresholds['limited'] + thresholds['adequate']) / 2  # Between limited and adequate
-            
-            # Add mappings for legacy levels
-            level_to_score['weak'] = (thresholds['adequate'] + thresholds['limited']) / 2  # Between limited and adequate
-            level_to_score['compromised'] = (thresholds['adequate'] + thresholds['limited']) / 2  # Same as weak
-            level_to_score['low'] = thresholds['limited'] + 10  # Just above limited
-            
-            # Add resilience_score based on the level
-            chart_df['resilience_score'] = chart_df['resilience_level'].apply(
-                lambda x: level_to_score.get(x.lower(), level_to_score['solid']) if pd.notnull(x) else level_to_score['solid']
-            )
-                
-            chart_path = chart_gen.generate(chart_df, filename=filename)
-            return f"![Resilience Chart](charts/{filename})\n" if chart_path else None
-        except Exception as e:
-            # Could log the error here
-            print(f"Error generating resilience chart: {e}")
-            return None
+        return self._generate_chart_markdown(
+            chart_generator_class=ResilienceChartGenerator,
+            df=chart_df,
+            filename=filename,
+            chart_type_name="Resilience"
+        )
             
     def _generate_nutrition_chart(self, macros_df: pd.DataFrame, filename: str = "nutrition_chart.png") -> Optional[str]:
         """Generate a nutrition chart image and return markdown for embedding.
@@ -295,57 +289,54 @@ class ReportGenerator:
         Returns:
             Markdown string for embedding the chart, or None if generation fails
         """
-        try:
-            # Process the macros_df for chart generation
+        # If activity column doesn't exist, create it based on training type
+        if 'activity' not in macros_df.columns:
+            if 'training' in macros_df.columns:
+                macros_df['activity'] = macros_df['training'].apply(
+                    lambda x: 'Strength' if x in AnalyzerConfig.STRENGTH_ACTIVITIES else 'Rest'
+                )
+            else:
+                # Default to Rest if no training info
+                macros_df['activity'] = 'Rest'
+        
+        # Check if we have macronutrient data for a stacked chart
+        has_macro_data = {'protein', 'carbs', 'fat'}.issubset(macros_df.columns)
+        
+        if has_macro_data:
+            # Use the stacked chart with macronutrient breakdown
+            # Include weight data if available
+            if 'weight' in macros_df.columns:
+                chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity', 'weight']].copy()
+            else:
+                chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity']].copy()
             
-            # Create chart generator with configurable targets from config
-            chart_gen = NutritionChartGenerator(
+            # Skip days with no data
+            chart_df = chart_df[(chart_df['protein'] > 0) | (chart_df['carbs'] > 0) | (chart_df['fat'] > 0)]
+            
+            stacked_filename = "stacked_" + filename
+            return self._generate_chart_markdown(
+                chart_generator_class=NutritionChartGenerator,
+                df=chart_df,
+                filename=stacked_filename,
+                chart_type_name="Nutrition",
                 target_strength=ReportingConfig.CALORIC_TARGETS['strength'],
                 target_rest=ReportingConfig.CALORIC_TARGETS['rest']
             )
-            
-            # If activity column doesn't exist, create it based on training type
-            if 'activity' not in macros_df.columns:
-                if 'training' in macros_df.columns:
-                    macros_df['activity'] = macros_df['training'].apply(
-                        lambda x: 'Strength' if x in AnalyzerConfig.STRENGTH_ACTIVITIES else 'Rest'
-                    )
-                else:
-                    # Default to Rest if no training info
-                    macros_df['activity'] = 'Rest'
-            
-            # Check if we have macronutrient data for a stacked chart
-            has_macro_data = {'protein', 'carbs', 'fat'}.issubset(macros_df.columns)
-            
-            if has_macro_data:
-                # Use the stacked chart with macronutrient breakdown
-                # Include weight data if available
-                if 'weight' in macros_df.columns:
-                    chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity', 'weight']].copy()
-                else:
-                    chart_df = macros_df[['date', 'protein', 'carbs', 'fat', 'activity']].copy()
+        else:
+            # Use the simple chart with just calories
+            if 'calories' not in macros_df.columns:
+                return None
                 
-                # Skip days with no data
-                chart_df = chart_df[(chart_df['protein'] > 0) | (chart_df['carbs'] > 0) | (chart_df['fat'] > 0)]
-                
-                # Generate stacked chart
-                stacked_filename = "stacked_" + filename
-                chart_path = chart_gen.generate(chart_df, filename=stacked_filename)
-                return f"![Nutrition Chart](charts/{stacked_filename})\n" if chart_path else None
-            else:
-                # Use the simple chart with just calories
-                if 'calories' not in macros_df.columns:
-                    return None
-                    
-                chart_df = macros_df[['date', 'calories', 'activity']].copy()
-                
-                # Generate simple chart
-                chart_path = chart_gen.generate(chart_df, filename=filename)
-                return f"![Nutrition Chart](charts/{filename})\n" if chart_path else None
-        except Exception as e:
-            # Could log the error here
-            print(f"Error generating nutrition chart: {e}")
-            return None
+            chart_df = macros_df[['date', 'calories', 'activity']].copy()
+            
+            return self._generate_chart_markdown(
+                chart_generator_class=NutritionChartGenerator,
+                df=chart_df,
+                filename=filename,
+                chart_type_name="Nutrition",
+                target_strength=ReportingConfig.CALORIC_TARGETS['strength'],
+                target_rest=ReportingConfig.CALORIC_TARGETS['rest']
+            )
     
 
     
@@ -482,6 +473,3 @@ class ReportGenerator:
 """
         
         return report_template
-        
-    # Helper methods for building report sections have been removed
-    # as they are now replaced by the template-based approach

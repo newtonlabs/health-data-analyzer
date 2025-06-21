@@ -39,7 +39,7 @@ class PDFConverter:
             report_start_date = report_end_date - timedelta(days=6)
             report_start = report_start_date.strftime('%m-%d')
             report_end = report_end_date.strftime('%m-%d')
-        except:
+        except ValueError:
             # Fallback if we can't parse the date
             report_start = ''
             report_end = ''
@@ -110,14 +110,4 @@ class PDFConverter:
         
         return output_file
     
-    def convert(self, markdown_file: str, output_file: str) -> str:
-        """Convert markdown file to PDF (alias for markdown_to_pdf).
-        
-        Args:
-            markdown_file: Path to markdown file
-            output_file: Path to output PDF file
-            
-        Returns:
-            Path to generated PDF file
-        """
-        return self.markdown_to_pdf(markdown_file, output_file)
+
