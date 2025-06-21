@@ -52,22 +52,6 @@ class HealthLogger:
             else:
                 self.logger.setLevel(logging.INFO)
     
-    def log_recovery_processing(self, created: datetime, recovery_date: datetime,
-                              recovery_info: Optional[Dict[str, Any]] = None):
-        """Log recovery data processing.
-        
-        Args:
-            created: When recovery score was recorded
-            recovery_date: Normalized recovery date
-            recovery_info: Optional recovery data
-        """
-        msg = f"Processing recovery from {created} -> {recovery_date}"
-        if recovery_info:
-            msg += f": score={recovery_info.get('recovery_score')}, "
-            msg += f"hrv={recovery_info.get('hrv_rmssd')}, "
-            msg += f"hr={recovery_info.get('resting_hr')}"
-        self.logger.debug(msg)
-    
     def log_skipped_date(self, date: datetime, reason: str):
         """Log skipped recovery date.
         
@@ -77,24 +61,7 @@ class HealthLogger:
         """
         self.logger.warning(f"Skipped recovery date {date}: {reason}")
     
-    def log_api_request(self, endpoint: str, params: Dict[str, Any]):
-        """Log API request.
-        
-        Args:
-            endpoint: API endpoint
-            params: Request parameters
-        """
-        self.logger.info(f"API request to {endpoint} with params: {params}")
-    
-    def log_date_range(self, start: datetime, end: datetime, context: str):
-        """Log date range for operation.
-        
-        Args:
-            start: Start date
-            end: End date
-            context: Operation context (e.g., 'fetch', 'report')
-        """
-        self.logger.info(f"{context} date range: {start.date()} to {end.date()}")
+
     
     def log_data_counts(self, data_type: str, count: int):
         """Log number of data items processed.
@@ -113,6 +80,14 @@ class HealthLogger:
         """
         self.logger.debug(msg)
         
+    def info(self, msg: str):
+        """Log info message.
+        
+        Args:
+            msg: Info message
+        """
+        self.logger.info(msg)
+
     def warning(self, msg: str):
         """Log warning message.
         
@@ -120,6 +95,14 @@ class HealthLogger:
             msg: Warning message
         """
         self.logger.warning(msg)
+
+    def error(self, msg: str):
+        """Log error message.
+        
+        Args:
+            msg: Error message
+        """
+        self.logger.error(msg)
         
     def debug_dataframe(self, df, name: str, max_rows: int = 10):
         """Print a DataFrame in a readable format when in debug mode.

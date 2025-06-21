@@ -11,10 +11,6 @@ from src.utils.date_utils import DateUtils, DateFormat
 from src.utils.logging_utils import HealthLogger
 from .token_manager import TokenManager
 
-class WithingsError(Exception):
-    """Custom exception for Withings API errors."""
-    pass
-
 class OAuthCallbackHandler(BaseHTTPRequestHandler):
     """Handle OAuth callback from Withings."""
     def do_GET(self):
@@ -25,31 +21,37 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
         that we exchange for an access token.
         """
         try:
-            # Parse the authorization code from the callback URL
             parsed_url = urlparse(self.path)
             query_components = parse_qs(parsed_url.query)
             
             if 'code' in query_components and 'state' in query_components:
-                # Exchange code for token
-                self.server.withings_client.get_token(query_components['code'][0], query_components['state'][0])
-                self.server.authenticated = True
+                code = query_components['code'][0]
+                state = query_components['state'][0]
                 
-                # Send success response
+                # Pass the code and state to the WithingsClient instance
+                self.server.withings_client.get_token(code, state)
+                self.server.authenticated = True
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
-                self.wfile.write(b"Authentication successful! You can close this window.")
-                self.server.should_stop = True
+                self.wfile.write(b"<html><body><h1>Authentication successful! You can close this window.</h1></body></html>")
             else:
                 self.send_response(400)
-                self.send_header('content-type', 'text/html')
+                self.send_header('Content-type', 'text/html')
                 self.end_headers()
-                self.wfile.write(b"Authentication failed! No authorization code received.")
+                self.wfile.write(b"<html><body><h1>Authentication failed. No code received.</h1></body></html>")
         except Exception as e:
             self.send_response(500)
-            self.send_header('content-type', 'text/html')
+            self.send_header('Content-type', 'text/html')
             self.end_headers()
-            self.wfile.write(f"Error: {str(e)}".encode('utf-8'))
+            self.wfile.write(f"<html><body><h1>Error: {e}</h1></body></html>".encode())
+        finally:
+            # Signal the server to stop after handling the request
+            self.server.should_stop = True
+
+class WithingsError(Exception):
+    """Custom exception for Withings API errors."""
+    pass
 
 class WithingsClient:
     """Client for interacting with the Withings API.
@@ -257,11 +259,14 @@ class WithingsClient:
         httpd.authenticated = False
         httpd.should_stop = False
         
-        # Wait for the callback
-        while not httpd.should_stop:
-            httpd.handle_request()
-        
-        return httpd.authenticated
+        try:
+            # Wait for the callback
+            while not httpd.should_stop:
+                httpd.handle_request()
+            
+            return httpd.authenticated
+        finally:
+            httpd.server_close()
     
     def _get_auth_url(self) -> str:
         """Get the URL for OAuth2 authorization.
