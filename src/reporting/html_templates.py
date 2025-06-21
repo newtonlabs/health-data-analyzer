@@ -5,7 +5,8 @@ def get_report_template():
     
     The template uses the following variables:
     - logo_html: HTML for the logo
-    - title: Report title
+    - report_start: Start date of the report period (MM-DD format)
+    - report_end: End date of the report period (MM-DD format)
     - html_content: Main content of the report
     - protein_color: Color for protein segments
     - carbs_color: Color for carbs segments
@@ -54,28 +55,66 @@ def get_report_template():
             padding: 0 2rem;
         }}
         
-        /* Header Banner */
+        /* Premium Header Banner - inspired by the provided image */
         .banner {{
-            background-color: #000;
-            padding: 0.5rem 1rem;
-            margin-bottom: 1rem;
+            background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start; /* Align items to the left for better balance */
             align-items: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0px 4px 8px rgba(0, 0, 0, 0.2); /* Added soft outer shadow */
+            border-radius: 0; /* Sharper corners for a more premium look */
+            overflow: hidden;
+            font-style: normal; /* Ensure no italics in the banner */
+        }}
+        
+        /* Ensure no italics in any element within the banner */
+        .banner * {{
+            font-style: normal;
+        }}
+        
+        /* Red accent line at the bottom of the banner */
+        .banner::after {{
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #B3001B; /* Deeper, richer red that pops more on dark background */
+            box-shadow: 0 0 8px rgba(179, 0, 27, 0.7); /* Enhanced glow effect */
         }}
         
         .banner img {{
-            height: 40px;
+            height: 60px;
             width: auto;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            margin-right: 20px; /* Reduced space to account for divider */
+        }}
+        
+        /* Semi-transparent vertical divider between logo and text */
+        .vertical-divider {{
+            height: 50px; /* Extended to about 85% of the text block height */
+            width: 1px;
+            background-color: rgba(255, 255, 255, 0.25); /* Semi-transparent white */
+            margin: 0 20px;
+            align-self: center;
         }}
         
         .banner .title {{
             color: #fff;
             margin: 0;
-            font-size: 20px;
-            font-weight: 400;
+            font-size: 28px;
+            font-weight: 300;
+            font-style: normal; /* Explicitly set to normal to prevent italics */
+            letter-spacing: 1px;
             border: none;
             padding: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            flex: 1; /* Allow title to take remaining space */
+            transform: translateY(-2px); /* Slight upward nudge for optical centering */
         }}
         
         /* Headings */
@@ -283,7 +322,11 @@ def get_report_template():
         <div class="container">
             <div class="banner">
                 {logo_html}
-                <div class="title"><em>Weekly Report for {title}</em></div>
+                <div class="vertical-divider"></div>
+                <div class="title">
+                    <div style="font-size: 28px; font-weight: 500; font-style: normal;">Thomas Newton</div>
+                    <div style="font-size: 22px; font-weight: 300; font-style: normal; margin-top: 15px; color: #CCCCCC;">{report_start} to {report_end}</div>
+                </div>
             </div>
             <div class="content">
                 {html_content}

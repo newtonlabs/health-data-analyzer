@@ -2,6 +2,7 @@
 import os
 import base64
 from pathlib import Path
+from datetime import datetime, timedelta
 from markdown import markdown
 from weasyprint import HTML
 
@@ -26,18 +27,25 @@ class PDFConverter:
         with open(markdown_file, 'r') as f:
             markdown_content = f.read()
         
-        # Extract title and update content
-        lines = markdown_content.split('\n')
-        title = ''
-        new_lines = []
-        for line in lines:
-            if line.startswith('# Weekly Report for'):
-                title = line.replace('# Weekly Report for', '').strip()
-            else:
-                new_lines.append(line)
+        # No need to extract title anymore as it will be handled by the HTML template
+        # Just pass the report dates to the template
         
-        # Update markdown content with modified headings
-        markdown_content = '\n'.join(new_lines)
+        # Get the report dates from the filename (format: YYYY-MM-DD-weekly-status.md)
+        report_date_str = os.path.basename(markdown_file).split('-weekly-status')[0]
+        
+        # Calculate the start date (7 days before the report date)
+        try:
+            report_end_date = datetime.strptime(report_date_str, '%Y-%m-%d')
+            report_start_date = report_end_date - timedelta(days=6)
+            report_start = report_start_date.strftime('%m-%d')
+            report_end = report_end_date.strftime('%m-%d')
+        except:
+            # Fallback if we can't parse the date
+            report_start = ''
+            report_end = ''
+        
+        # The title will be set in the HTML template
+        title = ''
         
         # Convert markdown to HTML
         html_content = markdown(
@@ -75,7 +83,8 @@ class PDFConverter:
         template = get_report_template()
         formatted_html = template.format(
             logo_html=logo_html,
-            title=title,
+            report_start=report_start,
+            report_end=report_end,
             html_content=html_content,
             protein_color=protein_color,
             carbs_color=carbs_color,

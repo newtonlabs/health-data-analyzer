@@ -452,8 +452,6 @@ class ReportGenerator:
         
         # Format the report using a template
         report_template = f"""\
-# Weekly Report for {report_start} to {report_end}
-
 ## Summary
 
 **Key Metrics**:
