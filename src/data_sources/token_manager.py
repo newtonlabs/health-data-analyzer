@@ -3,7 +3,6 @@ import os
 import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import traceback
 import logging
 
 # Create a logger
@@ -85,6 +84,16 @@ class TokenManager:
             return None
             
         return self.tokens
+
+    def get_access_token(self) -> Optional[str]:
+        """Get the access token if it exists and is not expired."""
+        tokens = self.get_tokens()
+        return tokens.get('access_token') if tokens else None
+
+    def get_refresh_token(self) -> Optional[str]:
+        """Get the refresh token if it exists and is not expired."""
+        tokens = self.get_tokens()
+        return tokens.get('refresh_token') if tokens else None
         
     def is_token_expired(self) -> bool:
         """Check if the current token is expired.

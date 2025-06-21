@@ -237,12 +237,6 @@ class HealthDataProcessor:
             df = pd.DataFrame(resilience_data)
             
         return df
-        for activity in raw_data.get('data', []):
-            if 'steps' in activity and 'day' in activity:
-                activity_data.append({
-                    'date': pd.to_datetime(activity['day']),
-                    'steps': int(round(activity['steps'], 0))
-                })
         
         # Return empty DataFrame if no valid activities
         if not activity_data:

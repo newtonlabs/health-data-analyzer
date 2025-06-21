@@ -62,23 +62,7 @@ class OuraClient:
             self.token_type = saved_tokens.get('token_type')
             self.expires_in = saved_tokens.get('expires_in', 0)
     
-    def get_auth_url(self) -> str:
-        """Get the URL for OAuth2 authorization.
-        
-        Returns:
-            URL to redirect user for authorization
-        """
-        # Generate a secure random state
-        self.state = secrets.token_urlsafe(32)
-        
-        params = {
-            'client_id': self.client_id,
-            'response_type': 'code',
-            'scope': 'daily workout',  # Add more scopes as needed
-            'redirect_uri': 'http://localhost:8080/callback',
-            'state': self.state
-        }
-        return f"https://cloud.ouraring.com/oauth/authorize?{urlencode(params)}"
+
         
     def get_token(self, code: str, state: str) -> None:
         """Exchange authorization code for access token.
@@ -214,13 +198,6 @@ class OuraClient:
         except requests.exceptions.RequestException as e:
             raise OuraError(f"Failed to fetch data from Oura API: {str(e)}")
     
-    def get_sleep_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-        """Fetch sleep data for a date range."""
-        return self._make_request("usercollection/daily_sleep", {
-            'start_date': start_date.strftime("%Y-%m-%d"),
-            'end_date': end_date.strftime("%Y-%m-%d")
-        })
-
     def get_activity_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Fetch activity data for a date range."""
         # Add one day to end_date to ensure we get the full day
@@ -228,13 +205,6 @@ class OuraClient:
         return self._make_request("usercollection/daily_activity", {
             'start_date': start_date.strftime("%Y-%m-%d"),
             'end_date': api_end_date.strftime("%Y-%m-%d")
-        })
-
-    def get_readiness_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-        """Fetch readiness data for a date range."""
-        return self._make_request("usercollection/daily_readiness", {
-            'start_date': start_date.strftime("%Y-%m-%d"),
-            'end_date': end_date.strftime("%Y-%m-%d")
         })
         
     def get_resilience_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:

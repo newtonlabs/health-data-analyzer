@@ -199,104 +199,9 @@ class OneDriveClient:
         """
         return self._ensure_folder_path(folder_path)
     
-    def create_folder_link(self, folder_path: str) -> str:
-        """Create a sharing link for a folder in OneDrive.
-        
-        Args:
-            folder_path: Path to the folder (e.g. 'Health Data/2025-06-15')
-            
-        Returns:
-            Sharing URL for the folder
-            
-        Raises:
-            Exception: If folder doesn't exist or link creation fails
-        """
-        folder_id = self._ensure_folder_path(folder_path)
-        
-        # Create sharing link
-        headers = {
-            "Authorization": f"Bearer {self._get_token()}",
-            "Content-Type": "application/json"
-        }
-        response = requests.post(
-            f"{self.base_url}/me/drive/items/{folder_id}/createLink",
-            headers=headers,
-            json={
-                'type': 'view',
-                'scope': 'anonymous'
-            }
-        )
-        response.raise_for_status()
-        
-        result = response.json()
-        if not isinstance(result, dict):
-            raise Exception(f"Invalid response format: {response.text}")
-        
-        link_data = result.get('link', {})
-        web_url = link_data.get('webUrl')
-        if not web_url:
-            raise Exception(f"No web URL in response: {response.text}")
-            
-        return web_url
 
-    def store_analysis(self, analysis_data: Dict[str, Any], filename: str = None) -> str:
-        """Store analysis results in OneDrive.
-        
-        Args:
-            analysis_data: Dictionary containing analysis results
-            filename: Optional filename, will generate one if not provided
-            
-        Returns:
-            str: URL of the uploaded file
-            
-        Raises:
-            Exception: If upload fails
-        """
-        # Token validity is checked by _get_token
-        
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"health_analysis_{timestamp}.json"
-        
-        # Create health-analysis folder
-        folder_path = "health-analysis"
-        folder_id = self.create_folder(folder_path)
-        
-        # Upload file to folder
-        file_content = json.dumps(analysis_data, indent=2)
-        upload_url = f"{self.base_url}/me/drive/items/{folder_id}:/{filename}:/content"
-        
-        response = requests.put(
-            upload_url,
-            headers={"Authorization": f"Bearer {self._get_token()}"},
-            data=file_content.encode('utf-8')
-        )
-        response.raise_for_status()
-        
-        # Get file ID from upload response
-        file_id = response.json()['id']
-        
-        # Create sharing link
-        response = requests.post(
-            f"{self.base_url}/me/drive/items/{file_id}/createLink",
-            headers={"Authorization": f"Bearer {self._get_token()}", "Content-Type": "application/json"},
-            json={
-                'type': 'view',
-                'scope': 'anonymous'
-            }
-        )
-        response.raise_for_status()
-        
-        result = response.json()
-        if not isinstance(result, dict):
-            raise Exception(f"Invalid response format: {response.text}")
-        
-        link_data = result.get('link', {})
-        web_url = link_data.get('webUrl')
-        if not web_url:
-            raise Exception(f"No web URL in response: {response.text}")
-            
-        return web_url
+
+
 
     def upload_file(self, file_path: str, folder_name: str = None) -> str:
         """Upload a file to OneDrive.
@@ -354,28 +259,4 @@ class OneDriveClient:
         
         return response.json()['link']['webUrl']
 
-    def get_analysis(self, filename: str) -> Dict[str, Any]:
-        """Retrieve analysis results from OneDrive.
-        
-        Args:
-            filename: Name of the file to retrieve
-            
-        Returns:
-            Dict[str, Any]: The analysis data
-            
-        Raises:
-            Exception: If file retrieval fails
-        """
-        # Token validity is checked by _get_token
-        
-        # Get file content
-        download_url = f"{self.base_url}/me/drive/root:/health-analysis/{filename}:/content"
-        response = requests.get(
-            download_url,
-            headers={"Authorization": f"Bearer {self._get_token()}"}
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"Failed to retrieve file: {response.text}")
-        
-        return json.loads(response.text)
+

@@ -98,16 +98,16 @@ class RecoveryChartGenerator(ChartGenerator):
             
             # No smoothing - plot direct lines with markers using same x_numeric as bars
             # Plot lines with updated styling and markers
-            sleep_actual_line, = ax2.plot(x_numeric, df['sleep_actual'], 
-                                        color=ReportingConfig.COLORS['sleep_actual'], linestyle='--', linewidth=ReportingConfig.STYLING['line_thickness'], 
-                                        marker='o', markersize=ReportingConfig.STYLING['default_marker_size'],
-                                        label="Sleep Actual")
+            ax2.plot(x_numeric, df['sleep_actual'], 
+                     color=ReportingConfig.COLORS['sleep_actual'], linestyle='--', linewidth=ReportingConfig.STYLING['line_thickness'], 
+                     marker='o', markersize=ReportingConfig.STYLING['default_marker_size'],
+                     label="Sleep Actual")
             
             # Use bright blue for sleep need line to match nutrition chart target lines
-            sleep_need_line, = ax2.plot(x_numeric, df['sleep_need'], 
-                                      color=ReportingConfig.COLORS['sleep_need'], linestyle='-', linewidth=ReportingConfig.STYLING['line_thickness'], 
-                                      marker='s', markersize=ReportingConfig.STYLING['default_marker_size'],
-                                      label="Sleep Need")
+            ax2.plot(x_numeric, df['sleep_need'], 
+                     color=ReportingConfig.COLORS['sleep_need'], linestyle='-', linewidth=ReportingConfig.STYLING['line_thickness'], 
+                     marker='s', markersize=ReportingConfig.STYLING['default_marker_size'],
+                     label="Sleep Need")
             
             # Set up secondary axis for sleep hours
             max_sleep = max(df['sleep_need'].max(), df['sleep_actual'].max())

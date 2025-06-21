@@ -153,24 +153,7 @@ class MetricsAggregator:
             }
         return workout_by_date
     
-    def _update_training_metrics(self, df: pd.DataFrame, workout_by_date: dict) -> pd.DataFrame:
-        """Update DataFrame with training metrics."""
-        # Set default values
-        df['sport'] = 'Rest'
-        df['duration'] = 0
-        df['strain'] = 0
-        
-        # Update with actual values - use the primary workout for weekly macros
-        for date in df['date']:
-            if date in workout_by_date:
-                df.loc[df['date'] == date, 'sport'] = workout_by_date[date]['primary']['sport']
-                df.loc[df['date'] == date, 'duration'] = workout_by_date[date]['primary']['duration']
-                df.loc[df['date'] == date, 'strain'] = workout_by_date[date]['primary']['strain']
-        
-        # Format numeric values
-        df['strain'] = df['strain'].apply(lambda x: round(float(x), 1) if not pd.isna(x) else 0.0)
-        
-        return df
+
     
     def _create_date_range_df(self, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Create base DataFrame with date range."""
@@ -310,7 +293,7 @@ class MetricsAggregator:
         all_workouts = []
         
         # For each date, add all workouts
-        for date_idx, row in date_df.iterrows():
+        for _, row in date_df.iterrows():
             date = row['date']
             day = row['day']
             

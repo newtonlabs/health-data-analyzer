@@ -87,10 +87,7 @@ class DateUtils:
         """Format datetime using standard format."""
         return dt.strftime(fmt)
     
-    @staticmethod
-    def format_display_date(dt: datetime) -> str:
-        """Format date for display (MM-DD (day))."""
-        return dt.strftime(DateFormat.DISPLAY)
+
 
     @staticmethod
     def get_day_of_week_labels(date_strings: List[str]) -> List[str]:
@@ -162,16 +159,3 @@ class DateUtils:
             return DateStatus.FUTURE
         else:
             return DateStatus.TODAY
-    
-    @staticmethod
-    def validate_date_range(start: datetime, end: datetime) -> bool:
-        """Validate that start date is before or equal to end date.
-        
-        Args:
-            start: Start date
-            end: End date
-            
-        Returns:
-            True if start <= end, False otherwise
-        """
-        return start.date() <= end.date()

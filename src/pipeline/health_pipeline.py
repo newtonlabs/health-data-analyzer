@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
+from src.data_sources.token_manager import TokenManager
 from src.data_sources.oura_client import OuraClient
 from src.data_sources.whoop_client import WhoopClient
 from src.data_sources.withings_client import WithingsClient
@@ -32,10 +33,13 @@ class HealthPipeline:
         
         # Initialize clients
         if not skip_auth:
-            self.whoop = WhoopClient()
-            self.oura = OuraClient()
-            self.withings = WithingsClient()
-            self.storage = OneDriveClient()
+            whoop_client_id = os.getenv('WHOOP_CLIENT_ID')
+        whoop_client_secret = os.getenv('WHOOP_CLIENT_SECRET')
+        whoop_token_manager = TokenManager(os.path.expanduser('~/.whoop_tokens.json'))
+        self.whoop = WhoopClient(whoop_client_id, whoop_client_secret, whoop_token_manager)
+        self.oura = OuraClient()
+        self.withings = WithingsClient()
+        self.storage = OneDriveClient()
         
         # Initialize data processing components
         self.processor = HealthDataProcessor()
@@ -56,9 +60,14 @@ class HealthPipeline:
         
         # Authenticate with Whoop
         if not self.whoop.is_authenticated():
-            if not self.whoop.authenticate():
-                self.logger.log_skipped_date(None, "Failed to authenticate with Whoop")
-                sys.exit(1)
+            if not self.whoop.authenticate(): 
+                auth_code = input("Please enter the authorization code from the redirected URL: ")
+                try:
+                    self.whoop.get_token(auth_code, self.whoop.state)
+                    self.logger.info("Whoop authentication successful!")
+                except Exception as e:
+                    self.logger.log_skipped_date(None, f"Failed to authenticate with Whoop: {e}")
+                    sys.exit(1)
                 
         # Authenticate with Withings
         if not self.withings.is_authenticated():

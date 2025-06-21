@@ -202,7 +202,6 @@ class NutritionChartGenerator(ChartGenerator):
                         
                         # Use text color from constants for consistent styling
                         text_color = ReportingConfig.COLORS['text']  # Gray for text elements
-                        border_color = ReportingConfig.COLORS['grid']  # Light gray for borders
                         
                         # Style the y-axis label and ticks with text color - use title case
                         ax2.set_ylabel('Weight (lbs)', color=text_color, fontsize=ReportingConfig.STYLING['default_font_size'])
