@@ -386,7 +386,7 @@ class NutritionChartGenerator(ChartGenerator):
         
         # Minimal styling with no labels
         ax.set_xlabel("", color='#666666', fontsize=9)
-        ax.set_ylabel("", color='#666666', fontsize=9)
+        ax.set_ylabel("Calories Consumed", color=ReportingConfig.COLORS['text'], fontsize=9)
         ax.tick_params(axis='both', colors='#666666', labelsize=8)
         
         # Configure spines/borders - consistent with recovery chart
