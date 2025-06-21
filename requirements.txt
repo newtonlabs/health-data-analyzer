@@ -22,3 +22,4 @@ msal>=1.16.0
 
 # Utils
 tqdm>=4.62.0
+vulture
