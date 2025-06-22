@@ -120,7 +120,14 @@ class WhoopClient(APIClient):
             "start": DateUtils.format_date(start_date, DateFormat.ISO),
             "end": DateUtils.format_date(api_end, DateFormat.ISO),
         }
-        response = self._make_request("v1/recovery", params)
+        # Save the API response to the data directory
+        save_path = f"whoop-recovery-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        response = self._make_request(
+            endpoint="v1/recovery", 
+            params=params, 
+            save_response=True, 
+            save_path=save_path
+        )
         return response
 
     def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
@@ -153,7 +160,14 @@ class WhoopClient(APIClient):
             "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "limit": min(limit, 25),
         }
-        return self._make_request("v1/activity/workout", params)
+        # Save the API response to the data directory
+        save_path = f"whoop-workouts-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        return self._make_request(
+            endpoint="v1/activity/workout", 
+            params=params, 
+            save_response=True, 
+            save_path=save_path
+        )
 
     def get_sleep(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get sleep data for a date range.
@@ -169,7 +183,14 @@ class WhoopClient(APIClient):
             "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
-        return self._make_request("v1/activity/sleep", params)
+        # Save the API response to the data directory
+        save_path = f"whoop-sleep-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        return self._make_request(
+            endpoint="v1/activity/sleep", 
+            params=params, 
+            save_response=True, 
+            save_path=save_path
+        )
 
     # Authentication methods
     def authenticate(self) -> bool:

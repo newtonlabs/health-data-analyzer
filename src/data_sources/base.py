@@ -294,7 +294,10 @@ class APIClient:
             # Save response to file if requested
             if save_response and save_path:
                 from src.utils.file_utils import save_json_to_file
-                save_json_to_file(response_data, save_path)
+                # Extract client name from class name for the subdir
+                client_name = self.__class__.__name__.replace('Client', '').lower()
+                subdir = f"api-responses/{client_name}"
+                save_json_to_file(response_data, save_path, subdir=subdir)
                 
             return response_data
         except requests.exceptions.RequestException as e:
