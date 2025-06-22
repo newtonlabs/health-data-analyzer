@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from src.data_sources.base import APIClient, APIClientError
-from src.data_sources.hevy_constants import DEFAULT_PAGE_SIZE
+from src.data_sources.clients.hevy_constants import DEFAULT_PAGE_SIZE
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 

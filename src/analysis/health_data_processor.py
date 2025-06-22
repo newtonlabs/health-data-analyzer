@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 
 from src.data_sources.nutrition_data import NutritionData
-from src.data_sources.whoop_constants import get_sport_name
+from src.data_sources.clients.whoop_constants import get_sport_name
 from src.utils.date_utils import DateStatus, DateUtils
 from src.utils.file_utils import save_dataframe_to_file
 from src.utils.logging_utils import HealthLogger

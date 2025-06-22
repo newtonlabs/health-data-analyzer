@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, Tuple, List
 
-from src.data_sources.whoop_constants import get_sport_name
+from src.data_sources.clients.whoop_constants import get_sport_name
 from src.utils.date_utils import DateUtils, DateFormat
 from src.utils.logging_utils import HealthLogger
 
