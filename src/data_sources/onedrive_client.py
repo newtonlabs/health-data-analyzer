@@ -64,6 +64,12 @@ class OneDriveClient(APIClient):
         Returns:
             bool: True if authentication was successful, False otherwise.
         """
+        # Use the base class handle_authentication method which handles token refresh and clearing
+        # If it returns True, authentication was successful
+        if super().handle_authentication():
+            return True
+            
+        # If the base class authentication failed, continue with OneDrive-specific authentication
         try:
             # Try silent acquisition with MSAL
             accounts = self.app.get_accounts()
@@ -117,6 +123,45 @@ class OneDriveClient(APIClient):
             self.logger.error(f"Error during authentication: {str(e)}")
             return False
 
+    def refresh_access_token(self) -> bool:
+        """Refresh the access token using MSAL's silent token acquisition.
+        
+        Returns:
+            bool: True if refresh was successful, False otherwise
+        """
+        self.logger.debug("Refreshing OneDrive access token")
+        
+        try:
+            # MSAL handles token refresh differently - it uses the token cache
+            accounts = self.app.get_accounts()
+            if not accounts:
+                self.logger.warning("No accounts found in MSAL cache")
+                return False
+                
+            # Try silent token acquisition
+            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
+            if result and "access_token" in result:
+                # Update tokens
+                self.token_manager.save_tokens(
+                    {
+                        "msal_cache": self.msal_token_cache.serialize(),
+                        "access_token": result["access_token"],
+                        "refresh_token": None,  # MSAL handles refresh internally
+                        "token_type": "Bearer",
+                        "expires_in": result.get("expires_in", 3600),
+                    }
+                )
+                self.access_token = result["access_token"]
+                self.token_type = "Bearer"
+                self.expires_in = result.get("expires_in", 3600)
+                return True
+            else:
+                self.logger.warning("Silent token acquisition failed")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error refreshing token: {str(e)}")
+            return False
+    
     def _get_token(self) -> str:
         """Get a valid access token.
 
@@ -126,30 +171,12 @@ class OneDriveClient(APIClient):
         Raises:
             ValueError: If no valid token is available
         """
-        accounts = self.app.get_accounts()
-        if accounts:
-            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
-            if result and "access_token" in result:
-                self.token_manager.save_tokens(
-                    {
-                        "msal_cache": self.msal_token_cache.serialize(),
-                        "access_token": result["access_token"],
-                        "expires_in": result.get("expires_in", 3600),
-                    }
-                )  # Save serialized cache
-                return result["access_token"]
-
-        if not self.authenticate():
-            raise ValueError("Failed to get access token")
-
-        # After successful authentication, the token should be in the cache
-        accounts = self.app.get_accounts()
-        if accounts:
-            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
-            if result and "access_token" in result:
-                return result["access_token"]
-
-        raise ValueError("Failed to retrieve access token after authentication")
+        try:
+            # Use the base class implementation
+            return self._get_access_token()
+        except APIClientError as e:
+            # Convert APIClientError to ValueError for backward compatibility
+            raise ValueError(f"Failed to get access token: {str(e)}")
 
     def _ensure_folder_path(self, folder_path: str) -> str:
         """Ensure a folder path exists in OneDrive, creating any missing folders.

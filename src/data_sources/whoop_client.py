@@ -106,52 +106,22 @@ class WhoopClient(APIClient):
             "redirect_uri": self.redirect_uri,
             "state": self.state,
         }
+
         return f"https://api.prod.whoop.com/oauth/oauth2/auth?{urlencode(params)}"
-
-    def _make_request(
-        self, endpoint: str, params: dict[str, Any] = None
-    ) -> dict[str, Any]:
-        """Make a request to the Whoop API.
-
-        Args:
-            endpoint: API endpoint to call
-            params: Optional query parameters
-
-        Returns:
-            JSON response from API
-        """
-        if not self.is_authenticated():
-            raise WhoopError("Not authenticated. Please get an access token.")
-
-        headers = {
-            "Authorization": f"Bearer {self.token_manager.get_access_token()}",
-            "Content-Type": "application/json",
-        }
-
-        try:
-            response = requests.get(
-                f"{self.base_url}/{endpoint}", headers=headers, params=params
-            )
-            response.raise_for_status()
-            response_data = response.json()
-
-            # Save API response as JSON file
-            save_json_to_file(
-                response_data,
-                f"whoop-{endpoint.replace('/', '-')}",
-                subdir="api-responses/whoop",
-            )
-            return response_data
-        except requests.exceptions.RequestException as e:
-            raise WhoopError(f"Failed to fetch data from Whoop API: {str(e)}")
 
     def get_recovery_data(
         self, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
         """Fetch recovery data for a date range."""
-        # Use the /v1/recovery endpoint as /v1/activity/recovery seems to be deprecated or incorrect.
-        # This method is kept for compatibility but internally calls get_recovery.
-        return self.get_recovery(start_date, end_date)
+        # Whoop API requires end date to be after start date
+        api_end = end_date + timedelta(days=1)
+
+        params = {
+            "start": DateUtils.format_date(start_date, DateFormat.ISO),
+            "end": DateUtils.format_date(api_end, DateFormat.ISO),
+        }
+        response = self._make_request("v1/recovery", params)
+        return response
 
     def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get recovery data for a specified time range.
@@ -163,15 +133,7 @@ class WhoopClient(APIClient):
         Returns:
             Dict containing recovery data
         """
-        # Add one day to end_date to ensure we get recovery scores recorded early morning
-        api_end = end_date + timedelta(days=1)
-
-        params = {
-            "start": DateUtils.format_date(start_date, DateFormat.ISO),
-            "end": DateUtils.format_date(api_end, DateFormat.ISO),
-        }
-        response = self._make_request("v1/recovery", params)
-        return response
+        return self.get_recovery_data(start_date, end_date)
 
     def get_workouts(
         self, start_date: datetime, end_date: datetime, limit: int = 25
@@ -216,18 +178,12 @@ class WhoopClient(APIClient):
         Returns:
             bool: True if authentication was successful, False otherwise
         """
-        # Try using saved tokens first
-        if self.is_authenticated():
-            try:
-                self.logger.debug("Found saved authentication tokens")
-                self.logger.debug("Refreshing access token...")
-                self.refresh_access_token()
-                return True
-            except Exception:
-                self.logger.debug(
-                    "Token refresh failed, clearing tokens and starting new authentication..."
-                )
-                self.token_manager.clear_tokens()
+        # Use the base class handle_authentication method which handles token refresh and clearing
+        # If it returns True, authentication was successful
+        if super().handle_authentication():
+            return True
+            
+        # If the base class authentication failed, continue with Whoop-specific authentication
 
         # Start new authentication
         auth_url = self.get_auth_url()
@@ -276,43 +232,34 @@ class WhoopClient(APIClient):
             state: State parameter from callback, must match the one we sent
 
         Raises:
-            WhoopError: If token exchange fails or state doesn't match
+            APIClientError: If token exchange fails or state doesn't match
         """
-        if state != self.state:
-            raise WhoopError("State parameter doesn't match. Possible CSRF attack.")
+        # Prepare token parameters
+        token_params = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": self.redirect_uri,
+        }
+        
+        # Use the base class method to exchange the code for a token
+        self.exchange_code_for_token(code, state, self.state, self.token_url, token_params)
 
-        try:
-            response = requests.post(
-                self.token_url,
-                data={
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "code": code,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": self.redirect_uri,
-                },
-            )
-
-            # Check for error response
-            if response.status_code != 200:
-                error_msg = response.json().get("error_description", "Unknown error")
-                raise WhoopError(f"Failed to get access token: {error_msg}")
-
-            token_data = response.json()
-            self.token_manager.save_tokens(token_data)
-        except requests.exceptions.RequestException as e:
-            raise WhoopError(f"Failed to get access token: {str(e)}")
-
-    def refresh_access_token(self) -> None:
+    def refresh_access_token(self) -> bool:
         """Refresh the access token using the refresh token.
 
+        Returns:
+            bool: True if refresh was successful, False otherwise
+            
         Raises:
-            WhoopError: If refresh fails or no refresh token is available
+            APIClientError: If refresh fails or no refresh token is available
         """
         if not self.refresh_token:
-            raise WhoopError("No refresh token available")
+            raise APIClientError("No refresh token available")
 
         try:
+            self.logger.debug("Refreshing Whoop access token")
             response = requests.post(
                 "https://api.prod.whoop.com/oauth/oauth2/token",
                 data={
@@ -326,17 +273,16 @@ class WhoopClient(APIClient):
 
             token_data = response.json()
             self.token_manager.save_tokens(token_data)
-
+            
+            # Update instance variables
+            self.access_token = token_data.get("access_token")
+            self.refresh_token = token_data.get("refresh_token")
+            self.token_type = token_data.get("token_type")
+            self.expires_in = token_data.get("expires_in", 0)
+            
+            return True
         except requests.exceptions.RequestException as e:
-            raise WhoopError(f"Failed to refresh access token: {str(e)}")
+            self.logger.error(f"Failed to refresh access token: {str(e)}")
+            return False
 
-    def is_authenticated(self) -> bool:
-        """Check if we have a valid access token.
-
-        Returns:
-            True if we have an access token and it's not expired
-        """
-        return (
-            self.token_manager.get_access_token() is not None
-            and not self.token_manager.is_token_expired()
-        )
+    # Using base class is_authenticated method instead of custom implementation

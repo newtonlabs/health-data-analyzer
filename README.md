@@ -135,6 +135,22 @@ pyupgrade --py39-plus src/**/*.py
 
 The application integrates with three external services: Whoop, Oura, and OneDrive. Here's how to set up each one:
 
+### Token Management Configuration
+
+The application includes a robust token management system that reduces the frequency of reauthentication. By default, tokens are considered valid for 30 days, and the application will attempt to refresh them when they're within 24 hours of expiration.
+
+You can customize these settings using environment variables in your `.env` file:
+
+```
+# Optional: Configure token validity period (in days)
+TOKEN_VALIDITY_DAYS=30
+
+# Optional: Configure refresh buffer time (in hours)
+TOKEN_REFRESH_BUFFER_HOURS=24
+```
+
+Increasing the `TOKEN_VALIDITY_DAYS` value will reduce how often you need to reauthenticate with each service. The `TOKEN_REFRESH_BUFFER_HOURS` determines how early before expiration the application will attempt to refresh tokens.
+
 ### Whoop API Setup
 
 1. Create a developer account at [Whoop Developer Portal](https://developer.whoop.com/)
