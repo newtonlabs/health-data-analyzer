@@ -4,29 +4,21 @@ import json
 import os
 import secrets
 import socket
-import threading
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
+from src.data_sources.base import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
 from src.utils.file_utils import save_json_to_file
-from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 
-from .token_manager import TokenManager
 
-
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
+class WhoopCallbackHandler(OAuthCallbackHandler):
     """Handle OAuth callback from Whoop."""
-    
-    def log_message(self, format, *args):
-        """Override to suppress HTTP server logs."""
-        # Disable logging of HTTP requests
-        pass
 
     def do_GET(self):
         """Handle OAuth callback from Whoop.
@@ -65,41 +57,38 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
             self.server.should_stop = True
 
 
-class WhoopError(Exception):
-    """Custom exception for Whoop API errors."""
-
-    pass
-
-
-class WhoopClient:
+class WhoopClient(APIClient):
     """Client for interacting with the Whoop API."""
 
-    def __init__(self, client_id: str = None, client_secret: str = None, token_manager: TokenManager = None):
+    def __init__(self, client_id: str = None, client_secret: str = None, token_file: str = None):
         """Initialize the Whoop client.
 
         Args:
             client_id: Optional client ID. If not provided, will look for WHOOP_CLIENT_ID in environment.
             client_secret: Optional client secret. If not provided, will look for WHOOP_CLIENT_SECRET in environment.
-            token_manager: Optional token manager. If not provided, will create one with default path.
+            token_file: Optional path to token storage file.
 
         Raises:
             ValueError: If credentials are not provided or found in environment.
         """
-        self.client_id = client_id or os.getenv("WHOOP_CLIENT_ID")
-        self.client_secret = client_secret or os.getenv("WHOOP_CLIENT_SECRET")
-        if not self.client_id or not self.client_secret:
-            raise ValueError("Whoop client ID and secret are required")
-            
-        self.token_manager = token_manager or TokenManager(os.path.expanduser("~/.whoop_tokens.json"))
-        self.base_url = "https://api.prod.whoop.com/developer"
+        # Initialize base class
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            token_file=token_file,
+            env_client_id="WHOOP_CLIENT_ID",
+            env_client_secret="WHOOP_CLIENT_SECRET",
+            default_token_path="~/.whoop_tokens.json",
+            base_url="https://api.prod.whoop.com/developer"
+        )
+        
+        # Whoop-specific configuration
         self.token_url = "https://api.prod.whoop.com/oauth/oauth2/token"
         self.redirect_uri = "http://localhost:8080/callback"
 
         # For OAuth flow
         self.code = None
         self.state = None
-
-        self.logger = HealthLogger(__name__)
 
     def get_auth_url(self) -> str:
         """Get the URL for OAuth2 authorization.
@@ -248,7 +237,7 @@ class WhoopClient:
         )
 
         # Start local server to handle callback
-        server = HTTPServer(("localhost", 8080), OAuthCallbackHandler)
+        server = HTTPServer(("localhost", 8080), WhoopCallbackHandler)
         server.auth_code = None
         server.auth_state = None
         server.should_stop = False  # Add flag for graceful shutdown

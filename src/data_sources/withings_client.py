@@ -3,27 +3,20 @@
 import os
 import secrets
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
+from src.data_sources.base import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
 from src.utils.file_utils import save_json_to_file
-from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 
-from .token_manager import TokenManager
 
-
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
+class WithingsCallbackHandler(OAuthCallbackHandler):
     """Handle OAuth callback from Withings."""
-    
-    def log_message(self, format, *args):
-        """Override to suppress HTTP server logs."""
-        # Disable logging of HTTP requests
-        pass
 
     def do_GET(self):
         """Handle OAuth callback from Withings.
@@ -72,7 +65,7 @@ class WithingsError(Exception):
     pass
 
 
-class WithingsClient:
+class WithingsClient(APIClient):
     """Client for interacting with the Withings API.
 
     This client handles:
@@ -96,24 +89,19 @@ class WithingsClient:
         Raises:
             ValueError: If credentials are not provided or found in environment.
         """
-        self.client_id = client_id or os.getenv("WITHINGS_CLIENT_ID")
-        self.client_secret = client_secret or os.getenv("WITHINGS_CLIENT_SECRET")
-        if not self.client_id or not self.client_secret:
-            raise ValueError("Withings client ID and secret are required")
-
-        self.base_url = "https://wbsapi.withings.net"
-        self.access_token = None
-        self.token_type = None
-        self.expires_in = 0
-        self.refresh_token = None
+        # Initialize base class
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            token_file=token_file,
+            env_client_id="WITHINGS_CLIENT_ID",
+            env_client_secret="WITHINGS_CLIENT_SECRET",
+            default_token_path="~/.withings_tokens.json",
+            base_url="https://wbsapi.withings.net"
+        )
+        
+        # Withings-specific state
         self.state = None
-
-        # Set up token manager and logger
-        # Always use a dedicated token file for Withings
-        self.token_manager = TokenManager(os.path.expanduser("~/.withings_tokens.json"))
-        self.logger = HealthLogger(__name__)
-
-        # Try to load existing tokens
         saved_tokens = self.token_manager.get_tokens()
         if saved_tokens:
             self.access_token = saved_tokens.get("access_token")
@@ -258,7 +246,7 @@ class WithingsClient:
 
         # Start a local server to receive the callback
         server_address = ("localhost", 8080)
-        httpd = HTTPServer(server_address, OAuthCallbackHandler)
+        httpd = HTTPServer(server_address, WithingsCallbackHandler)
         httpd.withings_client = self
         httpd.authenticated = False
         httpd.should_stop = False

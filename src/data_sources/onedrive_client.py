@@ -9,35 +9,43 @@ import msal
 import requests
 from msal import PublicClientApplication
 
-from src.data_sources.token_manager import TokenManager
-from src.utils.logging_utils import HealthLogger
+from src.data_sources.base import APIClient, APIClientError
 from src.utils.progress_indicators import ProgressIndicator
 
 
-class OneDriveClient:
-    def __init__(self, client_id: str = None):
+class OneDriveClient(APIClient):
+    """OneDrive client for storing analysis results using MSAL device flow authentication."""
+    
+    def __init__(self, client_id: str = None, client_secret: str = None, token_file: str = None):
         """Initialize OneDrive storage with MSAL authentication.
 
         Args:
             client_id: Optional client ID. If not provided, will look for ONEDRIVE_CLIENT_ID in environment.
+            client_secret: Optional client secret. Not required for OneDrive but included for API consistency.
+            token_file: Optional path to token storage file.
 
         Raises:
             ValueError: If client_id is not provided or found in environment.
         """
-        self.client_id = client_id or os.getenv("ONEDRIVE_CLIENT_ID")
-        if not self.client_id:
-            raise ValueError("OneDrive client ID is required")
-
+        # Initialize base class
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            token_file=token_file,
+            env_client_id="ONEDRIVE_CLIENT_ID",
+            env_client_secret="ONEDRIVE_CLIENT_SECRET",
+            default_token_path="~/.onedrive_tokens.json",
+            base_url="https://graph.microsoft.com/v1.0"
+        )
+        
         # Microsoft Graph API configuration
         self.tenant_id = "consumers"  # Use 'consumers' for personal accounts
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         self.scopes = ["https://graph.microsoft.com/Files.ReadWrite"]
-        self.base_url = "https://graph.microsoft.com/v1.0"
-
-        self.token_manager = TokenManager(os.path.expanduser("~/.onedrive_tokens.json"))
 
         # Initialize MSAL token cache
         self.msal_token_cache = msal.SerializableTokenCache()
+        
         # Load existing tokens from TokenManager if available
         cached_tokens_data = self.token_manager.get_tokens()
         if cached_tokens_data and "msal_cache" in cached_tokens_data:
@@ -47,10 +55,8 @@ class OneDriveClient:
         self.app = PublicClientApplication(
             client_id=self.client_id,
             authority=self.authority,
-            token_cache=self.msal_token_cache,  # Use OneDriveClient's own MSAL cache
+            token_cache=self.msal_token_cache,
         )
-        self.access_token = None
-        self.logger = HealthLogger(__name__)
 
     def authenticate(self) -> bool:
         """Authenticate with OneDrive using device flow or cached tokens.
@@ -86,7 +92,6 @@ class OneDriveClient:
             ProgressIndicator.bullet_item(
                 f"[OneDrive Auth] Enter the code: {flow['user_code']}"
             )
-            ProgressIndicator.bullet_item("Waiting for authentication...")
             
             # Wait for user to complete authentication
             result = self.app.acquire_token_by_device_flow(flow)
