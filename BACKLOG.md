@@ -9,4 +9,5 @@
 [] Rename metrics_aggragator.py to aggregator.py
 [] Rename analyzer_config.py to config.py, consider consolidating all the config into yaml
 [] Move the markdown writer to use fileutils
+[] Autoamte cronometer with a HAR file and playwright
 
