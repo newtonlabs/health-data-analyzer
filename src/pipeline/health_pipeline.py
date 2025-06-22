@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from src.analysis.health_data_processor import HealthDataProcessor
+from src.analysis.processor import Processor
 from src.analysis.metrics_aggregator import MetricsAggregator
 from src.data_sources.hevy_client import HevyClient
 from src.data_sources.onedrive_client import OneDriveClient
@@ -43,7 +43,7 @@ class HealthPipeline:
         self.storage = OneDriveClient()
 
         # Initialize data processing components
-        self.processor = HealthDataProcessor()
+        self.processor = Processor()
         self.aggregator = MetricsAggregator(self.processor)
         self.report_gen = ReportGenerator(self.aggregator)
         self.converter = PDFConverter()
@@ -291,8 +291,7 @@ class HealthPipeline:
                 oura_raw=raw_data["oura"],
                 whoop_raw=raw_data["whoop"],
                 withings_raw=raw_data["withings"],
-                # We're fetching Hevy data but not processing it yet
-                # hevy_raw=raw_data["hevy"],
+                hevy_raw=raw_data["hevy"],
                 start_date=report_start,
                 end_date=report_end,
             )

@@ -10,7 +10,7 @@ from src.utils.file_utils import save_dataframe_to_file
 from src.utils.logging_utils import HealthLogger
 
 from .analyzer_config import AnalyzerConfig
-from .health_data_processor import HealthDataProcessor
+from .processor import Processor
 
 
 class MetricsAggregator:
@@ -26,7 +26,7 @@ class MetricsAggregator:
     that can be used for analysis and reporting.
     """
 
-    def __init__(self, processor: HealthDataProcessor):
+    def __init__(self, processor: Processor):
         """Initialize MetricsAggregator.
 
         Args:
@@ -127,13 +127,24 @@ class MetricsAggregator:
         # Group workouts by date
         workout_by_date = {}
 
+        # Debug logging for workout DataFrame
+        self.logger.logger.debug(f"_format_workout_data - columns: {workout_df.columns}")
+        self.logger.logger.debug(f"_format_workout_data - sample data: {workout_df.head(1).to_dict('records')}")
+        
         # First pass: collect all workouts by date
         all_workouts_by_date = {}
         for _, row in workout_df.iterrows():
             date = row["date"]
             sport = row["sport"]
             strain = row["strain"]
-            duration = row["duration"]
+            
+            # Check if duration is in the row
+            if "duration" in row:
+                duration = row["duration"]
+                self.logger.logger.debug(f"_format_workout_data - workout on {date}: sport={sport}, duration={duration}, type={type(duration)}")
+            else:
+                duration = 0
+                self.logger.logger.debug(f"_format_workout_data - workout on {date}: sport={sport}, duration missing, using default 0")
 
             # Check if sport is in excluded list
             if sport in AnalyzerConfig.EXCLUDED_SPORTS:
@@ -440,11 +451,20 @@ class MetricsAggregator:
         # Track best workout for each date
         best_workouts = {}
 
+        # Debug logging for workout data
+        self.logger.logger.debug(f"Workout DataFrame columns: {workout_df.columns}")
+        if 'duration' in workout_df.columns:
+            self.logger.logger.debug(f"Workout durations: {workout_df['duration'].tolist()}")
+        else:
+            self.logger.logger.debug("'duration' column not found in workout DataFrame")
+        
         # Process each workout
         for _, row in workout_df.iterrows():
             date_key = row["date"].strftime("%m-%d")
             sport = row["sport"]
             strain = row["strain"]
+            duration = row.get("duration", 0)
+            self.logger.logger.debug(f"Processing workout: date={date_key}, sport={sport}, strain={strain}, duration={duration}")
 
             # Categorize the sport
             if sport in AnalyzerConfig.EXCLUDED_SPORTS:
