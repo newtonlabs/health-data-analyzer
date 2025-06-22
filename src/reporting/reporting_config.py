@@ -1,6 +1,6 @@
 """Configuration for reporting components."""
 
-from typing import Dict, List
+# No imports needed
 
 
 class ReportingConfig:

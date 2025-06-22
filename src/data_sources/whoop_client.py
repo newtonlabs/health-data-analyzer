@@ -7,7 +7,7 @@ import socket
 import threading
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests

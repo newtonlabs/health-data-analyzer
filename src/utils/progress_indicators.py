@@ -26,20 +26,8 @@ class ProgressIndicator:
     _current_message = ""
     _indent_level = 0
 
-    @staticmethod
-    def should_show_progress() -> bool:
-        """Determine if progress indicators should be shown.
-
-        Progress indicators are suppressed when logging level is DEBUG or lower,
-        to avoid cluttering the console with both detailed logs and progress updates.
-
-        Returns:
-            bool: True if progress indicators should be shown, False otherwise
-        """
-        import logging
-
-        # Only show progress indicators if log level is higher than DEBUG
-        return logging.getLogger().level > logging.DEBUG
+    # should_show_progress method has been removed as part of refactoring
+    # Progress indicators are now always shown
 
     @staticmethod
     def step_start(message: str) -> None:

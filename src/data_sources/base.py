@@ -3,7 +3,7 @@
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 

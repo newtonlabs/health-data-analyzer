@@ -1,7 +1,7 @@
 """Module for generating health and fitness metrics."""
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 

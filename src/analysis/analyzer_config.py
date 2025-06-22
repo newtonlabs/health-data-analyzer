@@ -1,6 +1,6 @@
 """Configuration for data analyzer."""
 
-from typing import Dict, List
+# No imports needed
 
 
 class AnalyzerConfig:

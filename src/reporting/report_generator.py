@@ -2,7 +2,7 @@
 
 import os
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pandas as pd
 

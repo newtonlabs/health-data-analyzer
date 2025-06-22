@@ -83,7 +83,7 @@ def main() -> None:
         # Show success message at the end
         if args.fetch or args.pdf or args.upload:
             ProgressIndicator.print_message(
-                f"{Colors.GREEN}Process completed successfully!{Colors.RESET}"
+                f"\n{Colors.GREEN}Process completed successfully!{Colors.RESET}"
             )
     except KeyboardInterrupt:
         ProgressIndicator.bullet_item(

@@ -4,7 +4,7 @@ import os
 import secrets
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests

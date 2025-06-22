@@ -3,7 +3,7 @@
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from src.utils.logging_utils import HealthLogger
 
