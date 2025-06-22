@@ -26,6 +26,9 @@ class ProgressIndicator:
     _current_message = ""
     _indent_level = 0
 
+    # should_show_progress method has been removed as part of refactoring
+    # Progress indicators are now always shown
+
     @staticmethod
     def step_start(message: str) -> None:
         """Display the start of a processing step.
@@ -93,4 +96,17 @@ class ProgressIndicator:
         """
         bullet = f"{Colors.BLUE}•{Colors.RESET}"
         sys.stdout.write(f"{bullet} {message}\n")
+        sys.stdout.flush()
+
+    @staticmethod
+    def print_message(message: str) -> None:
+        """Print a normal message to stdout without any formatting.
+
+        This is useful for outputting plain text without any color or special formatting.
+        Unlike other methods, this one doesn't add any decorations to the message.
+
+        Args:
+            message: The message to display
+        """
+        sys.stdout.write(f"{message}\n")
         sys.stdout.flush()

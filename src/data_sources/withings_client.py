@@ -3,19 +3,19 @@
 import os
 import secrets
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict, List, Optional
+from http.server import HTTPServer
+from typing import Any, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
+from src.data_sources.base import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
-from src.utils.logging_utils import HealthLogger
+from src.utils.file_utils import save_json_to_file
+from src.utils.progress_indicators import ProgressIndicator
 
-from .token_manager import TokenManager
 
-
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
+class WithingsCallbackHandler(OAuthCallbackHandler):
     """Handle OAuth callback from Withings."""
 
     def do_GET(self):
@@ -59,13 +59,10 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
             self.server.should_stop = True
 
 
-class WithingsError(Exception):
-    """Custom exception for Withings API errors."""
-
-    pass
+# Using APIClientError from base.py instead of a custom WithingsError
 
 
-class WithingsClient:
+class WithingsClient(APIClient):
     """Client for interacting with the Withings API.
 
     This client handles:
@@ -89,31 +86,25 @@ class WithingsClient:
         Raises:
             ValueError: If credentials are not provided or found in environment.
         """
-        self.client_id = client_id or os.getenv("WITHINGS_CLIENT_ID")
-        self.client_secret = client_secret or os.getenv("WITHINGS_CLIENT_SECRET")
-        if not self.client_id or not self.client_secret:
-            raise ValueError("Withings client ID and secret are required")
-
-        self.base_url = "https://wbsapi.withings.net"
-        self.access_token = None
-        self.token_type = None
-        self.expires_in = 0
-        self.refresh_token = None
+        # Initialize base class
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            token_file=token_file,
+            env_client_id="WITHINGS_CLIENT_ID",
+            env_client_secret="WITHINGS_CLIENT_SECRET",
+            default_token_path="~/.withings_tokens.json",
+            base_url="https://wbsapi.withings.net"
+        )
+        
+        # Withings-specific state
         self.state = None
-
-        # Set up token manager and logger
-        # Always use a dedicated token file for Withings
-        self.token_manager = TokenManager(os.path.expanduser("~/.withings_tokens.json"))
-        self.logger = HealthLogger(__name__)
-
-        # Try to load existing tokens
         saved_tokens = self.token_manager.get_tokens()
         if saved_tokens:
             self.access_token = saved_tokens.get("access_token")
             self.refresh_token = saved_tokens.get("refresh_token")
             self.token_type = saved_tokens.get("token_type")
             self.expires_in = saved_tokens.get("expires_in", 0)
-            self.logger.debug("Found saved authentication tokens")
 
     def _make_request(
         self, endpoint: str, params: dict[str, Any] = None, method: str = "POST"
@@ -129,12 +120,12 @@ class WithingsClient:
             Dictionary containing response data
 
         Raises:
-            WithingsError: If the request fails
+            APIClientError: If the request fails
         """
         # Ensure we have a valid token
         if not self.is_authenticated():
             if not self.refresh_access_token():
-                raise WithingsError("Not authenticated and token refresh failed")
+                raise APIClientError("Not authenticated and token refresh failed")
 
         # Build the URL and headers
         url = f"{self.base_url}/{endpoint}"
@@ -145,43 +136,28 @@ class WithingsClient:
             "Accept": "application/json",
         }
 
-        # Extra debugging: print token, token type, and parameter types
-        token_preview = self.access_token[:8] + "..." if self.access_token else ""
-        self.logger.debug(
-            f"[DEBUG] WithingsClient: token_type={self.token_type}, access_token={token_preview}"
-        )
-        self.logger.debug(f"[DEBUG] WithingsClient: request headers: {headers}")
-        self.logger.debug(f"[DEBUG] WithingsClient: request params: {params}")
-        for k, v in (params or {}).items():
-            self.logger.debug(f"[DEBUG] Param '{k}' type: {type(v)} value: {v}")
-
         # Make the request
         try:
-            # Enhanced debugging for request details
-            self.logger.debug(f"Making {method} request to {url}")
-            self.logger.debug(f"Headers: {headers}")
-            self.logger.debug(f"Params: {params}")
-
             if method.upper() == "GET":
                 response = requests.get(url, headers=headers, params=params)
             else:  # POST
                 response = requests.post(url, headers=headers, data=params)
 
-            # Enhanced debugging for response
-            self.logger.debug(f"Response status code: {response.status_code}")
-            self.logger.debug(f"Response headers: {response.headers}")
-
             # Check for errors
             response.raise_for_status()
             data = response.json()
 
-            self.logger.debug(f"Response data: {data}")
-            self.logger.debug(f"Response status: {data.get('status')}")
+            # Save API response as JSON file
+            save_json_to_file(
+                data,
+                f"withings-{endpoint.replace('/', '-')}",
+                subdir="api-responses/withings",
+            )
 
             # Withings API returns a status code in the response body
             if data.get("status") != 0:
                 error_msg = data.get("error", "Unknown error")
-                raise WithingsError(f"API error: {error_msg}")
+                raise APIClientError(f"API error: {error_msg}")
 
             return data.get("body", {})
         except requests.exceptions.RequestException as e:
@@ -191,18 +167,11 @@ class WithingsClient:
                 and hasattr(e.response, "status_code")
                 and e.response.status_code == 401
             ):
-                self.logger.debug(
-                    f"Received 401 Unauthorized, attempting token refresh"
-                )
                 if self.refresh_access_token():
                     # Retry the request
                     return self._make_request(endpoint, params, method)
 
-            # Log the error details
-            if hasattr(e, "response") and hasattr(e.response, "text"):
-                self.logger.debug(f"API error response: {e.response.text}")
-
-            raise WithingsError(f"Request failed: {str(e)}")
+            raise APIClientError(f"Request failed: {str(e)}")
 
     def get_weight_data(
         self, start_date: datetime, end_date: datetime
@@ -217,7 +186,7 @@ class WithingsClient:
             Dict containing weight measurements
 
         Raises:
-            WithingsError: If the API call fails
+            APIClientError: If the API call fails
             SystemExit: Stops execution if the API call fails
         """
         # Ensure we're authenticated
@@ -238,33 +207,18 @@ class WithingsClient:
             "enddate": enddate,
         }
 
-        self.logger.debug(
-            f"Requesting weight data from {start_date.date()} to {end_date.date()} with params: {params}"
-        )
-
         try:
-            # Make the API request with proper error handling
             result = self._make_request("measure", params, method="POST")
 
-            # Print the API response in debug mode
-            if "measuregrps" in result:
-                measurement_count = len(result.get("measuregrps", []))
-                self.logger.debug(
-                    f"Successfully fetched {measurement_count} weight measurements from Withings API"
-                )
-
-                # In debug mode, print the full response
-                import json
-
-                self.logger.debug(
-                    f"===== WITHINGS API RESPONSE =====\n{json.dumps(result, indent=2)}\n===== END WITHINGS API RESPONSE ====="
-                )
             return result
-        except WithingsError as e:
+        except APIClientError as e:
             error_msg = f"Withings API error: {str(e)}"
             self.logger.warning(error_msg)
-            print(f"\nERROR: {error_msg}")
-            print("Pipeline execution stopped due to Withings API error.")
+            # Use ProgressIndicator imported at the top
+            ProgressIndicator.step_error(f"ERROR: {error_msg}")
+            ProgressIndicator.bullet_item(
+                "Pipeline execution stopped due to Withings API error."
+            )
             import sys
 
             sys.exit(1)
@@ -275,6 +229,13 @@ class WithingsClient:
         Returns:
             bool: True if authentication was successful, False otherwise
         """
+        # Use the base class handle_authentication method which handles token refresh and clearing
+        # If it returns True, authentication was successful
+        if super().handle_authentication():
+            return True
+            
+        # If the base class authentication failed, continue with Withings-specific authentication
+        
         # Generate a random state parameter for security
         self.state = secrets.token_urlsafe(32)
 
@@ -282,13 +243,14 @@ class WithingsClient:
         auth_url = self._get_auth_url()
 
         # Print the URL for the user to visit
-        print(
+        # Use ProgressIndicator imported at the top
+        ProgressIndicator.bullet_item(
             f"[Withings Auth] Please visit this URL to authorize the application: {auth_url}"
         )
 
         # Start a local server to receive the callback
         server_address = ("localhost", 8080)
-        httpd = HTTPServer(server_address, OAuthCallbackHandler)
+        httpd = HTTPServer(server_address, WithingsCallbackHandler)
         httpd.withings_client = self
         httpd.authenticated = False
         httpd.should_stop = False
@@ -328,14 +290,10 @@ class WithingsClient:
             state: State parameter from callback, must match the one we sent
 
         Raises:
-            WithingsError: If token exchange fails or state doesn't match
+            APIClientError: If token exchange fails or state doesn't match
         """
-        # Verify state parameter to prevent CSRF attacks
-        if state != self.state:
-            raise WithingsError("State parameter doesn't match")
-
-        # Exchange code for token
-        params = {
+        # Prepare token parameters for Withings
+        token_params = {
             "action": "requesttoken",
             "grant_type": "authorization_code",
             "client_id": self.client_id,
@@ -343,53 +301,51 @@ class WithingsClient:
             "code": code,
             "redirect_uri": "http://localhost:8080/callback",
         }
-
+        
+        # Withings has a different response format, so we need to handle it specially
         try:
+            # Verify state parameter to prevent CSRF attacks
+            if state != self.state:
+                raise APIClientError("State parameter doesn't match")
+                
             # Use the correct endpoint for token exchange
             response = requests.post(
-                "https://wbsapi.withings.net/v2/oauth2", data=params
+                "https://wbsapi.withings.net/v2/oauth2", data=token_params
             )
             response.raise_for_status()
             data = response.json()
-
-            # Debug the response
-            self.logger.debug(f"Token exchange response: {data}")
-
-            # Check for errors
+            
+            # Check for errors in Withings-specific format
             if data.get("status") != 0:
                 error_msg = data.get("error", "Unknown error")
-                raise WithingsError(f"Token exchange failed: {error_msg}")
-
-            # Extract token data
+                raise APIClientError(f"Token exchange failed: {error_msg}")
+                
+            # Extract token data from Withings-specific format
             token_data = data.get("body", {})
+            
+            # Save tokens and update instance variables
+            self.token_manager.save_tokens({
+                "access_token": token_data.get("access_token"),
+                "refresh_token": token_data.get("refresh_token"),
+                "token_type": token_data.get("token_type", "Bearer"),
+                "expires_in": token_data.get("expires_in", 0),
+                "timestamp": datetime.now().timestamp(),
+            })
+            
+            # Update instance variables
             self.access_token = token_data.get("access_token")
             self.refresh_token = token_data.get("refresh_token")
             self.token_type = token_data.get("token_type", "Bearer")
             self.expires_in = token_data.get("expires_in", 0)
-
-            # Save tokens
-            self.token_manager.save_tokens(
-                {
-                    "access_token": self.access_token,
-                    "refresh_token": self.refresh_token,
-                    "token_type": self.token_type,
-                    "expires_in": self.expires_in,
-                    "timestamp": datetime.now().timestamp(),
-                }
-            )
-
-            self.logger.debug("Successfully obtained and saved authentication tokens")
+            
         except requests.exceptions.RequestException as e:
-            raise WithingsError(f"Token exchange failed: {str(e)}")
+            raise APIClientError(f"Token exchange failed: {str(e)}")
 
     def refresh_access_token(self) -> bool:
         """Refresh the access token using the refresh token.
 
         Returns:
             bool: True if refresh was successful, False otherwise
-
-        Raises:
-            WithingsError: If refresh fails or no refresh token is available
         """
         if not self.refresh_token:
             self.logger.warning("No refresh token available")
@@ -433,16 +389,7 @@ class WithingsClient:
                 }
             )
 
-            self.logger.debug("Successfully refreshed authentication tokens")
             return True
         except requests.exceptions.RequestException as e:
             self.logger.warning(f"Token refresh failed: {str(e)}")
             return False
-
-    def is_authenticated(self) -> bool:
-        """Check if we have valid authentication tokens.
-
-        Returns:
-            True if we have both access and refresh tokens
-        """
-        return bool(self.access_token and self.refresh_token)

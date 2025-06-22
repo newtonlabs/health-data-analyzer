@@ -3,40 +3,49 @@
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import msal
 import requests
 from msal import PublicClientApplication
 
-from src.data_sources.token_manager import TokenManager
-from src.utils.logging_utils import HealthLogger
+from src.data_sources.base import APIClient, APIClientError
+from src.utils.progress_indicators import ProgressIndicator
 
 
-class OneDriveClient:
-    def __init__(self, client_id: str = None):
+class OneDriveClient(APIClient):
+    """OneDrive client for storing analysis results using MSAL device flow authentication."""
+    
+    def __init__(self, client_id: str = None, client_secret: str = None, token_file: str = None):
         """Initialize OneDrive storage with MSAL authentication.
 
         Args:
             client_id: Optional client ID. If not provided, will look for ONEDRIVE_CLIENT_ID in environment.
+            client_secret: Optional client secret. Not required for OneDrive but included for API consistency.
+            token_file: Optional path to token storage file.
 
         Raises:
             ValueError: If client_id is not provided or found in environment.
         """
-        self.client_id = client_id or os.getenv("ONEDRIVE_CLIENT_ID")
-        if not self.client_id:
-            raise ValueError("OneDrive client ID is required")
-
+        # Initialize base class
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            token_file=token_file,
+            env_client_id="ONEDRIVE_CLIENT_ID",
+            env_client_secret="ONEDRIVE_CLIENT_SECRET",
+            default_token_path="~/.onedrive_tokens.json",
+            base_url="https://graph.microsoft.com/v1.0"
+        )
+        
         # Microsoft Graph API configuration
         self.tenant_id = "consumers"  # Use 'consumers' for personal accounts
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         self.scopes = ["https://graph.microsoft.com/Files.ReadWrite"]
-        self.base_url = "https://graph.microsoft.com/v1.0"
-
-        self.token_manager = TokenManager(os.path.expanduser("~/.onedrive_tokens.json"))
 
         # Initialize MSAL token cache
         self.msal_token_cache = msal.SerializableTokenCache()
+        
         # Load existing tokens from TokenManager if available
         cached_tokens_data = self.token_manager.get_tokens()
         if cached_tokens_data and "msal_cache" in cached_tokens_data:
@@ -46,10 +55,8 @@ class OneDriveClient:
         self.app = PublicClientApplication(
             client_id=self.client_id,
             authority=self.authority,
-            token_cache=self.msal_token_cache,  # Use OneDriveClient's own MSAL cache
+            token_cache=self.msal_token_cache,
         )
-        self.access_token = None
-        self.logger = HealthLogger(__name__)
 
     def authenticate(self) -> bool:
         """Authenticate with OneDrive using device flow or cached tokens.
@@ -57,6 +64,12 @@ class OneDriveClient:
         Returns:
             bool: True if authentication was successful, False otherwise.
         """
+        # Use the base class handle_authentication method which handles token refresh and clearing
+        # If it returns True, authentication was successful
+        if super().handle_authentication():
+            return True
+            
+        # If the base class authentication failed, continue with OneDrive-specific authentication
         try:
             # Try silent acquisition with MSAL
             accounts = self.app.get_accounts()
@@ -71,9 +84,6 @@ class OneDriveClient:
                         }
                     )  # Save serialized cache
                     self.access_token = result["access_token"]
-                    self.logger.info(
-                        "✓ Successfully authenticated with OneDrive via silent acquisition!"
-                    )
                     return True
 
             # If silent acquisition fails, initiate device flow
@@ -81,12 +91,14 @@ class OneDriveClient:
             if "user_code" not in flow:
                 raise Exception("Failed to start device flow")
 
-            # Show instructions to user
-            self.logger.info(f"\nTo authenticate with OneDrive, please:")
-            self.logger.info(f"1. Go to: {flow['verification_uri']}")
-            self.logger.info(f"2. Enter the code: {flow['user_code']}")
-            self.logger.info("\nWaiting for authentication...")
-
+            # Show instructions to user using ProgressIndicator for consistent UI
+            ProgressIndicator.bullet_item(
+                f"[OneDrive Auth] Please visit this URL to authorize the application: {flow['verification_uri']}"
+            )
+            ProgressIndicator.bullet_item(
+                f"[OneDrive Auth] Enter the code: {flow['user_code']}"
+            )
+            
             # Wait for user to complete authentication
             result = self.app.acquire_token_by_device_flow(flow)
 
@@ -102,13 +114,54 @@ class OneDriveClient:
                 }
             )  # Save serialized cache
             self.access_token = result["access_token"]
-            self.logger.info("✓ Successfully authenticated with OneDrive!")
+            # Log success to debug only - progress indicators will show success elsewhere
+            self.logger.debug("Successfully authenticated with OneDrive!")
+            ProgressIndicator.step_complete("OneDrive authentication successful")
             return True
 
         except Exception as e:
             self.logger.error(f"Error during authentication: {str(e)}")
             return False
 
+    def refresh_access_token(self) -> bool:
+        """Refresh the access token using MSAL's silent token acquisition.
+        
+        Returns:
+            bool: True if refresh was successful, False otherwise
+        """
+        self.logger.debug("Refreshing OneDrive access token")
+        
+        try:
+            # MSAL handles token refresh differently - it uses the token cache
+            accounts = self.app.get_accounts()
+            if not accounts:
+                self.logger.warning("No accounts found in MSAL cache")
+                return False
+                
+            # Try silent token acquisition
+            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
+            if result and "access_token" in result:
+                # Update tokens
+                self.token_manager.save_tokens(
+                    {
+                        "msal_cache": self.msal_token_cache.serialize(),
+                        "access_token": result["access_token"],
+                        "refresh_token": None,  # MSAL handles refresh internally
+                        "token_type": "Bearer",
+                        "expires_in": result.get("expires_in", 3600),
+                    }
+                )
+                self.access_token = result["access_token"]
+                self.token_type = "Bearer"
+                self.expires_in = result.get("expires_in", 3600)
+                return True
+            else:
+                self.logger.warning("Silent token acquisition failed")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error refreshing token: {str(e)}")
+            return False
+    
     def _get_token(self) -> str:
         """Get a valid access token.
 
@@ -118,30 +171,12 @@ class OneDriveClient:
         Raises:
             ValueError: If no valid token is available
         """
-        accounts = self.app.get_accounts()
-        if accounts:
-            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
-            if result and "access_token" in result:
-                self.token_manager.save_tokens(
-                    {
-                        "msal_cache": self.msal_token_cache.serialize(),
-                        "access_token": result["access_token"],
-                        "expires_in": result.get("expires_in", 3600),
-                    }
-                )  # Save serialized cache
-                return result["access_token"]
-
-        if not self.authenticate():
-            raise ValueError("Failed to get access token")
-
-        # After successful authentication, the token should be in the cache
-        accounts = self.app.get_accounts()
-        if accounts:
-            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
-            if result and "access_token" in result:
-                return result["access_token"]
-
-        raise ValueError("Failed to retrieve access token after authentication")
+        try:
+            # Use the base class implementation
+            return self._get_access_token()
+        except APIClientError as e:
+            # Convert APIClientError to ValueError for backward compatibility
+            raise ValueError(f"Failed to get access token: {str(e)}")
 
     def _ensure_folder_path(self, folder_path: str) -> str:
         """Ensure a folder path exists in OneDrive, creating any missing folders.

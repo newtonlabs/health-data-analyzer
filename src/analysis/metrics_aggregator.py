@@ -1,12 +1,13 @@
 """Module for generating health and fitness metrics."""
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 
 from src.utils.date_utils import DateUtils
-from src.utils.logging_utils import DEBUG_MODE, HealthLogger
+from src.utils.file_utils import save_dataframe_to_file
+from src.utils.logging_utils import HealthLogger
 
 from .analyzer_config import AnalyzerConfig
 from .health_data_processor import HealthDataProcessor
@@ -279,15 +280,8 @@ class MetricsAggregator:
         # Step 6: Weight data removed - now only in macros dataframe
         # df = self._add_weight_data(df, start_date, end_date)
 
-        # Log the final DataFrame in debug mode
-        from src.utils.logging_utils import DEBUG_MODE
-
-        if (
-            DEBUG_MODE
-            and hasattr(self, "logger")
-            and hasattr(self.logger, "debug_dataframe")
-        ):
-            self.logger.debug_dataframe(df, "Post-Aggregation Recovery Metrics")
+        # Save the final DataFrame to a file
+        save_dataframe_to_file(df, "recovery-metrics", subdir="aggregations")
 
         return df
 
@@ -358,15 +352,8 @@ class MetricsAggregator:
         else:
             df = pd.DataFrame(columns=["date", "day", "sport", "duration", "strain"])
 
-        # Log the final DataFrame in debug mode
-        from src.utils.logging_utils import DEBUG_MODE
-
-        if (
-            DEBUG_MODE
-            and hasattr(self, "logger")
-            and hasattr(self.logger, "debug_dataframe")
-        ):
-            self.logger.debug_dataframe(df, "Post-Aggregation Training Metrics")
+        # Save the final DataFrame to a file
+        save_dataframe_to_file(df, "training-metrics", subdir="aggregations")
 
         return df
 
@@ -449,8 +436,6 @@ class MetricsAggregator:
             (self.processor.whoop_data["workouts"]["date"].dt.date >= start_date.date())
             & (self.processor.whoop_data["workouts"]["date"].dt.date <= end_date.date())
         ]
-
-        # Debug logging setup
 
         # Track best workout for each date
         best_workouts = {}
@@ -630,14 +615,7 @@ class MetricsAggregator:
             columns.append("weight")
         df = df[columns]
 
-        # Log the final DataFrame in debug mode
-        from src.utils.logging_utils import DEBUG_MODE
-
-        if (
-            DEBUG_MODE
-            and hasattr(self, "logger")
-            and hasattr(self.logger, "debug_dataframe")
-        ):
-            self.logger.debug_dataframe(df, "Post-Aggregation Macros and Activity")
+        # Save the final DataFrame to a file
+        save_dataframe_to_file(df, "macros-and-activity", subdir="aggregations")
 
         return df

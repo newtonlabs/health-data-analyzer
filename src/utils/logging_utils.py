@@ -3,30 +3,33 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Optional
 
-# Global debug flag (default to False)
-DEBUG_MODE = False
-
-
-def set_debug_mode(enabled: bool = False) -> None:
-    """Set the global debug mode flag.
-
-    Args:
-        enabled: Whether debug mode is enabled
+def configure_logging() -> None:
+    """Configure logging based on LOG_LEVEL environment variable.
+    
+    The LOG_LEVEL can be set to: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    If not set, defaults to WARNING.
     """
-    global DEBUG_MODE
-    DEBUG_MODE = enabled
-
-    # Configure root logger based on debug mode
+    # Get log level from environment variable or default to WARNING
+    log_level_name = os.environ.get("LOG_LEVEL", "WARNING").upper()
+    
+    # Map string log level to logging constants
+    log_level = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL
+    }.get(log_level_name, logging.WARNING)
+    
+    # Configure root logger
     root_logger = logging.getLogger()
-    if DEBUG_MODE:
-        # In debug mode, show all DEBUG logs
-        root_logger.setLevel(logging.DEBUG)
-    else:
-        # In normal mode, only show WARNING and above
-        root_logger.setLevel(logging.WARNING)
+    root_logger.setLevel(log_level)
 
+
+# Configure logging when module is imported
+configure_logging()
 
 class HealthLogger:
     """Logger for health data operations."""
@@ -49,12 +52,8 @@ class HealthLogger:
             )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
-            # Set logger level based on debug mode
-            global DEBUG_MODE
-            if DEBUG_MODE:
-                self.logger.setLevel(logging.DEBUG)
-            else:
-                self.logger.setLevel(logging.INFO)
+            # Logger level is inherited from root logger
+            # No need to set it explicitly here
 
     def log_skipped_date(self, date: datetime, reason: str):
         """Log skipped recovery date.
@@ -106,46 +105,4 @@ class HealthLogger:
         """
         self.logger.error(msg)
 
-    def debug_dataframe(self, df, name: str, max_rows: int = 10):
-        """Print a DataFrame in a readable format when in debug mode.
-
-        Args:
-            df: Pandas DataFrame to print
-            name: Name of the DataFrame for identification
-            max_rows: Maximum number of rows to display
-        """
-        if not DEBUG_MODE:
-            return
-
-        if df is None:
-            self.logger.debug(f"DataFrame '{name}' is None")
-            return
-
-        import pandas as pd
-
-        if not isinstance(df, pd.DataFrame):
-            self.logger.debug(f"Object '{name}' is not a DataFrame, it's a {type(df)}")
-            return
-
-        if df.empty:
-            self.logger.debug(f"DataFrame '{name}' is empty (0 rows)")
-            return
-
-        # Set pandas display options for better formatting
-        with pd.option_context(
-            "display.max_rows",
-            max_rows,
-            "display.max_columns",
-            None,
-            "display.width",
-            1000,
-            "display.precision",
-            2,
-        ):
-            self.logger.debug(
-                f"\n===== DataFrame: {name} =====\n"
-                + f"Shape: {df.shape[0]} rows × {df.shape[1]} columns\n"
-                + f"Columns: {', '.join(df.columns)}\n\n"
-                + f"{df.head(max_rows)}\n"
-                + "===================================="
-            )
+   

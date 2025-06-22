@@ -1,6 +1,6 @@
 """Configuration for data analyzer."""
 
-from typing import Dict, List
+# No imports needed
 
 
 class AnalyzerConfig:
@@ -35,7 +35,8 @@ class AnalyzerConfig:
 
     # Strength activities (prioritized in weekly macros)
     STRENGTH_ACTIVITIES: list[str] = [
-        "Strength",  # Weight training
+        "Strength",       # Weight training
+        "Weightlifting",  # Weight training
     ]
 
     # Mapping of Oura resilience levels to numeric scores (equal zones)

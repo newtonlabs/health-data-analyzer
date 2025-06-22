@@ -2,3 +2,11 @@
 [] Create a micro nutrient profiler that shows against targets
 [] Add visuals and more metrics to training log, need to figure out a way to get total tonage from data somehow. No apps really have access to this that I've found
 [] Experiment with Hevy integration
+[] Cleanup WHOOP Client in health_pipeline
+[] Fix log_skipped_date
+[] Fix log_data_counts
+[] Rename health_data_processor.py to processor.py
+[] Rename metrics_aggragator.py to aggregator.py
+[] Rename analyzer_config.py to config.py, consider consolidating all the config into yaml
+[] Move the markdown writer to use fileutils
+

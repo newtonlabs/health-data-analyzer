@@ -1,7 +1,7 @@
 """Resilience chart generator module."""
 
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np

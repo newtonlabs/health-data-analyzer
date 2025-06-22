@@ -3,11 +3,13 @@
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any
 
 import requests
 
-from src.utils.logging_utils import DEBUG_MODE, HealthLogger
+from src.utils.date_utils import DateFormat, DateUtils
+from src.utils.file_utils import save_json_to_file
+from src.utils.logging_utils import HealthLogger
 
 from .token_manager import TokenManager
 
@@ -206,11 +208,12 @@ class OuraClient:
             # Always log the JSON response when in debug mode
             response_data = response.json()
 
-            # Log API response in debug mode
-            if DEBUG_MODE:
-                self.logger.debug(
-                    f"\n===== OURA API RESPONSE for {endpoint} =====\n{json.dumps(response_data, indent=2)}\n===== END OURA API RESPONSE ===="
-                )
+            # Save API response as JSON file
+            save_json_to_file(
+                response_data,
+                f"oura-{endpoint.replace('/', '-')}",
+                subdir="api-responses/oura",
+            )
             return response_data
         except requests.exceptions.RequestException as e:
             raise OuraError(f"Failed to fetch data from Oura API: {str(e)}")

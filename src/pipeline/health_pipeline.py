@@ -4,7 +4,7 @@ import argparse
 import os
 import sys
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -18,7 +18,7 @@ from src.data_sources.withings_client import WithingsClient
 from src.reporting.pdf_converter import PDFConverter
 from src.reporting.report_generator import ReportGenerator
 from src.utils.date_utils import DateUtils
-from src.utils.logging_utils import DEBUG_MODE, HealthLogger
+from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 
 
@@ -35,12 +35,7 @@ class HealthPipeline:
         self.logger = HealthLogger(__name__)
 
         # Initialize clients
-        whoop_client_id = os.getenv("WHOOP_CLIENT_ID")
-        whoop_client_secret = os.getenv("WHOOP_CLIENT_SECRET")
-        whoop_token_manager = TokenManager(os.path.expanduser("~/.whoop_tokens.json"))
-        self.whoop = WhoopClient(
-            whoop_client_id, whoop_client_secret, whoop_token_manager
-        )
+        self.whoop = WhoopClient()
         self.oura = OuraClient()
         self.withings = WithingsClient()
         self.storage = OneDriveClient()
@@ -102,31 +97,23 @@ class HealthPipeline:
         Returns:
             Dictionary with raw API data
         """
-        self.logger.debug(
-            f"Fetching data date range: {fetch_start.date()} to {fetch_end.date()}"
-        )
         # Fetch data from APIs
-        if not DEBUG_MODE:
-            ProgressIndicator.step_start("Fetching Oura data from API")
+        ProgressIndicator.step_start("Fetching Oura data from API")
         oura_raw = {
             "activity": self.oura.get_activity_data(fetch_start, fetch_end),
             "resilience": self.oura.get_resilience_data(fetch_start, fetch_end),
         }
-        if not DEBUG_MODE:
-            ProgressIndicator.step_complete()
+        ProgressIndicator.step_complete()
 
-        if not DEBUG_MODE:
-            ProgressIndicator.step_start("Fetching Whoop data from API")
+        ProgressIndicator.step_start("Fetching Whoop data from API")
         whoop_raw = {
             "workouts": self.whoop.get_workouts(fetch_start, fetch_end),
             "recovery": self.whoop.get_recovery_data(fetch_start, fetch_end),
             "sleep": self.whoop.get_sleep(fetch_start, fetch_end),
         }
-        if not DEBUG_MODE:
-            ProgressIndicator.step_complete()
+        ProgressIndicator.step_complete()
 
-        if not DEBUG_MODE:
-            ProgressIndicator.step_start("Fetching Withings weight data from API")
+        ProgressIndicator.step_start("Fetching Withings weight data from API")
         # For Withings, always fetch the last 14 days including today
         now = datetime.now()
         withings_fetch_end = now.replace(
@@ -140,16 +127,10 @@ class HealthPipeline:
                 withings_fetch_start, withings_fetch_end
             )
         }
-        if not DEBUG_MODE:
-            ProgressIndicator.step_complete()
 
-        self.logger.debug("Withings API data fetched successfully")
-        if DEBUG_MODE:
-            self.logger.debug(
-                "===== WITHINGS API RESPONSE =====\n"
-                + json.dumps(withings_raw, indent=2)
-                + "\n===== END WITHINGS API RESPONSE ====="
-            )
+        ProgressIndicator.step_complete()
+
+        # All API data fetched successfully
 
         return {"oura": oura_raw, "whoop": whoop_raw, "withings": withings_raw}
 
@@ -168,8 +149,7 @@ class HealthPipeline:
         """
 
         # Process raw data
-        if not DEBUG_MODE:
-            ProgressIndicator.step_start("Transforming and normalizing the data")
+        ProgressIndicator.step_start("Transforming and normalizing the data")
 
         # Process Oura data
         self.processor.oura_data = self.processor.process_oura_data(
@@ -185,66 +165,16 @@ class HealthPipeline:
                 raw_data["withings"], start_date, end_date
             )
 
-            # Log weight data in debug mode
-            if (
-                DEBUG_MODE
-                and self.processor.withings_data
-                and "weight" in self.processor.withings_data
-            ):
-                weight_df = self.processor.withings_data["weight"]
-                self.logger.debug(
-                    f"\n===== DataFrame: Withings Weight Data =====\nShape: {weight_df.shape[0]} rows × {weight_df.shape[1]} columns\nColumns: {', '.join(weight_df.columns)}\n\n{weight_df.to_string()}\n====================================\n"
-                )
+            # Process Withings weight data
 
-        if not DEBUG_MODE:
-            ProgressIndicator.step_complete()
+        ProgressIndicator.step_complete()
 
-        # Print processed DataFrames in debug mode
-        if DEBUG_MODE:
-            self.logger.debug("\n===== PROCESSED DATA SUMMARY =====")
-
-            # Print Oura DataFrames
-            if self.processor.oura_data is not None:
-                if isinstance(self.processor.oura_data, dict):
-                    self.logger.debug(
-                        f"Oura data contains {len(self.processor.oura_data)} DataFrames"
-                    )
-                    for name, df in self.processor.oura_data.items():
-                        self.logger.debug_dataframe(df, f"Oura {name}")
-                elif isinstance(self.processor.oura_data, pd.DataFrame):
-                    # If it's a single DataFrame, print it directly
-                    self.logger.debug_dataframe(
-                        self.processor.oura_data, "Oura activity"
-                    )
-                else:
-                    # Don't print any message about the type
-                    pass
-            else:
-                self.logger.debug("No Oura data available")
-
-            # Print Whoop DataFrames
-            if self.processor.whoop_data is not None:
-                if isinstance(self.processor.whoop_data, dict):
-                    self.logger.debug(
-                        f"Whoop data contains {len(self.processor.whoop_data)} DataFrames"
-                    )
-                    for name, df in self.processor.whoop_data.items():
-                        self.logger.debug_dataframe(df, f"Whoop {name}")
-                else:
-                    self.logger.debug(
-                        f"Whoop data is not a dictionary: {type(self.processor.whoop_data)}"
-                    )
-            else:
-                self.logger.debug("No Whoop data available")
-
-            self.logger.debug("===== END DATA SUMMARY =====")
+        # Data processing complete
 
         # Generate report
-        if not DEBUG_MODE:
-            ProgressIndicator.step_start("Converting the data into a markdown report")
+        ProgressIndicator.step_start("Converting the data into a markdown report")
         report = self.report_gen.generate_weekly_status(start_date, end_date)
-        if not DEBUG_MODE:
-            ProgressIndicator.step_complete()
+        ProgressIndicator.step_complete()
 
         # Save report to file
         report_file = os.path.join(
@@ -254,15 +184,14 @@ class HealthPipeline:
             f.write(report)
         self.logger.log_data_counts("report file", 1)
 
-        if not DEBUG_MODE:
-            ProgressIndicator.section_header("Report Generation Complete")
-            ProgressIndicator.step_complete(f"Markdown report saved to {report_file}")
-            ProgressIndicator.bullet_item(
-                "Please open with your editor and make adjustments as needed"
-            )
-            ProgressIndicator.bullet_item(
-                "Run with --pdf to see the final output and --upload to create a OneDrive link"
-            )
+        ProgressIndicator.section_header("Report Generation Complete")
+        ProgressIndicator.step_complete(f"Markdown report saved to {report_file}")
+        ProgressIndicator.bullet_item(
+            "Please open with your editor and make adjustments as needed"
+        )
+        ProgressIndicator.bullet_item(
+            "Run with --pdf to see the final output and --upload to create a OneDrive link"
+        )
 
         return report_file
 
@@ -275,16 +204,12 @@ class HealthPipeline:
         Returns:
             Path to generated PDF file
         """
-
-        if not DEBUG_MODE:
-            ProgressIndicator.step_start("Creating PDF from markdown report")
-
+        ProgressIndicator.step_start("Creating PDF from markdown report")
         pdf_file = markdown_file.replace(".md", ".pdf")
         self.converter.markdown_to_pdf(markdown_file, pdf_file)
         self.logger.log_data_counts("pdf file", 1)
 
-        if not DEBUG_MODE:
-            ProgressIndicator.step_complete(f"PDF saved to {pdf_file}")
+        ProgressIndicator.step_complete(f"PDF saved to {pdf_file}")
 
         return pdf_file
 
@@ -301,8 +226,7 @@ class HealthPipeline:
             URL of uploaded file if successful, None otherwise
         """
 
-        if not DEBUG_MODE:
-            ProgressIndicator.section_header("OneDrive Upload")
+        ProgressIndicator.section_header("OneDrive Upload")
 
         # Create folder name with timestamp
         folder_name = f"Health Data/{end_date.strftime('%Y-%m-%d')}"
@@ -313,26 +237,20 @@ class HealthPipeline:
 
         for file_path in file_paths:
             try:
-                if not DEBUG_MODE:
-                    ProgressIndicator.step_start(
-                        f"Uploading {os.path.basename(file_path)}"
-                    )
+                ProgressIndicator.step_start(f"Uploading {os.path.basename(file_path)}")
 
                 pdf_url = self.storage.upload_file(file_path, folder_name)
                 self.logger.log_data_counts("uploaded file", 1)
                 success_count += 1
 
-                if not DEBUG_MODE:
-                    ProgressIndicator.step_complete()
+                ProgressIndicator.step_complete()
             except Exception as e:
-                if not DEBUG_MODE:
-                    ProgressIndicator.step_error(f"Failed: {str(e)}")
+                ProgressIndicator.step_error(f"Failed: {str(e)}")
                 self.logger.log_skipped_date(
                     end_date,
                     f"Failed to upload {os.path.basename(file_path)}: {str(e)}",
                 )
 
-        if not DEBUG_MODE:
             if success_count > 0 and pdf_url:
                 # Show the OneDrive link in the same section
                 ProgressIndicator.step_complete(f"OneDrive link: {pdf_url}")
@@ -349,14 +267,10 @@ class HealthPipeline:
         """
         # Get date ranges once
         report_start, report_end, fetch_start, fetch_end = DateUtils.get_date_ranges()
-        self.logger.debug(
-            f"Date ranges: report_start={report_start}, report_end={report_end}, fetch_start={fetch_start}, fetch_end={fetch_end}"
-        )
 
         # Get data and generate report
         if args.fetch:
-            if not DEBUG_MODE:
-                ProgressIndicator.section_header("Data Collection")
+            ProgressIndicator.section_header("Data Collection")
             # Fetch and process data
             raw_data = self.fetch_api_data(fetch_start, fetch_end)
             self.processor.process_raw_data(
@@ -372,8 +286,7 @@ class HealthPipeline:
 
         # Convert to PDF
         if args.pdf:
-            if not DEBUG_MODE:
-                ProgressIndicator.section_header("PDF Conversion")
+            ProgressIndicator.section_header("PDF Conversion")
             # Get markdown file path
             report_file = DateUtils.get_report_path(report_end)
             if not os.path.exists(report_file):
@@ -398,5 +311,7 @@ class HealthPipeline:
             pdf_url = self.upload_to_onedrive([pdf_file], report_end)
             if pdf_url:
                 ProgressIndicator.section_header("Ready to Share")
-                self.logger.info("Hi Coach!")
-                self.logger.info(f"See this week's progress report: {pdf_url}")
+                ProgressIndicator.print_message("Hi Coach!")
+                ProgressIndicator.print_message(
+                    f"See this week's progress report: {pdf_url}"
+                )

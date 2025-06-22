@@ -1,15 +1,17 @@
 """Module for processing raw health data into clean DataFrames."""
 
+import json
 import os
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 
 from src.data_sources.nutrition_data import NutritionData
 from src.data_sources.whoop_constants import get_sport_name
 from src.utils.date_utils import DateStatus, DateUtils
-from src.utils.logging_utils import DEBUG_MODE, HealthLogger
+from src.utils.file_utils import save_dataframe_to_file
+from src.utils.logging_utils import HealthLogger
 
 from .analyzer_config import AnalyzerConfig
 
@@ -73,67 +75,59 @@ class HealthDataProcessor:
         if oura_raw:
             self.oura_data = self.process_oura_data(oura_raw, start_date, end_date)
 
-            # Display the processed Oura data in debug mode
+            # Save the processed Oura data to files
             if self.oura_data:
                 if "activity" in self.oura_data:
-                    self.logger.debug_dataframe(
-                        self.oura_data["activity"], "Oura Activity Data"
+                    save_dataframe_to_file(
+                        self.oura_data["activity"],
+                        "oura-activity-data",
+                        subdir="processing",
                     )
                 if "resilience" in self.oura_data:
-                    self.logger.debug_dataframe(
-                        self.oura_data["resilience"], "Oura Resilience Data"
+                    save_dataframe_to_file(
+                        self.oura_data["resilience"],
+                        "oura-resilience-data",
+                        subdir="processing",
                     )
 
         # Process Whoop data
         if whoop_raw:
             self.whoop_data = self.process_whoop_data(whoop_raw)
 
-            # Display the processed Whoop data in debug mode
+            # Save the processed Whoop data to files
             if self.whoop_data:
                 if "workouts" in self.whoop_data:
-                    self.logger.debug_dataframe(
-                        self.whoop_data["workouts"], "Whoop Workouts Data"
+                    save_dataframe_to_file(
+                        self.whoop_data["workouts"],
+                        "whoop-workouts-data",
+                        subdir="processing",
                     )
                 if "recovery" in self.whoop_data:
-                    self.logger.debug_dataframe(
-                        self.whoop_data["recovery"], "Whoop Recovery Data"
+                    save_dataframe_to_file(
+                        self.whoop_data["recovery"],
+                        "whoop-recovery-data",
+                        subdir="processing",
                     )
                 if "sleep" in self.whoop_data:
-                    self.logger.debug_dataframe(
-                        self.whoop_data["sleep"], "Whoop Sleep Data"
+                    save_dataframe_to_file(
+                        self.whoop_data["sleep"],
+                        "whoop-sleep-data",
+                        subdir="processing",
                     )
 
         # Process Withings data
         if withings_raw:
-            # Always print the full Withings API response in debug mode
-            if DEBUG_MODE:
-                self.logger.debug(
-                    "===== WITHINGS API RESPONSE =====\n"
-                    + json.dumps(withings_raw, indent=2)
-                    + "\n===== END WITHINGS API RESPONSE ====="
-                )
+            # Process Withings data without logging the API response
             self.withings_data = self.process_withings_data(
                 withings_raw, start_date, end_date
             )
-            self.logger.debug(
-                f"Processed Withings data: {self.withings_data['weight'].shape[0]} weight records"
-            )
-            # Display the processed weight data in debug mode
-            if DEBUG_MODE and "weight" in self.withings_data:
-                self.logger.debug_dataframe(
-                    self.withings_data["weight"], "Withings Weight Data"
+            # Save the processed weight data to a file
+            if "weight" in self.withings_data:
+                save_dataframe_to_file(
+                    self.withings_data["weight"],
+                    "withings-weight-data",
+                    subdir="processing",
                 )
-            # Only print debug info when in DEBUG_MODE
-            if DEBUG_MODE:
-                self.logger.debug(
-                    "===== Withings Weight DataFrame (direct print) ====="
-                )
-                self.logger.debug(self.withings_data["weight"])
-                self.logger.debug(f"Shape: {self.withings_data['weight'].shape}")
-                self.logger.debug(
-                    f"Columns: {self.withings_data['weight'].columns.tolist()}"
-                )
-                self.logger.debug("==============================================")
 
     def process_oura_data(
         self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
@@ -519,9 +513,7 @@ class HealthDataProcessor:
         if "weight" in raw_data:
             # Process each measurement group from the Withings API
             measuregrps = raw_data["weight"].get("measuregrps", [])
-            self.logger.debug(
-                f"Processing {len(measuregrps)} Withings measurement groups"
-            )
+            # Process Withings measurement groups without logging
 
             for group in measuregrps:
                 timestamp = group.get("date")
@@ -553,8 +545,7 @@ class HealthDataProcessor:
 
             # Create DataFrame with both date and timestamp
             df = pd.DataFrame(weight_data, columns=["date", "weight", "timestamp"])
-            self.logger.debug("Withings weight data after extraction:")
-            self.logger.debug(f"Shape: {df.shape}, Columns: {df.columns.tolist()}")
+            # Process extracted Withings weight data
 
             if df.empty:
                 return {"weight": pd.DataFrame(columns=["date", "day", "weight"])}
@@ -571,12 +562,7 @@ class HealthDataProcessor:
 
             # Reindex to include all days in the reporting window
             df_latest = df_latest.reindex(full_index)
-            self.logger.debug(
-                f"Reindexing to include all days in the reporting window: week_start={week_start}, yesterday={yesterday}"
-            )
-            self.logger.debug(
-                f"Dates after grouping and reindexing: {df_latest.index.tolist()}"
-            )
+            # Reindex to include all days in the reporting window
 
             # Format date as MM-DD to match other DataFrames
             df_latest["date"] = [
