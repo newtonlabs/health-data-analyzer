@@ -10,10 +10,10 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from src.analysis.oura_processor import OuraProcessor
-from src.analysis.whoop_processor import WhoopProcessor
-from src.analysis.withings_processor import WithingsProcessor
-from src.analysis.hevy_processor import HevyProcessor
+from src.analysis.processors.oura import OuraProcessor
+from src.analysis.processors.whoop import WhoopProcessor
+from src.analysis.processors.withings import WithingsProcessor
+from src.analysis.processors.hevy import HevyProcessor
 from src.data_sources.nutrition_data import NutritionData
 from src.utils.logging_utils import HealthLogger
 
