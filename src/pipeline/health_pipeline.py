@@ -10,6 +10,7 @@ import pandas as pd
 
 from src.analysis.health_data_processor import HealthDataProcessor
 from src.analysis.metrics_aggregator import MetricsAggregator
+from src.data_sources.hevy_client import HevyClient
 from src.data_sources.onedrive_client import OneDriveClient
 from src.data_sources.oura_client import OuraClient
 from src.data_sources.token_manager import TokenManager
@@ -38,6 +39,7 @@ class HealthPipeline:
         self.whoop = WhoopClient()
         self.oura = OuraClient()
         self.withings = WithingsClient()
+        self.hevy = HevyClient()
         self.storage = OneDriveClient()
 
         # Initialize data processing components
@@ -129,10 +131,22 @@ class HealthPipeline:
         }
 
         ProgressIndicator.step_complete()
+        
+        # Fetch Hevy workout data
+        ProgressIndicator.step_start("Fetching Hevy workout data from API")
+        hevy_raw = {
+            "workouts": self.hevy.get_workouts()
+        }
+        ProgressIndicator.step_complete()
 
         # All API data fetched successfully
 
-        return {"oura": oura_raw, "whoop": whoop_raw, "withings": withings_raw}
+        return {
+            "oura": oura_raw, 
+            "whoop": whoop_raw, 
+            "withings": withings_raw,
+            "hevy": hevy_raw
+        }
 
     def generate_report(
         self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
@@ -277,6 +291,8 @@ class HealthPipeline:
                 oura_raw=raw_data["oura"],
                 whoop_raw=raw_data["whoop"],
                 withings_raw=raw_data["withings"],
+                # We're fetching Hevy data but not processing it yet
+                # hevy_raw=raw_data["hevy"],
                 start_date=report_start,
                 end_date=report_end,
             )
