@@ -12,6 +12,7 @@ from src.data_sources.whoop_constants import get_sport_name
 from src.utils.date_utils import DateStatus, DateUtils
 from src.utils.file_utils import save_dataframe_to_file
 from src.utils.logging_utils import HealthLogger
+from src.analysis.hevy_processor import HevyProcessor
 
 from .analyzer_config import AnalyzerConfig
 
@@ -42,17 +43,20 @@ class HealthDataProcessor:
 
         # Initialize data sources
         self.nutrition = NutritionData(output_dir)
+        self.hevy_processor = HevyProcessor()
 
         # Hold processed data in memory
         self.oura_data = None
         self.whoop_data = None
         self.withings_data = None
+        self.hevy_data = None
 
     def process_raw_data(
         self,
         oura_raw: dict[str, Any],
         whoop_raw: dict[str, Any],
         withings_raw: dict[str, Any] = None,
+        hevy_raw: dict[str, Any] = None,
         start_date: datetime = None,
         end_date: datetime = None,
     ) -> None:
@@ -128,6 +132,12 @@ class HealthDataProcessor:
                     "withings-weight-data",
                     subdir="processing",
                 )
+                
+        # Process Hevy data
+        if hevy_raw:
+            # Process Hevy workout data
+            self.hevy_data = self.process_hevy_data(hevy_raw, end_date)
+            # The data is saved inside the process_hevy_data method
 
     def process_oura_data(
         self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
@@ -586,3 +596,58 @@ class HealthDataProcessor:
         else:
             # Return empty DataFrame with expected columns if no data
             return {"weight": pd.DataFrame(columns=["date", "day", "weight"])}
+            
+    def process_hevy_data(self, raw_data: dict[str, Any], date: datetime) -> dict[str, pd.DataFrame]:
+        """Process data from Hevy API.
+        
+        This method processes Hevy workout data into two dataframes:
+        1. A summary of workouts with total tonnage per workout
+        2. A detailed breakdown of exercises per workout with tonnage per exercise
+        
+        Args:
+            raw_data: Raw Hevy API response containing workout data
+            date: Date to use for saving the files
+            
+        Returns:
+            Dictionary of DataFrames with processed data
+        """
+        result = {}
+        
+        # Add debug logging
+        self.logger.logger.debug(f"Processing Hevy data: {type(raw_data)}")
+        if isinstance(raw_data, dict):
+            self.logger.logger.debug(f"Hevy data keys: {raw_data.keys()}")
+            if "workouts" in raw_data:
+                self.logger.logger.debug(f"Hevy workouts type: {type(raw_data['workouts'])}")
+                self.logger.logger.debug(f"Hevy workouts length: {len(raw_data['workouts'])}")
+                if isinstance(raw_data['workouts'], dict) and 'workouts' in raw_data['workouts']:
+                    self.logger.logger.debug(f"Nested workouts length: {len(raw_data['workouts']['workouts'])}")
+        else:
+            self.logger.logger.debug(f"Raw data is not a dictionary: {raw_data}")
+        
+        # Process the workouts data
+        if isinstance(raw_data, dict) and "workouts" in raw_data:
+            # Use the HevyProcessor to process the data
+            self.logger.logger.debug("Calling HevyProcessor.process_workouts")
+            workout_df, exercise_df = self.hevy_processor.process_workouts(raw_data)
+            
+            # Log dataframe info
+            self.logger.logger.debug(f"Workout DataFrame empty: {workout_df.empty}, shape: {workout_df.shape if not workout_df.empty else 'N/A'}")
+            self.logger.logger.debug(f"Exercise DataFrame empty: {exercise_df.empty}, shape: {exercise_df.shape if not exercise_df.empty else 'N/A'}")
+            
+            # Save the processed data
+            if not workout_df.empty and not exercise_df.empty:
+                self.logger.logger.debug("Saving Hevy processed data")
+                workout_path, exercise_path = self.hevy_processor.save_processed_data(
+                    workout_df, exercise_df, date
+                )
+                self.logger.logger.info(f"Saved Hevy workout data to {workout_path}")
+                self.logger.logger.info(f"Saved Hevy exercise data to {exercise_path}")
+                
+                # Store the processed data in the result dictionary
+                result["workouts"] = workout_df
+                result["exercises"] = exercise_df
+            else:
+                self.logger.logger.warning("No Hevy workout data to process - DataFrames are empty")
+        
+        return result
