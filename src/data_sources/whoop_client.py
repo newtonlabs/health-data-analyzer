@@ -13,7 +13,9 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import requests
 
 from src.utils.date_utils import DateFormat, DateUtils
+from src.utils.file_utils import save_json_to_file
 from src.utils.logging_utils import HealthLogger
+from src.utils.progress_indicators import ProgressIndicator
 
 from .token_manager import TokenManager
 
@@ -127,13 +129,12 @@ class WhoopClient:
             # Always log the JSON response when in debug mode
             response_data = response.json()
 
-            # Log API response in debug mode
-            from src.utils.logging_utils import DEBUG_MODE
-
-            if DEBUG_MODE:
-                self.logger.debug(
-                    f"\n===== WHOOP API RESPONSE for {endpoint} =====\n{json.dumps(response_data, indent=2)}\n===== END WHOOP API RESPONSE ===="
-                )
+            # Save API response as JSON file
+            save_json_to_file(
+                response_data,
+                f"whoop-{endpoint.replace('/', '-')}",
+                subdir="api-responses/whoop",
+            )
             return response_data
         except requests.exceptions.RequestException as e:
             raise WhoopError(f"Failed to fetch data from Whoop API: {str(e)}")
@@ -226,8 +227,9 @@ class WhoopClient:
 
         # Start new authentication
         auth_url = self.get_auth_url()
-        print(
-            f"\n[Whoop Auth] Please visit this URL to authorize the application: {auth_url}"
+        # Use ProgressIndicator imported at the top
+        ProgressIndicator.bullet_item(
+            f"[Whoop Auth] Please visit this URL to authorize the application: {auth_url}"
         )
         self.logger.debug(
             f"Please visit this URL to authorize the application: {auth_url}"

@@ -10,7 +10,9 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import requests
 
 from src.utils.date_utils import DateFormat, DateUtils
+from src.utils.file_utils import save_json_to_file
 from src.utils.logging_utils import HealthLogger
+from src.utils.progress_indicators import ProgressIndicator
 
 from .token_manager import TokenManager
 
@@ -167,16 +169,16 @@ class WithingsClient:
             else:  # POST
                 response = requests.post(url, headers=headers, data=params)
 
-            # Enhanced debugging for response
-            self.logger.debug(f"Response status code: {response.status_code}")
-            self.logger.debug(f"Response headers: {response.headers}")
-
             # Check for errors
             response.raise_for_status()
             data = response.json()
 
-            self.logger.debug(f"Response data: {data}")
-            self.logger.debug(f"Response status: {data.get('status')}")
+            # Save API response as JSON file
+            save_json_to_file(
+                data,
+                f"withings-{endpoint.replace('/', '-')}",
+                subdir="api-responses/withings",
+            )
 
             # Withings API returns a status code in the response body
             if data.get("status") != 0:
@@ -263,8 +265,11 @@ class WithingsClient:
         except WithingsError as e:
             error_msg = f"Withings API error: {str(e)}"
             self.logger.warning(error_msg)
-            print(f"\nERROR: {error_msg}")
-            print("Pipeline execution stopped due to Withings API error.")
+            # Use ProgressIndicator imported at the top
+            ProgressIndicator.step_error(f"ERROR: {error_msg}")
+            ProgressIndicator.bullet_item(
+                "Pipeline execution stopped due to Withings API error."
+            )
             import sys
 
             sys.exit(1)
@@ -282,7 +287,8 @@ class WithingsClient:
         auth_url = self._get_auth_url()
 
         # Print the URL for the user to visit
-        print(
+        # Use ProgressIndicator imported at the top
+        ProgressIndicator.bullet_item(
             f"[Withings Auth] Please visit this URL to authorize the application: {auth_url}"
         )
 

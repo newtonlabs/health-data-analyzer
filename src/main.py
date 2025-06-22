@@ -2,23 +2,23 @@
 
 # Suppress all warnings
 import warnings
-
 warnings.simplefilter("ignore")
 
+# Standard library imports
 import argparse
 import logging
+import sys
 from pathlib import Path
 
+# Third-party imports
 from dotenv import load_dotenv
 
 # Add project root to Python path
 project_root = str(Path(__file__).parent.parent)
-import sys
-
 sys.path.insert(0, project_root)
 
 from src.pipeline import HealthPipeline
-from src.utils.logging_utils import set_debug_mode
+from src.utils.logging_utils import configure_logging
 from src.utils.progress_indicators import Colors, ProgressIndicator
 
 # Load environment variables
@@ -47,7 +47,7 @@ def display_welcome_banner() -> None:
 {Colors.BLUE}{Colors.BOLD}{app_name} v{version}{Colors.RESET}
 {'=' * (len(app_name) + len(version) + 3)}
 """
-    print(banner)
+    ProgressIndicator.bullet_item(banner)
 
 
 def main() -> None:
@@ -61,9 +61,7 @@ def main() -> None:
     )
     parser.add_argument("--pdf", action="store_true", help="Convert report to PDF")
     parser.add_argument("--upload", action="store_true", help="Upload PDF to OneDrive")
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable debug mode with verbose logging"
-    )
+    # Debug mode removed in favor of LOG_LEVEL environment variable
 
     args = parser.parse_args()
 
@@ -72,8 +70,8 @@ def main() -> None:
         parser.print_help()
         return
 
-    # Configure logging based on debug flag
-    set_debug_mode(args.debug)
+    # Configure logging based on LOG_LEVEL environment variable
+    configure_logging()
 
     # Skip authentication if only PDF conversion is requested
     skip_auth = args.pdf and not (args.fetch or args.upload)
@@ -83,16 +81,18 @@ def main() -> None:
         pipeline = HealthPipeline(skip_auth=skip_auth)
         pipeline.run(args)
         # Show success message at the end
-        if not args.debug and (args.fetch or args.pdf or args.upload):
-            print(
-                f"\n{Colors.GREEN}{Colors.BOLD}Process completed successfully!{Colors.RESET}\n"
+        if args.fetch or args.pdf or args.upload:
+            ProgressIndicator.print_message(
+                f"{Colors.GREEN}Process completed successfully!{Colors.RESET}"
             )
     except KeyboardInterrupt:
-        print(f"\n{Colors.YELLOW}Process interrupted by user.{Colors.RESET}")
+        ProgressIndicator.bullet_item(
+            f"{Colors.YELLOW}Process interrupted by user.{Colors.RESET}"
+        )
     except Exception as e:
-        print(f"\n{Colors.RED}Error: {str(e)}{Colors.RESET}")
-        if args.debug:
-            raise
+        ProgressIndicator.bullet_item(f"{Colors.RED}Error: {str(e)}{Colors.RESET}")
+        # Always raise exception for debugging
+        raise
 
 
 if __name__ == "__main__":

@@ -27,6 +27,21 @@ class ProgressIndicator:
     _indent_level = 0
 
     @staticmethod
+    def should_show_progress() -> bool:
+        """Determine if progress indicators should be shown.
+
+        Progress indicators are suppressed when logging level is DEBUG or lower,
+        to avoid cluttering the console with both detailed logs and progress updates.
+
+        Returns:
+            bool: True if progress indicators should be shown, False otherwise
+        """
+        import logging
+
+        # Only show progress indicators if log level is higher than DEBUG
+        return logging.getLogger().level > logging.DEBUG
+
+    @staticmethod
     def step_start(message: str) -> None:
         """Display the start of a processing step.
 
@@ -93,4 +108,17 @@ class ProgressIndicator:
         """
         bullet = f"{Colors.BLUE}•{Colors.RESET}"
         sys.stdout.write(f"{bullet} {message}\n")
+        sys.stdout.flush()
+
+    @staticmethod
+    def print_message(message: str) -> None:
+        """Print a normal message to stdout without any formatting.
+
+        This is useful for outputting plain text without any color or special formatting.
+        Unlike other methods, this one doesn't add any decorations to the message.
+
+        Args:
+            message: The message to display
+        """
+        sys.stdout.write(f"{message}\n")
         sys.stdout.flush()

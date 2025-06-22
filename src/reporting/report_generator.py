@@ -8,6 +8,7 @@ import pandas as pd
 
 from src.analysis.analyzer_config import AnalyzerConfig
 from src.analysis.metrics_aggregator import MetricsAggregator
+from src.utils.logging_utils import HealthLogger
 
 from .chart_generator import ChartGenerator
 from .macro_ratio_chart_generator import MacroRatioChartGenerator
@@ -25,6 +26,7 @@ class ReportGenerator:
             analyzer: MetricsAggregator instance to use for metrics generation
         """
         self.analyzer = analyzer
+        self.logger = HealthLogger(__name__)
 
     def _df_to_markdown(self, df: pd.DataFrame) -> str:
         """Convert DataFrame to markdown table format.
@@ -412,12 +414,6 @@ class ReportGenerator:
             - Recovery Metrics
             - Training
         """
-        logger = getattr(self.analyzer, "logger", None)
-
-        # ----------------------------------------------------------------------
-        # 1. DATA COLLECTION AND PREPARATION
-        # ----------------------------------------------------------------------
-
         # Set default date range if not provided
         if end_date is None:
             end_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
