@@ -19,6 +19,11 @@ from .token_manager import TokenManager
 
 class OAuthCallbackHandler(BaseHTTPRequestHandler):
     """Handle OAuth callback from Withings."""
+    
+    def log_message(self, format, *args):
+        """Override to suppress HTTP server logs."""
+        # Disable logging of HTTP requests
+        pass
 
     def do_GET(self):
         """Handle OAuth callback from Withings.
@@ -115,7 +120,6 @@ class WithingsClient:
             self.refresh_token = saved_tokens.get("refresh_token")
             self.token_type = saved_tokens.get("token_type")
             self.expires_in = saved_tokens.get("expires_in", 0)
-            self.logger.debug("Found saved authentication tokens")
 
     def _make_request(
         self, endpoint: str, params: dict[str, Any] = None, method: str = "POST"
@@ -147,23 +151,8 @@ class WithingsClient:
             "Accept": "application/json",
         }
 
-        # Extra debugging: print token, token type, and parameter types
-        token_preview = self.access_token[:8] + "..." if self.access_token else ""
-        self.logger.debug(
-            f"[DEBUG] WithingsClient: token_type={self.token_type}, access_token={token_preview}"
-        )
-        self.logger.debug(f"[DEBUG] WithingsClient: request headers: {headers}")
-        self.logger.debug(f"[DEBUG] WithingsClient: request params: {params}")
-        for k, v in (params or {}).items():
-            self.logger.debug(f"[DEBUG] Param '{k}' type: {type(v)} value: {v}")
-
         # Make the request
         try:
-            # Enhanced debugging for request details
-            self.logger.debug(f"Making {method} request to {url}")
-            self.logger.debug(f"Headers: {headers}")
-            self.logger.debug(f"Params: {params}")
-
             if method.upper() == "GET":
                 response = requests.get(url, headers=headers, params=params)
             else:  # POST
@@ -193,16 +182,9 @@ class WithingsClient:
                 and hasattr(e.response, "status_code")
                 and e.response.status_code == 401
             ):
-                self.logger.debug(
-                    f"Received 401 Unauthorized, attempting token refresh"
-                )
                 if self.refresh_access_token():
                     # Retry the request
                     return self._make_request(endpoint, params, method)
-
-            # Log the error details
-            if hasattr(e, "response") and hasattr(e.response, "text"):
-                self.logger.debug(f"API error response: {e.response.text}")
 
             raise WithingsError(f"Request failed: {str(e)}")
 
@@ -240,27 +222,9 @@ class WithingsClient:
             "enddate": enddate,
         }
 
-        self.logger.debug(
-            f"Requesting weight data from {start_date.date()} to {end_date.date()} with params: {params}"
-        )
-
         try:
-            # Make the API request with proper error handling
             result = self._make_request("measure", params, method="POST")
 
-            # Print the API response in debug mode
-            if "measuregrps" in result:
-                measurement_count = len(result.get("measuregrps", []))
-                self.logger.debug(
-                    f"Successfully fetched {measurement_count} weight measurements from Withings API"
-                )
-
-                # In debug mode, print the full response
-                import json
-
-                self.logger.debug(
-                    f"===== WITHINGS API RESPONSE =====\n{json.dumps(result, indent=2)}\n===== END WITHINGS API RESPONSE ====="
-                )
             return result
         except WithingsError as e:
             error_msg = f"Withings API error: {str(e)}"
@@ -358,9 +322,6 @@ class WithingsClient:
             response.raise_for_status()
             data = response.json()
 
-            # Debug the response
-            self.logger.debug(f"Token exchange response: {data}")
-
             # Check for errors
             if data.get("status") != 0:
                 error_msg = data.get("error", "Unknown error")
@@ -384,7 +345,6 @@ class WithingsClient:
                 }
             )
 
-            self.logger.debug("Successfully obtained and saved authentication tokens")
         except requests.exceptions.RequestException as e:
             raise WithingsError(f"Token exchange failed: {str(e)}")
 
@@ -439,7 +399,6 @@ class WithingsClient:
                 }
             )
 
-            self.logger.debug("Successfully refreshed authentication tokens")
             return True
         except requests.exceptions.RequestException as e:
             self.logger.warning(f"Token refresh failed: {str(e)}")

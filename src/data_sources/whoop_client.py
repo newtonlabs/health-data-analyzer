@@ -22,6 +22,11 @@ from .token_manager import TokenManager
 
 class OAuthCallbackHandler(BaseHTTPRequestHandler):
     """Handle OAuth callback from Whoop."""
+    
+    def log_message(self, format, *args):
+        """Override to suppress HTTP server logs."""
+        # Disable logging of HTTP requests
+        pass
 
     def do_GET(self):
         """Handle OAuth callback from Whoop.
@@ -56,8 +61,8 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(f"<html><body><h1>Error: {e}</h1></body></html>".encode())
         finally:
-            # Shutdown the server after handling the request
-            threading.Thread(target=self.server.shutdown).start()
+            # Signal the server to stop after handling the request
+            self.server.should_stop = True
 
 
 class WhoopError(Exception):
@@ -69,10 +74,23 @@ class WhoopError(Exception):
 class WhoopClient:
     """Client for interacting with the Whoop API."""
 
-    def __init__(self, client_id: str, client_secret: str, token_manager: TokenManager):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.token_manager = token_manager
+    def __init__(self, client_id: str = None, client_secret: str = None, token_manager: TokenManager = None):
+        """Initialize the Whoop client.
+
+        Args:
+            client_id: Optional client ID. If not provided, will look for WHOOP_CLIENT_ID in environment.
+            client_secret: Optional client secret. If not provided, will look for WHOOP_CLIENT_SECRET in environment.
+            token_manager: Optional token manager. If not provided, will create one with default path.
+
+        Raises:
+            ValueError: If credentials are not provided or found in environment.
+        """
+        self.client_id = client_id or os.getenv("WHOOP_CLIENT_ID")
+        self.client_secret = client_secret or os.getenv("WHOOP_CLIENT_SECRET")
+        if not self.client_id or not self.client_secret:
+            raise ValueError("Whoop client ID and secret are required")
+            
+        self.token_manager = token_manager or TokenManager(os.path.expanduser("~/.whoop_tokens.json"))
         self.base_url = "https://api.prod.whoop.com/developer"
         self.token_url = "https://api.prod.whoop.com/oauth/oauth2/token"
         self.redirect_uri = "http://localhost:8080/callback"
@@ -126,7 +144,6 @@ class WhoopClient:
                 f"{self.base_url}/{endpoint}", headers=headers, params=params
             )
             response.raise_for_status()
-            # Always log the JSON response when in debug mode
             response_data = response.json()
 
             # Save API response as JSON file
@@ -164,9 +181,7 @@ class WhoopClient:
             "start": DateUtils.format_date(start_date, DateFormat.ISO),
             "end": DateUtils.format_date(api_end, DateFormat.ISO),
         }
-        self.logger.debug(f"API request to v1/recovery with params: {params}")
         response = self._make_request("v1/recovery", params)
-        self.logger.log_data_counts("recovery", len(response.get("records", [])))
         return response
 
     def get_workouts(
@@ -231,22 +246,20 @@ class WhoopClient:
         ProgressIndicator.bullet_item(
             f"[Whoop Auth] Please visit this URL to authorize the application: {auth_url}"
         )
-        self.logger.debug(
-            f"Please visit this URL to authorize the application: {auth_url}"
-        )
 
         # Start local server to handle callback
         server = HTTPServer(("localhost", 8080), OAuthCallbackHandler)
         server.auth_code = None
         server.auth_state = None
+        server.should_stop = False  # Add flag for graceful shutdown
 
         # Set a timeout for the server to prevent it from running indefinitely
         server.timeout = 60  # seconds
 
-        self.logger.debug("Waiting for authorization...")
         try:
-            # Handle a single request, then shut down
-            server.handle_request()
+            # Handle requests until should_stop is set or timeout occurs
+            while not server.should_stop:
+                server.handle_request()
 
             if server.auth_code and server.auth_state:
                 self.get_token(server.auth_code, server.auth_state)

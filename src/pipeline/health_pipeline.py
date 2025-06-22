@@ -35,12 +35,7 @@ class HealthPipeline:
         self.logger = HealthLogger(__name__)
 
         # Initialize clients
-        whoop_client_id = os.getenv("WHOOP_CLIENT_ID")
-        whoop_client_secret = os.getenv("WHOOP_CLIENT_SECRET")
-        whoop_token_manager = TokenManager(os.path.expanduser("~/.whoop_tokens.json"))
-        self.whoop = WhoopClient(
-            whoop_client_id, whoop_client_secret, whoop_token_manager
-        )
+        self.whoop = WhoopClient()
         self.oura = OuraClient()
         self.withings = WithingsClient()
         self.storage = OneDriveClient()

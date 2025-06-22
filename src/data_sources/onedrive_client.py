@@ -11,6 +11,7 @@ from msal import PublicClientApplication
 
 from src.data_sources.token_manager import TokenManager
 from src.utils.logging_utils import HealthLogger
+from src.utils.progress_indicators import ProgressIndicator
 
 
 class OneDriveClient:
@@ -71,9 +72,6 @@ class OneDriveClient:
                         }
                     )  # Save serialized cache
                     self.access_token = result["access_token"]
-                    self.logger.info(
-                        "✓ Successfully authenticated with OneDrive via silent acquisition!"
-                    )
                     return True
 
             # If silent acquisition fails, initiate device flow
@@ -81,12 +79,15 @@ class OneDriveClient:
             if "user_code" not in flow:
                 raise Exception("Failed to start device flow")
 
-            # Show instructions to user
-            self.logger.info(f"\nTo authenticate with OneDrive, please:")
-            self.logger.info(f"1. Go to: {flow['verification_uri']}")
-            self.logger.info(f"2. Enter the code: {flow['user_code']}")
-            self.logger.info("\nWaiting for authentication...")
-
+            # Show instructions to user using ProgressIndicator for consistent UI
+            ProgressIndicator.bullet_item(
+                f"[OneDrive Auth] Please visit this URL to authorize the application: {flow['verification_uri']}"
+            )
+            ProgressIndicator.bullet_item(
+                f"[OneDrive Auth] Enter the code: {flow['user_code']}"
+            )
+            ProgressIndicator.bullet_item("Waiting for authentication...")
+            
             # Wait for user to complete authentication
             result = self.app.acquire_token_by_device_flow(flow)
 
@@ -102,7 +103,9 @@ class OneDriveClient:
                 }
             )  # Save serialized cache
             self.access_token = result["access_token"]
-            self.logger.info("✓ Successfully authenticated with OneDrive!")
+            # Log success to debug only - progress indicators will show success elsewhere
+            self.logger.debug("Successfully authenticated with OneDrive!")
+            ProgressIndicator.step_complete("OneDrive authentication successful")
             return True
 
         except Exception as e:
