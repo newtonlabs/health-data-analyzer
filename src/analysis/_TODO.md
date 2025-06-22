@@ -25,3 +25,4 @@ Make a folder structure like this
 
 * Separate out aggregators
 * do something with workout data that is working now
+* Seems weird that the whoop client is needed for processing
