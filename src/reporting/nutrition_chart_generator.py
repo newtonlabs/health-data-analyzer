@@ -128,8 +128,14 @@ class NutritionChartGenerator(ChartGenerator):
         # Add calorie labels at the bottom of each bar (much higher up to avoid clipping)
         for i, cal in enumerate(total_cals):
             if cal > 0:  # Only add labels for non-zero values
+                # Use actual calories from the data if available, otherwise use calculated calories
+                if 'calories' in df.columns:
+                    display_cal = df['calories'].iloc[i]
+                else:
+                    display_cal = cal
+                    
                 ax.annotate(
-                    f"{cal:.0f}",
+                    f"{display_cal:.0f}",
                     xy=(x_numeric[i], 120),  # Position even higher above the x-axis
                     xytext=(0, 0),  # No offset
                     textcoords="offset points",

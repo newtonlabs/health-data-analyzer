@@ -356,15 +356,16 @@ class ReportGenerator:
 
         if has_macro_data:
             # Use the stacked chart with macronutrient breakdown
-            # Include weight data if available
+            # Include calories and weight data if available
+            columns_to_include = ["date", "protein", "carbs", "fat", "activity"]
+            
+            if "calories" in macros_df.columns:
+                columns_to_include.append("calories")
+                
             if "weight" in macros_df.columns:
-                chart_df = macros_df[
-                    ["date", "protein", "carbs", "fat", "activity", "weight"]
-                ].copy()
-            else:
-                chart_df = macros_df[
-                    ["date", "protein", "carbs", "fat", "activity"]
-                ].copy()
+                columns_to_include.append("weight")
+                
+            chart_df = macros_df[columns_to_include].copy()
 
             # Skip days with no data
             chart_df = chart_df[

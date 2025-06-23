@@ -35,7 +35,7 @@ def get_report_template():
             color: #111;
             margin: 0;
             padding: 0.5rem;
-            font-size: 12px;
+            font-size: 14px;
             box-sizing: border-box;
         }}
         
@@ -204,6 +204,7 @@ def get_report_template():
             margin: 0;
             padding: 0;
             line-height: 1.4;
+            font-size: 14px; /* Match the body font size */
         }}
         
         li p {{
