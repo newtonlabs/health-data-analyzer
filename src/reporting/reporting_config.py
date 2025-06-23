@@ -1,10 +1,13 @@
 """Configuration for reporting components."""
 
-# No imports needed
+import os
 
 
 class ReportingConfig:
     """Configuration for reporting components."""
+    
+    # Charts directory
+    CHARTS_DIR = os.path.join("data", "charts")
 
     # Chart colors
     COLORS = {
@@ -67,4 +70,12 @@ class ReportingConfig:
     CALORIC_TARGETS = {
         "strength": 2400,  # Target calories for strength training days
         "rest": 1800,  # Target calories for rest days
+    }
+    
+    # Calorie conversion factors for macronutrients
+    CALORIE_FACTORS = {
+        "protein": 4.1,  # 4.1 calories per gram
+        "carbs": 4.1,    # 4.1 calories per gram
+        "fat": 9.44,     # 9.44 calories per gram
+        "alcohol": 6.93  # 6.93 calories per gram (for future use)
     }

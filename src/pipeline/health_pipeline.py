@@ -134,9 +134,7 @@ class HealthPipeline:
         
         # Fetch Hevy workout data
         ProgressIndicator.step_start("Fetching Hevy workout data from API")
-        hevy_raw = {
-            "workouts": self.hevy.get_workouts()
-        }
+        hevy_raw = self.hevy.get_workouts()
         ProgressIndicator.step_complete()
 
         # All API data fetched successfully

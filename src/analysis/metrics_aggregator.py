@@ -30,7 +30,7 @@ class MetricsAggregator:
         """Initialize MetricsAggregator.
 
         Args:
-            processor: HealthDataProcessor instance to use for data
+            processor: Processor instance to use for data
         """
         self.processor = processor
         self.logger = HealthLogger(__name__)

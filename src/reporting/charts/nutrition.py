@@ -14,23 +14,13 @@ from ..reporting_config import ReportingConfig
 class NutritionChartGenerator(ChartGenerator):
     """Generates chart visualization for calorie intake with targets based on activity type."""
 
-    def __init__(
-        self,
-        charts_dir: Optional[str] = None,
-        target_strength: int = ReportingConfig.CALORIC_TARGETS["strength"],
-        target_rest: int = ReportingConfig.CALORIC_TARGETS["rest"],
-    ):
+    def __init__(self):
         """
-        Initialize nutrition chart generator with output directory and calorie targets.
-
-        Args:
-            charts_dir: Directory to save chart images
-            target_strength: Target calories for strength training days
-            target_rest: Target calories for rest days
+        Initialize nutrition chart generator with config values.
         """
-        super().__init__(charts_dir)
-        self.target_strength = target_strength
-        self.target_rest = target_rest
+        super().__init__()
+        self.target_strength = ReportingConfig.CALORIC_TARGETS["strength"]
+        self.target_rest = ReportingConfig.CALORIC_TARGETS["rest"]
 
     def generate(self, df: pd.DataFrame, filename: str = "nutrition_chart.png") -> str:
         """
@@ -52,11 +42,16 @@ class NutritionChartGenerator(ChartGenerator):
         x_numeric = np.arange(len(df["date"]))
         width = 0.6
 
-        # Calculate calories from macros
-        protein_cals = df["protein"] * 4  # 4 calories per gram
-        carbs_cals = df["carbs"] * 4  # 4 calories per gram
-        fat_cals = df["fat"] * 9  # 9 calories per gram
-        total_cals = protein_cals + carbs_cals + fat_cals
+        # Calculate calories from macros using factors from ReportingConfig
+        protein_cals = df["protein"] * ReportingConfig.CALORIE_FACTORS["protein"]
+        carbs_cals = df["carbs"] * ReportingConfig.CALORIE_FACTORS["carbs"]
+        fat_cals = df["fat"] * ReportingConfig.CALORIE_FACTORS["fat"]
+        # Placeholder for future alcohol calculation
+        # if "alcohol" in df.columns:
+        #     alcohol_cals = df["alcohol"] * ReportingConfig.CALORIE_FACTORS["alcohol"]
+        # else:
+        #     alcohol_cals = 0
+        total_cals = protein_cals + carbs_cals + fat_cals  # + alcohol_cals (when implemented)
 
         # Colors - matching the macro report color scheme
         protein_color = ReportingConfig.COLORS[

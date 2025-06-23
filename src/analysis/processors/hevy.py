@@ -11,10 +11,15 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 
 from src.utils.date_utils import DateUtils, DateFormat
+from src.utils.logging_utils import HealthLogger
 
 
 class HevyProcessor:
     """Processor for Hevy workout data."""
+    
+    def __init__(self):
+        """Initialize the HevyProcessor with a logger."""
+        self.logger = HealthLogger(__name__)
 
     def process_workouts(self, workouts_data: Dict[str, Any]) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Process Hevy workout data into two dataframes.
@@ -27,10 +32,10 @@ class HevyProcessor:
                 - workout_df: DataFrame with workout summaries and total tonnage
                 - exercise_df: DataFrame with exercise details per workout
         """
-        # Add logging
-        print(f"HevyProcessor.process_workouts - workouts_data type: {type(workouts_data)}")
+        # Add logging at debug level
+        self.logger.debug(f"Workouts data type: {type(workouts_data)}")
         if isinstance(workouts_data, dict):
-            print(f"HevyProcessor.process_workouts - workouts_data keys: {workouts_data.keys()}")
+            self.logger.debug(f"Workouts data keys: {workouts_data.keys()}")
             
         # Extract workouts from the data
         # Handle nested structure where workouts_data['workouts'] is another dict with a 'workouts' key
@@ -39,24 +44,24 @@ class HevyProcessor:
                 # Check if workouts is a dict with another 'workouts' key (nested structure)
                 if isinstance(workouts_data['workouts'], dict) and 'workouts' in workouts_data['workouts']:
                     workouts = workouts_data['workouts']['workouts']
-                    print(f"HevyProcessor.process_workouts - using nested workouts: {type(workouts)}, length: {len(workouts)}")
+                    self.logger.debug(f"Using nested workouts: {type(workouts)}, length: {len(workouts)}")
                 # Otherwise, check if workouts is a list
                 elif isinstance(workouts_data['workouts'], list):
                     workouts = workouts_data['workouts']
-                    print(f"HevyProcessor.process_workouts - using direct workouts list: {type(workouts)}, length: {len(workouts)}")
+                    self.logger.debug(f"Using direct workouts list: {type(workouts)}, length: {len(workouts)}")
                 # Otherwise, it might be something else
                 else:
                     workouts = []
-                    print(f"HevyProcessor.process_workouts - unexpected workouts type: {type(workouts_data['workouts'])}")
+                    self.logger.debug(f"Unexpected workouts type: {type(workouts_data['workouts'])}")
             else:
                 workouts = []
-                print("HevyProcessor.process_workouts - no 'workouts' key in data")
+                self.logger.debug("No 'workouts' key in data")
         else:
             workouts = []
-            print("HevyProcessor.process_workouts - workouts_data is not a dict, using empty list")
+            self.logger.debug("Workouts data is not a dict, using empty list")
             
         if not workouts:
-            print("HevyProcessor.process_workouts - no workouts found, returning empty DataFrames")
+            self.logger.debug("No workouts found, returning empty DataFrames")
             return pd.DataFrame(), pd.DataFrame()
         
         # Process workouts into two dataframes
@@ -65,11 +70,11 @@ class HevyProcessor:
         
         for i, workout in enumerate(workouts):
             # Add logging for each workout
-            print(f"Processing workout {i+1}/{len(workouts)} - type: {type(workout)}")
+            self.logger.debug(f"Processing workout {i+1}/{len(workouts)} - type: {type(workout)}")
             
             # Handle case where workout might be a string instead of a dictionary
             if not isinstance(workout, dict):
-                print(f"Skipping workout {i+1} - not a dictionary: {workout}")
+                self.logger.debug(f"Skipping workout with missing required fields: {workout}")
                 continue
                 
             # Calculate workout metrics

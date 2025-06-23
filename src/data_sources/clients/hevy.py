@@ -75,7 +75,6 @@ class HevyClient(APIClient):
         """
         # Log the start of the fetch operation
         self.logger.logger.info(f"Fetching Hevy workouts with page size {page_size}")
-        ProgressIndicator.bullet_item("Fetching Hevy workout data from API")
         
         all_workouts = []
         page = 1
@@ -101,7 +100,6 @@ class HevyClient(APIClient):
                 page += 1
                 
             self.logger.logger.info(f"Successfully fetched {len(all_workouts)} workouts from Hevy API")
-            ProgressIndicator.step_complete("Fetching Hevy workout data from API")
             return {"workouts": all_workouts}
             
         except Exception as e:

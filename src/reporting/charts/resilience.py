@@ -20,14 +20,11 @@ class ResilienceChartGenerator(ChartGenerator):
     Output is saved as a PNG in data/charts/.
     """
 
-    def __init__(self, charts_dir: Optional[str] = None):
+    def __init__(self):
         """
-        Initialize resilience chart generator with output directory.
-
-        Args:
-            charts_dir: Directory to save chart images
+        Initialize resilience chart generator with config values.
         """
-        super().__init__(charts_dir)
+        super().__init__()
 
         # Get resilience bands from analyzer_config
         # Use lowercase keys for internal logic but uppercase for display

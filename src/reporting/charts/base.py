@@ -10,9 +10,9 @@ from ..reporting_config import ReportingConfig
 class ChartGenerator:
     """Base class for chart generators."""
 
-    def __init__(self, charts_dir: Optional[str] = None):
-        """Initialize chart generator with output directory."""
-        self.charts_dir = charts_dir or os.path.join("data", "charts")
+    def __init__(self):
+        """Initialize chart generator with output directory from config."""
+        self.charts_dir = ReportingConfig.CHARTS_DIR
         os.makedirs(self.charts_dir, exist_ok=True)
 
     def _setup_chart_figure(

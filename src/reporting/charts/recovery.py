@@ -17,14 +17,11 @@ class RecoveryChartGenerator(ChartGenerator):
     Output is saved as a PNG in data/charts/.
     """
 
-    def __init__(self, charts_dir: Optional[str] = None):
+    def __init__(self):
         """
-        Initialize recovery chart generator with output directory and color definitions.
-
-        Args:
-            charts_dir: Directory to save chart images
+        Initialize recovery chart generator with config values.
         """
-        super().__init__(charts_dir)
+        super().__init__()
         # Get colors and thresholds from config
         self.green_color = ReportingConfig.COLORS["recovery_high"]
         self.yellow_color = ReportingConfig.COLORS["recovery_medium"]

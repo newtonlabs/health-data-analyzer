@@ -215,11 +215,10 @@ class ReportGenerator:
         df: pd.DataFrame,
         filename: str,
         chart_type_name: str,
-        **kwargs,
     ) -> Optional[str]:
         """Generic helper to generate a chart and return its markdown string."""
         try:
-            chart_gen = chart_generator_class(**kwargs)
+            chart_gen = chart_generator_class()
             chart_path = chart_gen.generate(df, filename=filename)
             if chart_path:
                 # Extract relative path from charts_dir to ensure correct markdown path
@@ -379,9 +378,7 @@ class ReportGenerator:
                 chart_generator_class=NutritionChartGenerator,
                 df=chart_df,
                 filename=stacked_filename,
-                chart_type_name="Nutrition",
-                target_strength=ReportingConfig.CALORIC_TARGETS["strength"],
-                target_rest=ReportingConfig.CALORIC_TARGETS["rest"],
+                chart_type_name="Nutrition"
             )
         else:
             # Use the simple chart with just calories
@@ -394,9 +391,7 @@ class ReportGenerator:
                 chart_generator_class=NutritionChartGenerator,
                 df=chart_df,
                 filename=filename,
-                chart_type_name="Nutrition",
-                target_strength=ReportingConfig.CALORIC_TARGETS["strength"],
-                target_rest=ReportingConfig.CALORIC_TARGETS["rest"],
+                chart_type_name="Nutrition"
             )
 
     def generate_weekly_status(
@@ -444,12 +439,19 @@ class ReportGenerator:
         # Calculate macronutrient ratios
         macro_ratios = None
         if len(active_days) > 0:
-            # Calculate calorie contributions
+            # Calculate calorie contributions using factors from ReportingConfig
             protein_cals = (
-                active_days["protein"].sum() * 4
-            )  # 4 calories per gram of protein
-            carbs_cals = active_days["carbs"].sum() * 4  # 4 calories per gram of carbs
-            fat_cals = active_days["fat"].sum() * 9  # 9 calories per gram of fat
+                active_days["protein"].sum() * ReportingConfig.CALORIE_FACTORS["protein"]
+            )
+            carbs_cals = active_days["carbs"].sum() * ReportingConfig.CALORIE_FACTORS["carbs"]
+            fat_cals = active_days["fat"].sum() * ReportingConfig.CALORIE_FACTORS["fat"]
+            # Placeholder for future alcohol calculation
+            # if "alcohol" in active_days.columns:
+            #     alcohol_cals = active_days["alcohol"].sum() * ReportingConfig.CALORIE_FACTORS["alcohol"]
+            # else:
+            #     alcohol_cals = 0
+            
+            # Using reported calories instead of calculated ones for consistency
             total_calories = active_days["calories"].sum()
 
             if total_calories > 0:
