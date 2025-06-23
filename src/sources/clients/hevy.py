@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from src.data_sources.base import APIClient, APIClientError
+from src.sources.base import APIClient, APIClientError
 from src.app_config import AppConfig
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator

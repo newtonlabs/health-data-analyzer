@@ -6,7 +6,7 @@ from typing import Optional
 
 import pandas as pd
 
-from src.data_sources.base import DataSource
+from src.sources.base import DataSource
 
 
 class NutritionData(DataSource):

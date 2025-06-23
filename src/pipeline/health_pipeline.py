@@ -10,12 +10,12 @@ import pandas as pd
 
 from src.analysis.processor import Processor
 from src.analysis.aggregator import Aggregator
-from src.data_sources.clients.hevy import HevyClient
-from src.data_sources.clients.onedrive import OneDriveClient
-from src.data_sources.clients.oura import OuraClient
-from src.data_sources.token_manager import TokenManager
-from src.data_sources.clients.whoop import WhoopClient
-from src.data_sources.clients.withings import WithingsClient
+from src.sources.clients.hevy import HevyClient
+from src.sources.clients.onedrive import OneDriveClient
+from src.sources.clients.oura import OuraClient
+from src.sources.token_manager import TokenManager
+from src.sources.clients.whoop import WhoopClient
+from src.sources.clients.withings import WithingsClient
 from src.reporting.pdf_converter import PDFConverter
 from src.reporting.report_generator import ReportGenerator
 from src.utils.date_utils import DateUtils
