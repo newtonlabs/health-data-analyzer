@@ -7,8 +7,8 @@ import pandas as pd
 
 from src.utils.date_utils import DateUtils
 
-from .chart_generator import ChartGenerator
-from .reporting_config import ReportingConfig
+from .base import ChartGenerator
+from ..reporting_config import ReportingConfig
 
 
 class NutritionChartGenerator(ChartGenerator):

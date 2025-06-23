@@ -10,8 +10,8 @@ import pandas as pd
 from src.analysis.analyzer_config import AnalyzerConfig
 from src.utils.date_utils import DateUtils
 
-from .chart_generator import ChartGenerator
-from .reporting_config import ReportingConfig
+from .base import ChartGenerator
+from ..reporting_config import ReportingConfig
 
 
 class ResilienceChartGenerator(ChartGenerator):

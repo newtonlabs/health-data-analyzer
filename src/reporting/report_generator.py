@@ -10,12 +10,12 @@ from src.analysis.analyzer_config import AnalyzerConfig
 from src.analysis.metrics_aggregator import MetricsAggregator
 from src.utils.logging_utils import HealthLogger
 
-from .chart_generator import ChartGenerator
-from .macro_ratio_chart_generator import MacroRatioChartGenerator
-from .nutrition_chart_generator import NutritionChartGenerator
-from .recovery_chart_generator import RecoveryChartGenerator
+from .charts.base import ChartGenerator
+from .charts.macro_ratio import MacroRatioChartGenerator
+from .charts.nutrition import NutritionChartGenerator
+from .charts.recovery import RecoveryChartGenerator
 from .reporting_config import ReportingConfig
-from .resilience_chart_generator import ResilienceChartGenerator
+from .charts.resilience import ResilienceChartGenerator
 
 
 class ReportGenerator:

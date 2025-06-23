@@ -4,7 +4,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .reporting_config import ReportingConfig
+from ..reporting_config import ReportingConfig
 
 
 class ChartGenerator:
