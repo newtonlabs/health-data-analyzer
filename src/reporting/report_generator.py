@@ -7,7 +7,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from src.app_config import AppConfig
-from src.analysis.metrics_aggregator import MetricsAggregator
+from src.analysis.aggregator import Aggregator
 from src.utils.logging_utils import HealthLogger
 
 from .charts.base import ChartGenerator
@@ -18,11 +18,11 @@ from .charts.resilience import ResilienceChartGenerator
 
 
 class ReportGenerator:
-    def __init__(self, analyzer: MetricsAggregator):
+    def __init__(self, analyzer: Aggregator):
         """Initialize ReportGenerator.
 
         Args:
-            analyzer: MetricsAggregator instance to use for metrics generation
+            analyzer: Aggregator instance to use for metrics generation
         """
         self.analyzer = analyzer
         self.logger = HealthLogger(__name__)

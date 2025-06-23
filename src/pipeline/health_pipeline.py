@@ -9,7 +9,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from src.analysis.processor import Processor
-from src.analysis.metrics_aggregator import MetricsAggregator
+from src.analysis.aggregator import Aggregator
 from src.data_sources.clients.hevy import HevyClient
 from src.data_sources.clients.onedrive import OneDriveClient
 from src.data_sources.clients.oura import OuraClient
@@ -44,7 +44,7 @@ class HealthPipeline:
 
         # Initialize data processing components
         self.processor = Processor()
-        self.aggregator = MetricsAggregator(self.processor)
+        self.aggregator = Aggregator(self.processor)
         self.report_gen = ReportGenerator(self.aggregator)
         self.converter = PDFConverter()
 
