@@ -1,5 +1,5 @@
 """Pipeline module for health data processing."""
 
-from .health_pipeline import HealthPipeline
+from .workflow import Workflow
 
-__all__ = ["HealthPipeline"]
+__all__ = ["Workflow"]

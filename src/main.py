@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 project_root = str(Path(__file__).parent.parent)
 sys.path.insert(0, project_root)
 
-from src.pipeline import HealthPipeline
+from src.pipeline import Workflow
 from src.utils.logging_utils import configure_logging
 from src.utils.progress_indicators import Colors, ProgressIndicator
 
@@ -78,8 +78,12 @@ def main() -> None:
 
     # Run pipeline with progress indicators
     try:
-        pipeline = HealthPipeline(skip_auth=skip_auth)
-        pipeline.run(args)
+        workflow = Workflow(skip_auth=skip_auth)
+        workflow.run(
+            fetch=args.fetch,
+            pdf=args.pdf,
+            upload=args.upload
+        )
         # Show success message at the end
         if args.fetch or args.pdf or args.upload:
             ProgressIndicator.print_message(
