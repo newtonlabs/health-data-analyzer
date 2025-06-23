@@ -52,16 +52,17 @@ class NutritionData(DataSource):
         data["protein"] = pd.to_numeric(data["Protein (g)"], errors="coerce")
         data["carbs"] = pd.to_numeric(data["Carbs (g)"], errors="coerce")
         data["fat"] = pd.to_numeric(data["Fat (g)"], errors="coerce")
+        data["alcohol"] = pd.to_numeric(data["Alcohol (g)"], errors="coerce")
         data["date"] = data["Date"]
 
         # Fill missing values with zeros
-        numeric_cols = ["calories", "protein", "carbs", "fat"]
+        numeric_cols = ["calories", "protein", "carbs", "fat", "alcohol"]
         for col in numeric_cols:
             data[col] = data[col].fillna(0)
 
         # Select and round relevant columns
-        summary = data[["date", "calories", "protein", "carbs", "fat"]].copy()
-        summary = summary.round({"calories": 0, "protein": 1, "carbs": 1, "fat": 1})
+        summary = data[["date", "calories", "protein", "carbs", "fat", "alcohol"]].copy()
+        summary = summary.round({"calories": 0, "protein": 1, "carbs": 1, "fat": 1, "alcohol": 1})
 
         # Filter by date range if provided
         if start_date:

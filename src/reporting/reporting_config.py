@@ -24,6 +24,7 @@ class ReportingConfig:
         "protein": "#7B1F1F",  # Dark red for protein
         "carbs": "#333333",  # Black for carbs
         "fat": "#999999",  # Gray for fat
+        "alcohol": "#FF8C00",  # Dark orange for alcohol
         # Text and UI colors
         "text": "#666666",  # Gray for text elements
         "grid": "#cccccc",  # Light gray for grid lines

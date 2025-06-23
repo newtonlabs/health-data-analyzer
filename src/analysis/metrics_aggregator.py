@@ -572,6 +572,7 @@ class MetricsAggregator:
             - protein: Protein in grams
             - carbs: Carbohydrates in grams
             - fat: Fat in grams
+            - alcohol: Alcohol in grams
             - activity: Sport name or 'Rest'
             - steps: Daily step count
             - weight: Weight in pounds (if available)
@@ -591,6 +592,7 @@ class MetricsAggregator:
                 "protein": row["protein"],
                 "carbs": row["carbs"],
                 "fat": row["fat"],
+                "alcohol": row["alcohol"] if "alcohol" in row else 0,
             }
 
         # Set default values
@@ -598,6 +600,7 @@ class MetricsAggregator:
         df["protein"] = 0
         df["carbs"] = 0
         df["fat"] = 0
+        df["alcohol"] = 0
 
         # Update with actual values
         for date in df["date"]:
@@ -610,6 +613,7 @@ class MetricsAggregator:
                 ]
                 df.loc[df["date"] == date, "carbs"] = nutrition_by_date[date]["carbs"]
                 df.loc[df["date"] == date, "fat"] = nutrition_by_date[date]["fat"]
+                df.loc[df["date"] == date, "alcohol"] = nutrition_by_date[date]["alcohol"]
 
         # Step 3: Add steps data
         df = self._add_steps_data(df, start_date, end_date)
@@ -628,6 +632,7 @@ class MetricsAggregator:
             "protein",
             "carbs",
             "fat",
+            "alcohol",
             "activity",
             "steps",
         ]

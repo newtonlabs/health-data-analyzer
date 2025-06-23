@@ -156,6 +156,7 @@ class ReportGenerator:
                 "protein": "PROTEIN",
                 "carbs": "CARBS",
                 "fat": "FAT",
+                "alcohol": "ALCOHOL",
                 "steps": "STEPS",
                 "activity": "ACTIVITY",
                 "weight": "WEIGHT",
@@ -355,8 +356,13 @@ class ReportGenerator:
 
         if has_macro_data:
             # Use the stacked chart with macronutrient breakdown
-            # Include calories and weight data if available
+            # Include alcohol, calories and weight data if available
             columns_to_include = ["date", "protein", "carbs", "fat", "activity"]
+            
+            # Add alcohol if available
+            if "alcohol" in macros_df.columns:
+                columns_to_include.append("alcohol")
+                self.logger.logger.debug(f"Including alcohol column in chart data: {macros_df['alcohol'].tolist()}")
             
             if "calories" in macros_df.columns:
                 columns_to_include.append("calories")
