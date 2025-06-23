@@ -52,7 +52,7 @@ class ReportingConfig:
         "default_line_width": 1.5,  # Default line width for plots
         "grid_line_width": 0.7,  # Line width for grid lines
         "default_marker_size": 4,  # Default marker size for plots
-        "chart_height": 4.5,  # Standard chart height for recovery and nutrition charts
+        "chart_height": 4.8,  # Standard chart height for recovery and nutrition charts (balanced for legend space)
         "chart_height_compact": 2.0,  # Compact chart height for minimalist design
         "grid_opacity": 0.5,  # Grid line opacity
         "default_font_size": 9,  # Default font size for labels and legends
@@ -63,8 +63,8 @@ class ReportingConfig:
         "resilience_band_font_size": 8,  # Font size for resilience band labels
         "weight_line_width": 2,  # Line width for weight line
         "legend_font_size": 9,  # Default font size for legends
-        "legend_columns": 3,  # Default number of columns for legends
-        "legend_vertical_offset": -0.15,  # Vertical offset for legends (negative moves it up)
+        "legend_columns": 4,  # Default number of columns for legends
+        "legend_vertical_offset": -0.18,  # Vertical offset for legends (negative moves it up)
     }
 
     # Caloric targets by activity type

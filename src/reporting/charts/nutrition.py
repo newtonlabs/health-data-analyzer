@@ -78,9 +78,9 @@ class NutritionChartGenerator(ChartGenerator):
             "sleep_need"
         ]  # Bright blue for strength days
 
-        # Plot setup - taller chart for better spacing
+        # Plot setup - taller and wider chart for better spacing and legend room
         fig, ax = self._setup_chart_figure(
-            figsize=(10, ReportingConfig.STYLING["chart_height"])
+            figsize=(11, ReportingConfig.STYLING["chart_height"])
         )
 
         # Create stacked bars with different colors based on activity type
@@ -408,22 +408,24 @@ class NutritionChartGenerator(ChartGenerator):
 
                     combined_line_legends.extend(weight_legend)
 
-        # Create and place macro legend (left)
+        # Create and place macro legend (left) - using 2 columns for better spacing
         macro_leg = ax.legend(
             handles=macro_legend,
             loc="lower left",
             bbox_to_anchor=(0.0, ReportingConfig.STYLING["legend_vertical_offset"]),
-            ncol=ReportingConfig.STYLING["legend_columns"],
+            ncol=2,  # Fixed 2 columns for macro legend regardless of config
             frameon=False,
             fontsize=ReportingConfig.STYLING["legend_font_size"],
         )
 
         # Create and place combined line legend (right)
+        # Calculate number of columns based on number of items, but cap at 2 for better spacing
+        n_cols = min(len(combined_line_legends), 2)
         line_leg = ax.legend(
             handles=combined_line_legends,
             loc="lower right",
             bbox_to_anchor=(1.0, ReportingConfig.STYLING["legend_vertical_offset"]),
-            ncol=len(combined_line_legends),
+            ncol=n_cols,
             frameon=False,
             fontsize=ReportingConfig.STYLING["legend_font_size"],
         )
