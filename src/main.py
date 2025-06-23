@@ -79,11 +79,7 @@ def main() -> None:
     # Run pipeline with progress indicators
     try:
         workflow = Workflow(skip_auth=skip_auth)
-        workflow.run(
-            fetch=args.fetch,
-            pdf=args.pdf,
-            upload=args.upload
-        )
+        workflow.run(args)
         # Show success message at the end
         if args.fetch or args.pdf or args.upload:
             ProgressIndicator.print_message(

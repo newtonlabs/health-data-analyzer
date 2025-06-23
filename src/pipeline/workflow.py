@@ -1,4 +1,4 @@
-"""Workflow for orchestrating health data processing."""
+"""Health data pipeline for collecting and processing health data."""
 
 import argparse
 import os
@@ -24,10 +24,10 @@ from src.utils.progress_indicators import ProgressIndicator
 
 
 class Workflow:
-    """Main workflow for health data processing."""
+    """Main pipeline for health data processing."""
 
     def __init__(self, skip_auth: bool = False):
-        """Initialize workflow components.
+        """Initialize pipeline components.
 
         Args:
             skip_auth: If True, skip authentication with external services
@@ -48,21 +48,17 @@ class Workflow:
         self.report_gen = ReportGenerator(self.aggregator)
         self.converter = PDFConverter()
 
-        # Skip authentication if requested
-        self.skip_auth = skip_auth
+        # Authenticate with services if needed
         if not skip_auth:
             self._authenticate()
 
     def _authenticate(self) -> None:
         """Authenticate with all services."""
-        # Authenticate with OneDrive
-        self.storage.authenticate()
-        
         # Authenticate with Oura
         if not self.oura.is_authenticated():
-            self.logger.logger.error("Failed to authenticate with Oura")
+            self.logger.log_skipped_date(None, "Failed to authenticate with Oura")
             sys.exit(1)
-            
+
         # Authenticate with Whoop
         if not self.whoop.is_authenticated():
             if not self.whoop.authenticate():
@@ -71,181 +67,264 @@ class Workflow:
                 )
                 try:
                     self.whoop.get_token(auth_code, self.whoop.state)
-                    self.logger.logger.info("Whoop authentication successful!")
+                    self.logger.info("Whoop authentication successful!")
                 except Exception as e:
-                    self.logger.logger.error(f"Failed to authenticate with Whoop: {e}")
+                    self.logger.log_skipped_date(
+                        None, f"Failed to authenticate with Whoop: {e}"
+                    )
                     sys.exit(1)
-                    
+
         # Authenticate with Withings
         if not self.withings.is_authenticated():
             if not self.withings.authenticate():
-                auth_code = input(
-                    "Please enter the authorization code from the redirected URL: "
+                self.logger.log_skipped_date(
+                    None, "Failed to authenticate with Withings"
                 )
-                try:
-                    self.withings.get_token(auth_code, self.withings.state)
-                    self.logger.logger.info("Withings authentication successful!")
-                except Exception as e:
-                    self.logger.logger.error(f"Failed to authenticate with Withings: {e}")
-                    sys.exit(1)
-                    
-        # Authenticate with Hevy
-        self.hevy.authenticate()
+                sys.exit(1)
 
-    def run(
-        self,
-        fetch: bool = False,
-        pdf: bool = False,
-        upload: bool = False,
-        days: int = 7,
-    ) -> None:
-        """Run the health data workflow.
+        # Authenticate with OneDrive
+        if not self.storage.authenticate():
+            self.logger.log_skipped_date(None, "Failed to authenticate with OneDrive")
+            sys.exit(1)
+
+    def fetch_api_data(
+        self, fetch_start: datetime, fetch_end: datetime
+    ) -> dict[str, Any]:
+        """Fetch data from Oura, Whoop, and Withings APIs.
 
         Args:
-            fetch: Whether to fetch new data
-            pdf: Whether to generate a PDF report
-            upload: Whether to upload the report to OneDrive
-            days: Number of days to include in the report
+            fetch_start: Start date for data fetch
+            fetch_end: End date for data fetch
+
+        Returns:
+            Dictionary with raw API data
         """
-        # Calculate date range for new data fetching
-        end_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        start_date = end_date - timedelta(days=days)
-
-        # Format dates for display
-        start_str = start_date.strftime("%Y-%m-%d")
-        end_str = end_date.strftime("%Y-%m-%d")
-        self.logger.logger.info(f"Date range: {start_str} to {end_str}")
-
-        # Create output filename based on the current date if fetching new data
-        if fetch:
-            report_date = end_date.strftime("%Y-%m-%d")
-            md_filename = f"{report_date}-weekly-status.md"
-            pdf_filename = f"{report_date}-weekly-status.pdf"
-        else:
-            # If not fetching new data, find the most recent report file
-            data_dir = "data"
-            report_files = [f for f in os.listdir(data_dir) if f.endswith("-weekly-status.md")]
-            
-            if not report_files:
-                self.logger.logger.error("No report files found in data directory")
-                return
-                
-            # Sort by modification time (most recent first)
-            report_files.sort(key=lambda f: os.path.getmtime(os.path.join(data_dir, f)), reverse=True)
-            md_filename = report_files[0]
-            pdf_filename = md_filename.replace(".md", ".pdf")
-            
-        md_path = os.path.join("data", md_filename)
-        pdf_path = os.path.join("data", pdf_filename)
-
-        # Fetch and process data
-        if fetch:
-            self._fetch_data(start_date, end_date)
-            self._generate_report(md_path)
-
-        # Generate PDF
-        if pdf:
-            self.create_pdf(md_path, pdf_path)
-
-        # Upload to OneDrive
-        if upload and not self.skip_auth:
-            self._upload_to_onedrive(pdf_path)
-
-    def _fetch_data(self, start_date: datetime, end_date: datetime) -> None:
-        """Fetch and process data from all sources.
-
-        Args:
-            start_date: Start date for data fetching
-            end_date: End date for data fetching
-        """
-        if self.skip_auth:
-            self.logger.logger.warning("Skipping data fetching (auth disabled)")
-            return
-
-        ProgressIndicator.section_header("Data Collection")
-
-        # Fetch Oura data
+        # Fetch data from APIs
         ProgressIndicator.step_start("Fetching Oura data from API")
-        oura_data = self.oura.get_data(start_date, end_date)
-        self.processor.oura_data = self.processor.process_oura_data(oura_data)
+        oura_raw = {
+            "activity": self.oura.get_activity_data(fetch_start, fetch_end),
+            "resilience": self.oura.get_resilience_data(fetch_start, fetch_end),
+        }
         ProgressIndicator.step_complete()
 
-        # Fetch Whoop data
         ProgressIndicator.step_start("Fetching Whoop data from API")
-        whoop_data = self.whoop.get_data(start_date, end_date)
-        self.processor.whoop_data = self.processor.process_whoop_data(whoop_data)
+        whoop_raw = {
+            "workouts": self.whoop.get_workouts(fetch_start, fetch_end),
+            "recovery": self.whoop.get_recovery_data(fetch_start, fetch_end),
+            "sleep": self.whoop.get_sleep(fetch_start, fetch_end),
+        }
         ProgressIndicator.step_complete()
 
-        # Fetch Withings data
         ProgressIndicator.step_start("Fetching Withings weight data from API")
-        withings_data = self.withings.get_data(start_date, end_date)
-        self.processor.withings_data = self.processor.process_withings_data(
-            withings_data, start_date, end_date
+        # For Withings, always fetch the last 14 days including today
+        now = datetime.now()
+        withings_fetch_end = now.replace(
+            hour=23, minute=59, second=59, microsecond=999999
         )
-        ProgressIndicator.step_complete()
-
-        # Fetch Hevy data
-        ProgressIndicator.step_start("Fetching Hevy workout data from API")
-        hevy_data = self.hevy.get_workouts(start_date, end_date)
-        workout_df, exercise_df = self.processor.process_hevy_data(hevy_data, end_date)
-        self.processor.hevy_data = {"workouts": workout_df, "exercises": exercise_df}
-        ProgressIndicator.step_complete()
-
-        # Load nutrition data from file
-        ProgressIndicator.step_start("Fetching nutrition data from file")
-        ProgressIndicator.step_complete()
-
-        # Transform data
-        ProgressIndicator.step_start("Transforming and normalizing the data")
-        ProgressIndicator.step_complete()
-
-    def _generate_report(self, output_path: str) -> None:
-        """Generate markdown report.
-
-        Args:
-            output_path: Path to save the report
-        """
-        ProgressIndicator.step_start("Converting the data into a markdown report")
-
-        # Generate the report
-        self.report_gen.generate_report(output_path)
+        withings_fetch_start = (now - timedelta(days=13)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        withings_raw = {
+            "weight": self.withings.get_weight_data(
+                withings_fetch_start, withings_fetch_end
+            )
+        }
 
         ProgressIndicator.step_complete()
         
-        ProgressIndicator.section_header("Report Generation Complete")
-        ProgressIndicator.step_complete(f"Markdown report saved to {output_path}")
-        ProgressIndicator.bullet_item("Please open with your editor and make adjustments as needed")
-        ProgressIndicator.bullet_item("Run with --pdf to see the final output and --upload to create a OneDrive link")
+        # Fetch Hevy workout data
+        ProgressIndicator.step_start("Fetching Hevy workout data from API")
+        hevy_raw = self.hevy.get_workouts()
+        ProgressIndicator.step_complete()
 
-    def create_pdf(self, md_path: str, pdf_path: str) -> None:
+        # All API data fetched successfully
+
+        return {
+            "oura": oura_raw, 
+            "whoop": whoop_raw, 
+            "withings": withings_raw,
+            "hevy": hevy_raw
+        }
+
+    def generate_report(
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
+    ) -> str:
+        """Generate weekly status report.
+
+        Args:
+            raw_data: Raw API data
+            start_date: Start date for report period
+            end_date: End date for report period
+
+        Returns:
+            Path to generated report file
+        """
+
+        # Process raw data
+        ProgressIndicator.step_start("Transforming and normalizing the data")
+
+        # Process Oura data
+        self.processor.oura_data = self.processor.process_oura_data(
+            raw_data["oura"], start_date, end_date
+        )
+
+        # Process Whoop data
+        self.processor.whoop_data = self.processor.process_whoop_data(raw_data["whoop"])
+
+        # Process Withings data
+        if "withings" in raw_data:
+            self.processor.withings_data = self.processor.process_withings_data(
+                raw_data["withings"], start_date, end_date
+            )
+
+            # Process Withings weight data
+
+        ProgressIndicator.step_complete()
+
+        # Data processing complete
+
+        # Generate report
+        ProgressIndicator.step_start("Converting the data into a markdown report")
+        report = self.report_gen.generate_weekly_status(start_date, end_date)
+        ProgressIndicator.step_complete()
+
+        # Save report to file
+        report_file = os.path.join(
+            "data", f'{end_date.strftime("%Y-%m-%d")}-weekly-status.md'
+        )
+        with open(report_file, "w") as f:
+            f.write(report)
+        self.logger.log_data_counts("report file", 1)
+
+        ProgressIndicator.section_header("Report Generation Complete")
+        ProgressIndicator.step_complete(f"Markdown report saved to {report_file}")
+        ProgressIndicator.bullet_item(
+            "Please open with your editor and make adjustments as needed"
+        )
+        ProgressIndicator.bullet_item(
+            "Run with --pdf to see the final output and --upload to create a OneDrive link"
+        )
+
+        return report_file
+
+    def create_pdf(self, markdown_file: str) -> str:
         """Convert markdown report to PDF.
 
         Args:
-            md_path: Path to markdown report
-            pdf_path: Path to save PDF
+            markdown_file: Path to markdown file
+
+        Returns:
+            Path to generated PDF file
         """
-        ProgressIndicator.section_header("PDF Conversion")
         ProgressIndicator.step_start("Creating PDF from markdown report")
+        pdf_file = markdown_file.replace(".md", ".pdf")
+        self.converter.markdown_to_pdf(markdown_file, pdf_file)
+        self.logger.log_data_counts("pdf file", 1)
 
-        # Convert to PDF
-        self.converter.markdown_to_pdf(md_path, pdf_path)
+        ProgressIndicator.step_complete(f"PDF saved to {pdf_file}")
 
-        ProgressIndicator.step_complete(f"PDF saved to {pdf_path}")
+        return pdf_file
 
-    def _upload_to_onedrive(self, file_path: str) -> None:
-        """Upload file to OneDrive.
+    def upload_to_onedrive(
+        self, file_paths: list[str], end_date: datetime
+    ) -> Optional[str]:
+        """Upload files to OneDrive and create sharing links.
 
         Args:
-            file_path: Path to file to upload
+            file_paths: List of files to upload
+            end_date: End date for folder name
+
+        Returns:
+            URL of uploaded file if successful, None otherwise
         """
+
         ProgressIndicator.section_header("OneDrive Upload")
-        ProgressIndicator.step_start(f"Uploading {os.path.basename(file_path)}")
 
-        # Upload to OneDrive
-        result = self.storage.upload_file(file_path)
+        # Create folder name with timestamp
+        folder_name = f"Health Data/{end_date.strftime('%Y-%m-%d')}"
 
-        if result and "webUrl" in result:
-            ProgressIndicator.step_complete()
-            ProgressIndicator.step_complete(f"OneDrive link: {result['webUrl']}")
-        else:
-            ProgressIndicator.step_error("Failed to upload to OneDrive")
+        # Upload files
+        success_count = 0
+        pdf_url = None
+
+        for file_path in file_paths:
+            try:
+                ProgressIndicator.step_start(f"Uploading {os.path.basename(file_path)}")
+
+                pdf_url = self.storage.upload_file(file_path, folder_name)
+                self.logger.log_data_counts("uploaded file", 1)
+                success_count += 1
+
+                ProgressIndicator.step_complete()
+            except Exception as e:
+                ProgressIndicator.step_error(f"Failed: {str(e)}")
+                self.logger.log_skipped_date(
+                    end_date,
+                    f"Failed to upload {os.path.basename(file_path)}: {str(e)}",
+                )
+
+            if success_count > 0 and pdf_url:
+                # Show the OneDrive link in the same section
+                ProgressIndicator.step_complete(f"OneDrive link: {pdf_url}")
+            else:
+                ProgressIndicator.step_warning("No files were uploaded to OneDrive.")
+
+        return pdf_url if success_count > 0 else None
+
+    def run(self, args: argparse.Namespace) -> None:
+        """Run the pipeline.
+
+        Args:
+            args: Command line arguments
+        """
+        # Get date ranges once
+        report_start, report_end, fetch_start, fetch_end = DateUtils.get_date_ranges()
+
+        # Get data and generate report
+        if args.fetch:
+            ProgressIndicator.section_header("Data Collection")
+            # Fetch and process data
+            raw_data = self.fetch_api_data(fetch_start, fetch_end)
+            self.processor.process_raw_data(
+                oura_raw=raw_data["oura"],
+                whoop_raw=raw_data["whoop"],
+                withings_raw=raw_data["withings"],
+                hevy_raw=raw_data["hevy"],
+                start_date=report_start,
+                end_date=report_end,
+            )
+
+            # Generate report
+            report_file = self.generate_report(raw_data, report_start, report_end)
+
+        # Convert to PDF
+        if args.pdf:
+            ProgressIndicator.section_header("PDF Conversion")
+            # Get markdown file path
+            report_file = DateUtils.get_report_path(report_end)
+            if not os.path.exists(report_file):
+                ProgressIndicator.step_error(f"Report file not found: {report_file}")
+                self.logger.log_skipped_date(
+                    None, f"Report file not found: {report_file}"
+                )
+                sys.exit(1)
+            pdf_file = self.create_pdf(report_file)
+
+        # Upload files
+        if args.upload:
+            # Get PDF file path
+            pdf_file = DateUtils.get_report_path(report_end, extension=".pdf")
+            if not os.path.exists(pdf_file):
+                self.logger.log_skipped_date(
+                    None, "PDF file not found. Run with --pdf first."
+                )
+                sys.exit(1)
+
+            # Upload and create sharing link
+            pdf_url = self.upload_to_onedrive([pdf_file], report_end)
+            if pdf_url:
+                ProgressIndicator.section_header("Ready to Share")
+                ProgressIndicator.print_message("Hi Coach!")
+                ProgressIndicator.print_message(
+                    f"See this week's progress report: {pdf_url}"
+                )
