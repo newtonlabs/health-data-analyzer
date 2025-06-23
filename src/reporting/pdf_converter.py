@@ -8,8 +8,9 @@ from pathlib import Path
 from markdown import markdown
 from weasyprint import HTML
 
-from .html_templates import get_report_template
 from src.app_config import AppConfig
+
+from .html_templates import get_report_template
 
 
 class PDFConverter:
@@ -75,7 +76,7 @@ class PDFConverter:
         heading_color = AppConfig.REPORTING_COLORS[
             "sleep_actual"
         ]  # Using the dark red color
-        
+
         # Recovery colors for badges
         recovery_high_color = AppConfig.REPORTING_COLORS["recovery_high"]
         recovery_medium_color = AppConfig.REPORTING_COLORS["recovery_medium"]

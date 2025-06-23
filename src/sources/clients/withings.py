@@ -94,9 +94,9 @@ class WithingsClient(APIClient):
             env_client_id="WITHINGS_CLIENT_ID",
             env_client_secret="WITHINGS_CLIENT_SECRET",
             default_token_path="~/.withings_tokens.json",
-            base_url="https://wbsapi.withings.net"
+            base_url="https://wbsapi.withings.net",
         )
-        
+
         # Withings-specific state
         self.state = None
         saved_tokens = self.token_manager.get_tokens()
@@ -233,9 +233,9 @@ class WithingsClient(APIClient):
         # If it returns True, authentication was successful
         if super().handle_authentication():
             return True
-            
+
         # If the base class authentication failed, continue with Withings-specific authentication
-        
+
         # Generate a random state parameter for security
         self.state = secrets.token_urlsafe(32)
 
@@ -301,43 +301,45 @@ class WithingsClient(APIClient):
             "code": code,
             "redirect_uri": "http://localhost:8080/callback",
         }
-        
+
         # Withings has a different response format, so we need to handle it specially
         try:
             # Verify state parameter to prevent CSRF attacks
             if state != self.state:
                 raise APIClientError("State parameter doesn't match")
-                
+
             # Use the correct endpoint for token exchange
             response = requests.post(
                 "https://wbsapi.withings.net/v2/oauth2", data=token_params
             )
             response.raise_for_status()
             data = response.json()
-            
+
             # Check for errors in Withings-specific format
             if data.get("status") != 0:
                 error_msg = data.get("error", "Unknown error")
                 raise APIClientError(f"Token exchange failed: {error_msg}")
-                
+
             # Extract token data from Withings-specific format
             token_data = data.get("body", {})
-            
+
             # Save tokens and update instance variables
-            self.token_manager.save_tokens({
-                "access_token": token_data.get("access_token"),
-                "refresh_token": token_data.get("refresh_token"),
-                "token_type": token_data.get("token_type", "Bearer"),
-                "expires_in": token_data.get("expires_in", 0),
-                "timestamp": datetime.now().timestamp(),
-            })
-            
+            self.token_manager.save_tokens(
+                {
+                    "access_token": token_data.get("access_token"),
+                    "refresh_token": token_data.get("refresh_token"),
+                    "token_type": token_data.get("token_type", "Bearer"),
+                    "expires_in": token_data.get("expires_in", 0),
+                    "timestamp": datetime.now().timestamp(),
+                }
+            )
+
             # Update instance variables
             self.access_token = token_data.get("access_token")
             self.refresh_token = token_data.get("refresh_token")
             self.token_type = token_data.get("token_type", "Bearer")
             self.expires_in = token_data.get("expires_in", 0)
-            
+
         except requests.exceptions.RequestException as e:
             raise APIClientError(f"Token exchange failed: {str(e)}")
 

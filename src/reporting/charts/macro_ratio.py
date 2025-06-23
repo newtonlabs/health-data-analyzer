@@ -1,5 +1,6 @@
-from .base import ChartGenerator
 from src.app_config import AppConfig
+
+from .base import ChartGenerator
 
 
 class MacroRatioChartGenerator(ChartGenerator):
@@ -35,7 +36,8 @@ class MacroRatioChartGenerator(ChartGenerator):
                 if protein_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_full"]
                 else (
                     f"<span class='macro-text'>{protein_pct_rounded}%</span>"
-                    if protein_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
+                    if protein_pct
+                    >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
                     else ""
                 )
             )
@@ -46,7 +48,8 @@ class MacroRatioChartGenerator(ChartGenerator):
                 if carbs_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_full"]
                 else (
                     f"<span class='macro-text'>{carbs_pct_rounded}%</span>"
-                    if carbs_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
+                    if carbs_pct
+                    >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
                     else ""
                 )
             )

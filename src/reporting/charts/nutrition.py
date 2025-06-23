@@ -1,13 +1,13 @@
-import os
-from typing import Any, Optional  # Removed unused imports
+# Python 3.12 has built-in type annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from src.app_config import AppConfig
 from src.utils.date_utils import DateUtils
 from src.utils.logging_utils import HealthLogger
-from src.app_config import AppConfig
+
 from .base import ChartGenerator
 
 
@@ -47,19 +47,21 @@ class NutritionChartGenerator(ChartGenerator):
         protein_cals = df["protein"] * AppConfig.REPORTING_CALORIE_FACTORS["protein"]
         carbs_cals = df["carbs"] * AppConfig.REPORTING_CALORIE_FACTORS["carbs"]
         fat_cals = df["fat"] * AppConfig.REPORTING_CALORIE_FACTORS["fat"]
-        
+
         # Debug: Log column names to verify alcohol is present
         self.logger.logger.debug(f"DataFrame columns: {df.columns.tolist()}")
-        
+
         # Calculate alcohol calories
         if "alcohol" in df.columns:
             self.logger.logger.debug(f"Alcohol values in df: {df['alcohol'].tolist()}")
-            alcohol_cals = df["alcohol"] * AppConfig.REPORTING_CALORIE_FACTORS["alcohol"]
+            alcohol_cals = (
+                df["alcohol"] * AppConfig.REPORTING_CALORIE_FACTORS["alcohol"]
+            )
             self.logger.logger.debug(f"Alcohol calories: {alcohol_cals.tolist()}")
         else:
             self.logger.logger.debug("'alcohol' column not found in DataFrame")
             alcohol_cals = pd.Series([0] * len(df))
-            
+
         total_cals = protein_cals + carbs_cals + fat_cals + alcohol_cals
 
         # Colors - matching the macro report color scheme
@@ -68,8 +70,10 @@ class NutritionChartGenerator(ChartGenerator):
         ]  # Dark red (for protein, most important macro)
         carbs_color = AppConfig.REPORTING_COLORS["carbs"]  # Black (for carbs)
         fat_color = AppConfig.REPORTING_COLORS["fat"]  # Gray (for fat)
-        alcohol_color = AppConfig.REPORTING_COLORS["alcohol"]  # Dark orange (for alcohol)
-        
+        alcohol_color = AppConfig.REPORTING_COLORS[
+            "alcohol"
+        ]  # Dark orange (for alcohol)
+
         # Make alcohol more visible by reducing alpha transparency
         alcohol_alpha = 0.9  # Higher alpha (less transparent) for alcohol
 
@@ -90,7 +94,14 @@ class NutritionChartGenerator(ChartGenerator):
         bars_alcohol = []
 
         for i, (x_pos, prot, carb, f, alc, act) in enumerate(
-            zip(x_numeric, protein_cals, carbs_cals, fat_cals, alcohol_cals, df["activity"])
+            zip(
+                x_numeric,
+                protein_cals,
+                carbs_cals,
+                fat_cals,
+                alcohol_cals,
+                df["activity"],
+            )
         ):
             # Skip if no calories
             if prot + carb + f + alc == 0:
@@ -133,11 +144,15 @@ class NutritionChartGenerator(ChartGenerator):
                 zorder=3,
             )
             bars_fat.append(f_bar)
-            
+
             # Create alcohol bar (top) - no border, higher zorder to be in front of grid
-            self.logger.logger.debug(f"For index {i}, date {df['date'].iloc[i]}, alcohol calories: {alc}")
+            self.logger.logger.debug(
+                f"For index {i}, date {df['date'].iloc[i]}, alcohol calories: {alc}"
+            )
             if alc > 0:  # Only add alcohol bar if there's alcohol consumption
-                self.logger.logger.debug(f"Adding alcohol bar for index {i}, date {df['date'].iloc[i]}")
+                self.logger.logger.debug(
+                    f"Adding alcohol bar for index {i}, date {df['date'].iloc[i]}"
+                )
                 a_bar = ax.bar(
                     x_pos,
                     alc,
@@ -150,19 +165,19 @@ class NutritionChartGenerator(ChartGenerator):
                 )
                 bars_alcohol.append(a_bar)
             else:
-                self.logger.logger.debug(f"No alcohol bar added for index {i}, date {df['date'].iloc[i]} (alc={alc})")
-                
-                
+                self.logger.logger.debug(
+                    f"No alcohol bar added for index {i}, date {df['date'].iloc[i]} (alc={alc})"
+                )
 
         # Add calorie labels at the bottom of each bar (much higher up to avoid clipping)
         for i, cal in enumerate(total_cals):
             if cal > 0:  # Only add labels for non-zero values
                 # Use actual calories from the data if available, otherwise use calculated calories
-                if 'calories' in df.columns:
-                    display_cal = df['calories'].iloc[i]
+                if "calories" in df.columns:
+                    display_cal = df["calories"].iloc[i]
                 else:
                     display_cal = cal
-                    
+
                 ax.annotate(
                     f"{display_cal:.0f}",
                     xy=(x_numeric[i], 120),  # Position even higher above the x-axis

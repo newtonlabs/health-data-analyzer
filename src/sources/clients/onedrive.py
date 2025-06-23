@@ -15,8 +15,10 @@ from src.utils.progress_indicators import ProgressIndicator
 
 class OneDriveClient(APIClient):
     """OneDrive client for storing analysis results using MSAL device flow authentication."""
-    
-    def __init__(self, client_id: str = None, client_secret: str = None, token_file: str = None):
+
+    def __init__(
+        self, client_id: str = None, client_secret: str = None, token_file: str = None
+    ):
         """Initialize OneDrive storage with MSAL authentication.
 
         Args:
@@ -35,9 +37,9 @@ class OneDriveClient(APIClient):
             env_client_id="ONEDRIVE_CLIENT_ID",
             env_client_secret="ONEDRIVE_CLIENT_SECRET",
             default_token_path="~/.onedrive_tokens.json",
-            base_url="https://graph.microsoft.com/v1.0"
+            base_url="https://graph.microsoft.com/v1.0",
         )
-        
+
         # Microsoft Graph API configuration
         self.tenant_id = "consumers"  # Use 'consumers' for personal accounts
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
@@ -45,7 +47,7 @@ class OneDriveClient(APIClient):
 
         # Initialize MSAL token cache
         self.msal_token_cache = msal.SerializableTokenCache()
-        
+
         # Load existing tokens from TokenManager if available
         cached_tokens_data = self.token_manager.get_tokens()
         if cached_tokens_data and "msal_cache" in cached_tokens_data:
@@ -68,7 +70,7 @@ class OneDriveClient(APIClient):
         # If it returns True, authentication was successful
         if super().handle_authentication():
             return True
-            
+
         # If the base class authentication failed, continue with OneDrive-specific authentication
         try:
             # Try silent acquisition with MSAL
@@ -98,7 +100,7 @@ class OneDriveClient(APIClient):
             ProgressIndicator.bullet_item(
                 f"[OneDrive Auth] Enter the code: {flow['user_code']}"
             )
-            
+
             # Wait for user to complete authentication
             result = self.app.acquire_token_by_device_flow(flow)
 
@@ -125,19 +127,19 @@ class OneDriveClient(APIClient):
 
     def refresh_access_token(self) -> bool:
         """Refresh the access token using MSAL's silent token acquisition.
-        
+
         Returns:
             bool: True if refresh was successful, False otherwise
         """
         self.logger.debug("Refreshing OneDrive access token")
-        
+
         try:
             # MSAL handles token refresh differently - it uses the token cache
             accounts = self.app.get_accounts()
             if not accounts:
                 self.logger.warning("No accounts found in MSAL cache")
                 return False
-                
+
             # Try silent token acquisition
             result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
             if result and "access_token" in result:
@@ -161,7 +163,7 @@ class OneDriveClient(APIClient):
         except Exception as e:
             self.logger.error(f"Error refreshing token: {str(e)}")
             return False
-    
+
     def _get_token(self) -> str:
         """Get a valid access token.
 

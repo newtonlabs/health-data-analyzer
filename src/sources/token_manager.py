@@ -13,13 +13,18 @@ class TokenManager:
 
     # Default token validity period (30 days)
     DEFAULT_TOKEN_VALIDITY_DAYS = 30
-    
+
     # Default buffer time before expiration to trigger refresh (1 day)
     DEFAULT_REFRESH_BUFFER_HOURS = 24
-    
-    def __init__(self, token_file: str = None, validity_days: int = None, refresh_buffer_hours: int = None):
+
+    def __init__(
+        self,
+        token_file: str = None,
+        validity_days: int = None,
+        refresh_buffer_hours: int = None,
+    ):
         """Initialize TokenManager.
-        
+
         Args:
             token_file: Path to token storage file
             validity_days: Number of days tokens are considered valid (default: 30)
@@ -27,16 +32,20 @@ class TokenManager:
         """
         if token_file is None:
             raise ValueError("token_file is required for TokenManager")
-            
+
         self.token_file = token_file
         self.tokens: dict[str, Any] = {}
         self.token_expiry: Optional[datetime] = None
         self.token_created: Optional[datetime] = None
-        
+
         # Get validity period from environment or use default
-        self.validity_days = validity_days or int(os.getenv("TOKEN_VALIDITY_DAYS", self.DEFAULT_TOKEN_VALIDITY_DAYS))
-        self.refresh_buffer_hours = refresh_buffer_hours or int(os.getenv("TOKEN_REFRESH_BUFFER_HOURS", self.DEFAULT_REFRESH_BUFFER_HOURS))
-        
+        self.validity_days = validity_days or int(
+            os.getenv("TOKEN_VALIDITY_DAYS", self.DEFAULT_TOKEN_VALIDITY_DAYS)
+        )
+        self.refresh_buffer_hours = refresh_buffer_hours or int(
+            os.getenv("TOKEN_REFRESH_BUFFER_HOURS", self.DEFAULT_REFRESH_BUFFER_HOURS)
+        )
+
         self.logger = HealthLogger(__name__)
         self._load_tokens()
 
@@ -48,11 +57,11 @@ class TokenManager:
         try:
             with open(self.token_file) as f:
                 self.tokens = json.load(f)
-                
+
                 # Load custom validity period if present
                 if "validity_days" in self.tokens:
                     self.validity_days = self.tokens["validity_days"]
-                    
+
                 # Load creation timestamp
                 if "created_at" in self.tokens:
                     created_at_str = self.tokens["created_at"]
@@ -64,7 +73,7 @@ class TokenManager:
                         self.token_created = datetime.fromisoformat(timestamp_str)
                     else:  # Assume it's a Unix timestamp if not string
                         self.token_created = datetime.fromtimestamp(timestamp_str)
-                        
+
                 # Calculate token expiry if we have expires_in and timestamp
                 if "expires_in" in self.tokens and "timestamp" in self.tokens:
                     expires_in = self.tokens["expires_in"]
@@ -75,8 +84,10 @@ class TokenManager:
                     else:  # Assume it's a Unix timestamp if not string
                         timestamp = datetime.fromtimestamp(timestamp_str)
                     self.token_expiry = timestamp + timedelta(seconds=expires_in)
-                    
-                self.logger.debug(f"[TokenManager] Loaded tokens with expiry: {self.token_expiry}")
+
+                self.logger.debug(
+                    f"[TokenManager] Loaded tokens with expiry: {self.token_expiry}"
+                )
         except FileNotFoundError:
             self.logger.debug(
                 f"[TokenManager] Token file {self.token_file} does not exist"
@@ -101,7 +112,7 @@ class TokenManager:
         # Add timestamp for expiry tracking
         now = datetime.now()
         tokens["timestamp"] = now.isoformat()
-        
+
         # Add custom validity period (30 days by default)
         tokens["validity_days"] = self.validity_days
         tokens["created_at"] = now.isoformat()
@@ -112,7 +123,7 @@ class TokenManager:
 
         self.tokens = tokens
         self.token_created = now
-        
+
         # Calculate token expiry based on API's expires_in
         if "expires_in" in tokens:
             self.token_expiry = now + timedelta(seconds=tokens["expires_in"])
@@ -157,19 +168,25 @@ class TokenManager:
         """
         if not self.token_expiry:
             return True  # No expiry info, assume expired or never set
-            
+
         # Check if token is past our custom validity period
-        if self.token_created and datetime.now() > self.token_created + timedelta(days=self.validity_days):
-            self.logger.debug(f"[TokenManager] Token exceeded validity period of {self.validity_days} days")
+        if self.token_created and datetime.now() > self.token_created + timedelta(
+            days=self.validity_days
+        ):
+            self.logger.debug(
+                f"[TokenManager] Token exceeded validity period of {self.validity_days} days"
+            )
             return True
 
         # Consider token expired if it will expire within the buffer period
         buffer = timedelta(hours=self.refresh_buffer_hours)
         is_expiring_soon = datetime.now() + buffer >= self.token_expiry
-        
+
         if is_expiring_soon:
-            self.logger.debug(f"[TokenManager] Token will expire within {self.refresh_buffer_hours} hours")
-            
+            self.logger.debug(
+                f"[TokenManager] Token will expire within {self.refresh_buffer_hours} hours"
+            )
+
         return is_expiring_soon
 
     def clear_tokens(self) -> None:

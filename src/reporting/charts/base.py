@@ -104,7 +104,9 @@ class ChartGenerator:
                 if spine_name not in spines_to_hide:
                     secondary_ax.spines[spine_name].set_visible(True)
                     secondary_ax.spines[spine_name].set_color(
-                        spines_to_color.get(spine_name, AppConfig.REPORTING_COLORS["grid"])
+                        spines_to_color.get(
+                            spine_name, AppConfig.REPORTING_COLORS["grid"]
+                        )
                         if spines_to_color
                         else AppConfig.REPORTING_COLORS["grid"]
                     )

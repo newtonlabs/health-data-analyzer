@@ -6,8 +6,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from src.app_config import AppConfig
 from src.analysis.aggregator import Aggregator
+from src.app_config import AppConfig
 from src.utils.logging_utils import HealthLogger
 
 from .charts.base import ChartGenerator
@@ -357,18 +357,20 @@ class ReportGenerator:
             # Use the stacked chart with macronutrient breakdown
             # Include alcohol, calories and weight data if available
             columns_to_include = ["date", "protein", "carbs", "fat", "activity"]
-            
+
             # Add alcohol if available
             if "alcohol" in macros_df.columns:
                 columns_to_include.append("alcohol")
-                self.logger.logger.debug(f"Including alcohol column in chart data: {macros_df['alcohol'].tolist()}")
-            
+                self.logger.logger.debug(
+                    f"Including alcohol column in chart data: {macros_df['alcohol'].tolist()}"
+                )
+
             if "calories" in macros_df.columns:
                 columns_to_include.append("calories")
-                
+
             if "weight" in macros_df.columns:
                 columns_to_include.append("weight")
-                
+
             chart_df = macros_df[columns_to_include].copy()
 
             # Skip days with no data
@@ -383,7 +385,7 @@ class ReportGenerator:
                 chart_generator_class=NutritionChartGenerator,
                 df=chart_df,
                 filename=stacked_filename,
-                chart_type_name="Nutrition"
+                chart_type_name="Nutrition",
             )
         else:
             # Use the simple chart with just calories
@@ -396,7 +398,7 @@ class ReportGenerator:
                 chart_generator_class=NutritionChartGenerator,
                 df=chart_df,
                 filename=filename,
-                chart_type_name="Nutrition"
+                chart_type_name="Nutrition",
             )
 
     def generate_weekly_status(
@@ -438,7 +440,9 @@ class ReportGenerator:
 
         # Count strength days using the STRENGTH_ACTIVITIES list from AppConfig
         strength_days = len(
-            training_df[training_df["sport"].isin(AppConfig.ANALYSIS_STRENGTH_ACTIVITIES)]
+            training_df[
+                training_df["sport"].isin(AppConfig.ANALYSIS_STRENGTH_ACTIVITIES)
+            ]
         )
 
         # Calculate macronutrient ratios
@@ -446,16 +450,22 @@ class ReportGenerator:
         if len(active_days) > 0:
             # Calculate calorie contributions using factors from AppConfig
             protein_cals = (
-                active_days["protein"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["protein"]
+                active_days["protein"].sum()
+                * AppConfig.REPORTING_CALORIE_FACTORS["protein"]
             )
-            carbs_cals = active_days["carbs"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["carbs"]
-            fat_cals = active_days["fat"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["fat"]
+            carbs_cals = (
+                active_days["carbs"].sum()
+                * AppConfig.REPORTING_CALORIE_FACTORS["carbs"]
+            )
+            fat_cals = (
+                active_days["fat"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["fat"]
+            )
             # Placeholder for future alcohol calculation
             # if "alcohol" in active_days.columns:
             #     alcohol_cals = active_days["alcohol"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["alcohol"]
             # else:
             #     alcohol_cals = 0
-            
+
             # Using reported calories instead of calculated ones for consistency
             total_calories = active_days["calories"].sum()
 

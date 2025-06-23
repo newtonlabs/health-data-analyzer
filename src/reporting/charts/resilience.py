@@ -1,7 +1,6 @@
 """Resilience chart generator module."""
 
-import os
-from typing import Any, Optional
+# Python 3.12 has built-in type annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -86,7 +85,9 @@ class ResilienceChartGenerator(ChartGenerator):
             # Line thickness and opacity
             linewidth = 1.2 if label == "STRONG" else 0.8
             alpha = (
-                1.0 if label == "STRONG" else AppConfig.REPORTING_STYLING["grid_opacity"]
+                1.0
+                if label == "STRONG"
+                else AppConfig.REPORTING_STYLING["grid_opacity"]
             )
 
             ax.axhline(

@@ -60,7 +60,9 @@ class WhoopCallbackHandler(OAuthCallbackHandler):
 class WhoopClient(APIClient):
     """Client for interacting with the Whoop API."""
 
-    def __init__(self, client_id: str = None, client_secret: str = None, token_file: str = None):
+    def __init__(
+        self, client_id: str = None, client_secret: str = None, token_file: str = None
+    ):
         """Initialize the Whoop client.
 
         Args:
@@ -79,9 +81,9 @@ class WhoopClient(APIClient):
             env_client_id="WHOOP_CLIENT_ID",
             env_client_secret="WHOOP_CLIENT_SECRET",
             default_token_path="~/.whoop_tokens.json",
-            base_url="https://api.prod.whoop.com/developer"
+            base_url="https://api.prod.whoop.com/developer",
         )
-        
+
         # Whoop-specific configuration
         self.token_url = "https://api.prod.whoop.com/oauth/oauth2/token"
         self.redirect_uri = "http://localhost:8080/callback"
@@ -121,12 +123,14 @@ class WhoopClient(APIClient):
             "end": DateUtils.format_date(api_end, DateFormat.ISO),
         }
         # Save the API response to the data directory
-        save_path = f"whoop-recovery-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        save_path = (
+            f"whoop-recovery-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        )
         response = self._make_request(
-            endpoint="v1/recovery", 
-            params=params, 
-            save_response=True, 
-            save_path=save_path
+            endpoint="v1/recovery",
+            params=params,
+            save_response=True,
+            save_path=save_path,
         )
         return response
 
@@ -161,12 +165,14 @@ class WhoopClient(APIClient):
             "limit": min(limit, 25),
         }
         # Save the API response to the data directory
-        save_path = f"whoop-workouts-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        save_path = (
+            f"whoop-workouts-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        )
         return self._make_request(
-            endpoint="v1/activity/workout", 
-            params=params, 
-            save_response=True, 
-            save_path=save_path
+            endpoint="v1/activity/workout",
+            params=params,
+            save_response=True,
+            save_path=save_path,
         )
 
     def get_sleep(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
@@ -184,12 +190,14 @@ class WhoopClient(APIClient):
             "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         # Save the API response to the data directory
-        save_path = f"whoop-sleep-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        save_path = (
+            f"whoop-sleep-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        )
         return self._make_request(
-            endpoint="v1/activity/sleep", 
-            params=params, 
-            save_response=True, 
-            save_path=save_path
+            endpoint="v1/activity/sleep",
+            params=params,
+            save_response=True,
+            save_path=save_path,
         )
 
     # Authentication methods
@@ -203,7 +211,7 @@ class WhoopClient(APIClient):
         # If it returns True, authentication was successful
         if super().handle_authentication():
             return True
-            
+
         # If the base class authentication failed, continue with Whoop-specific authentication
 
         # Start new authentication
@@ -263,16 +271,18 @@ class WhoopClient(APIClient):
             "grant_type": "authorization_code",
             "redirect_uri": self.redirect_uri,
         }
-        
+
         # Use the base class method to exchange the code for a token
-        self.exchange_code_for_token(code, state, self.state, self.token_url, token_params)
+        self.exchange_code_for_token(
+            code, state, self.state, self.token_url, token_params
+        )
 
     def refresh_access_token(self) -> bool:
         """Refresh the access token using the refresh token.
 
         Returns:
             bool: True if refresh was successful, False otherwise
-            
+
         Raises:
             APIClientError: If refresh fails or no refresh token is available
         """
@@ -294,13 +304,13 @@ class WhoopClient(APIClient):
 
             token_data = response.json()
             self.token_manager.save_tokens(token_data)
-            
+
             # Update instance variables
             self.access_token = token_data.get("access_token")
             self.refresh_token = token_data.get("refresh_token")
             self.token_type = token_data.get("token_type")
             self.expires_in = token_data.get("expires_in", 0)
-            
+
             return True
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Failed to refresh access token: {str(e)}")

@@ -2,11 +2,11 @@
 
 # Suppress all warnings
 import warnings
+
 warnings.simplefilter("ignore")
 
 # Standard library imports
 import argparse
-import logging
 import sys
 from pathlib import Path
 

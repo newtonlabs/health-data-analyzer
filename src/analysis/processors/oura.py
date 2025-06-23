@@ -3,51 +3,59 @@
 This module provides functionality to process and analyze data from the Oura API.
 """
 
-import pandas as pd
 from datetime import datetime
-from typing import Dict, Any, Optional, Tuple
+from typing import Any
 
-from src.utils.date_utils import DateUtils, DateFormat
-from src.utils.logging_utils import HealthLogger
+import pandas as pd
+
 from src.app_config import AppConfig
+from src.utils.logging_utils import HealthLogger
 
 
 class OuraProcessor:
     """Processor for Oura data."""
-    
+
     def __init__(self):
         """Initialize OuraProcessor."""
         self.logger = HealthLogger(__name__)
-    
-    def process_data(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> Dict[str, pd.DataFrame]:
+
+    def process_data(
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
+    ) -> dict[str, pd.DataFrame]:
         """Process Oura data into DataFrames.
-        
+
         Steps:
         1. Process activity data
         2. Process resilience data
         3. Return combined results
-        
+
         Args:
             raw_data: Raw Oura API response containing activity and resilience data
             start_date: Start date for filtering data
             end_date: End date for filtering data
-            
+
         Returns:
             Dictionary of DataFrames with processed data
         """
         result = {}
-        
+
         # Process activity data
         if "activity" in raw_data:
-            result["activity"] = self._process_oura_activity(raw_data["activity"], start_date, end_date)
-            
+            result["activity"] = self._process_oura_activity(
+                raw_data["activity"], start_date, end_date
+            )
+
         # Process resilience data
         if "resilience" in raw_data:
-            result["resilience"] = self._process_oura_resilience(raw_data["resilience"], start_date, end_date)
-            
+            result["resilience"] = self._process_oura_resilience(
+                raw_data["resilience"], start_date, end_date
+            )
+
         return result
-    
-    def _process_oura_activity(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> pd.DataFrame:
+
+    def _process_oura_activity(
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
+    ) -> pd.DataFrame:
         """Process activity data from Oura API.
 
         Args:
@@ -80,8 +88,10 @@ class OuraProcessor:
             df = pd.DataFrame(activity_data)
 
         return df
-    
-    def _process_oura_resilience(self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime) -> pd.DataFrame:
+
+    def _process_oura_resilience(
+        self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
+    ) -> pd.DataFrame:
         """Process resilience data from Oura API.
 
         Args:
@@ -146,36 +156,32 @@ class OuraProcessor:
             df = pd.DataFrame(resilience_data)
 
         return df
-    
-    def save_processed_data(self, data: Dict[str, pd.DataFrame]) -> Dict[str, str]:
+
+    def save_processed_data(self, data: dict[str, pd.DataFrame]) -> dict[str, str]:
         """Save processed Oura data to CSV files.
-        
+
         Args:
             data: Dictionary of DataFrames with processed data
-            
+
         Returns:
             Dictionary of paths to the saved files
         """
         from src.utils.file_utils import save_dataframe_to_file
-        
+
         result = {}
-        
+
         # Save activity data
         if "activity" in data and not data["activity"].empty:
             activity_path = save_dataframe_to_file(
-                data["activity"],
-                name="oura-activity-data",
-                subdir="processing"
+                data["activity"], name="oura-activity-data", subdir="processing"
             )
             result["activity"] = activity_path
-        
+
         # Save resilience data
         if "resilience" in data and not data["resilience"].empty:
             resilience_path = save_dataframe_to_file(
-                data["resilience"],
-                name="oura-resilience-data",
-                subdir="processing"
+                data["resilience"], name="oura-resilience-data", subdir="processing"
             )
             result["resilience"] = resilience_path
-        
+
         return result

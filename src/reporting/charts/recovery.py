@@ -1,12 +1,11 @@
-import os
-from typing import Any, Optional
+# Python 3.12 has built-in type annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from src.utils.date_utils import DateUtils
 from src.app_config import AppConfig
+from src.utils.date_utils import DateUtils
 
 from .base import ChartGenerator
 
@@ -27,7 +26,9 @@ class RecoveryChartGenerator(ChartGenerator):
         self.yellow_color = AppConfig.REPORTING_COLORS["recovery_medium"]
         self.red_color = AppConfig.REPORTING_COLORS["recovery_low"]
         self.recovery_threshold_high = AppConfig.REPORTING_THRESHOLDS["recovery_high"]
-        self.recovery_threshold_medium = AppConfig.REPORTING_THRESHOLDS["recovery_medium"]
+        self.recovery_threshold_medium = AppConfig.REPORTING_THRESHOLDS[
+            "recovery_medium"
+        ]
         self.recovery_threshold_low = AppConfig.REPORTING_THRESHOLDS["recovery_low"]
 
     def generate(self, df: pd.DataFrame, filename: str = "recovery_chart.png") -> str:
@@ -207,7 +208,10 @@ class RecoveryChartGenerator(ChartGenerator):
             sleep_leg = ax2.legend(
                 handles=sleep_legend,
                 loc="lower right",
-                bbox_to_anchor=(1.0, AppConfig.REPORTING_STYLING["legend_vertical_offset"]),
+                bbox_to_anchor=(
+                    1.0,
+                    AppConfig.REPORTING_STYLING["legend_vertical_offset"],
+                ),
                 ncol=2,
                 frameon=False,
                 fontsize=AppConfig.REPORTING_STYLING["default_font_size"],

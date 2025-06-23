@@ -61,8 +61,12 @@ class NutritionData(DataSource):
             data[col] = data[col].fillna(0)
 
         # Select and round relevant columns
-        summary = data[["date", "calories", "protein", "carbs", "fat", "alcohol"]].copy()
-        summary = summary.round({"calories": 0, "protein": 1, "carbs": 1, "fat": 1, "alcohol": 1})
+        summary = data[
+            ["date", "calories", "protein", "carbs", "fat", "alcohol"]
+        ].copy()
+        summary = summary.round(
+            {"calories": 0, "protein": 1, "carbs": 1, "fat": 1, "alcohol": 1}
+        )
 
         # Filter by date range if provided
         if start_date:
@@ -71,29 +75,26 @@ class NutritionData(DataSource):
             summary = summary[summary["date"] <= end_date]
 
         return summary
-    
+
     def save_processed_data(self, df: pd.DataFrame, date: datetime = None) -> str:
         """Save processed nutrition data to a CSV file.
-        
+
         Args:
             df: DataFrame with nutrition data
             date: Date to use in filename (default: current date)
-            
+
         Returns:
             Path to the saved file
         """
         from src.utils.file_utils import save_dataframe_to_file
-        
+
         # Use current date if not provided
         if date is None:
             date = datetime.now()
-        
+
         # Save nutrition dataframe
         file_path = save_dataframe_to_file(
-            df,
-            name="nutrition-data",
-            subdir="processing",
-            date=date
+            df, name="nutrition-data", subdir="processing", date=date
         )
-        
+
         return file_path
