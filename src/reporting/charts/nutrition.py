@@ -7,8 +7,8 @@ import pandas as pd
 
 from src.utils.date_utils import DateUtils
 from src.utils.logging_utils import HealthLogger
+from src.app_config import AppConfig
 from .base import ChartGenerator
-from ..reporting_config import ReportingConfig
 
 
 class NutritionChartGenerator(ChartGenerator):
@@ -19,8 +19,8 @@ class NutritionChartGenerator(ChartGenerator):
         Initialize nutrition chart generator with config values.
         """
         super().__init__()
-        self.target_strength = ReportingConfig.CALORIC_TARGETS["strength"]
-        self.target_rest = ReportingConfig.CALORIC_TARGETS["rest"]
+        self.target_strength = AppConfig.REPORTING_CALORIC_TARGETS["strength"]
+        self.target_rest = AppConfig.REPORTING_CALORIC_TARGETS["rest"]
         self.logger = HealthLogger(__name__)
 
     def generate(self, df: pd.DataFrame, filename: str = "nutrition_chart.png") -> str:
@@ -43,10 +43,10 @@ class NutritionChartGenerator(ChartGenerator):
         x_numeric = np.arange(len(df["date"]))
         width = 0.6
 
-        # Calculate calories from macros using factors from ReportingConfig
-        protein_cals = df["protein"] * ReportingConfig.CALORIE_FACTORS["protein"]
-        carbs_cals = df["carbs"] * ReportingConfig.CALORIE_FACTORS["carbs"]
-        fat_cals = df["fat"] * ReportingConfig.CALORIE_FACTORS["fat"]
+        # Calculate calories from macros using factors from AppConfig
+        protein_cals = df["protein"] * AppConfig.REPORTING_CALORIE_FACTORS["protein"]
+        carbs_cals = df["carbs"] * AppConfig.REPORTING_CALORIE_FACTORS["carbs"]
+        fat_cals = df["fat"] * AppConfig.REPORTING_CALORIE_FACTORS["fat"]
         
         # Debug: Log column names to verify alcohol is present
         self.logger.logger.debug(f"DataFrame columns: {df.columns.tolist()}")
@@ -54,7 +54,7 @@ class NutritionChartGenerator(ChartGenerator):
         # Calculate alcohol calories
         if "alcohol" in df.columns:
             self.logger.logger.debug(f"Alcohol values in df: {df['alcohol'].tolist()}")
-            alcohol_cals = df["alcohol"] * ReportingConfig.CALORIE_FACTORS["alcohol"]
+            alcohol_cals = df["alcohol"] * AppConfig.REPORTING_CALORIE_FACTORS["alcohol"]
             self.logger.logger.debug(f"Alcohol calories: {alcohol_cals.tolist()}")
         else:
             self.logger.logger.debug("'alcohol' column not found in DataFrame")
@@ -63,24 +63,24 @@ class NutritionChartGenerator(ChartGenerator):
         total_cals = protein_cals + carbs_cals + fat_cals + alcohol_cals
 
         # Colors - matching the macro report color scheme
-        protein_color = ReportingConfig.COLORS[
+        protein_color = AppConfig.REPORTING_COLORS[
             "protein"
         ]  # Dark red (for protein, most important macro)
-        carbs_color = ReportingConfig.COLORS["carbs"]  # Black (for carbs)
-        fat_color = ReportingConfig.COLORS["fat"]  # Gray (for fat)
-        alcohol_color = ReportingConfig.COLORS["alcohol"]  # Dark orange (for alcohol)
+        carbs_color = AppConfig.REPORTING_COLORS["carbs"]  # Black (for carbs)
+        fat_color = AppConfig.REPORTING_COLORS["fat"]  # Gray (for fat)
+        alcohol_color = AppConfig.REPORTING_COLORS["alcohol"]  # Dark orange (for alcohol)
         
         # Make alcohol more visible by reducing alpha transparency
         alcohol_alpha = 0.9  # Higher alpha (less transparent) for alcohol
 
         # Bar colors - bright blue for strength days, gray for rest days
-        strength_day_color = ReportingConfig.COLORS[
+        strength_day_color = AppConfig.REPORTING_COLORS[
             "sleep_need"
         ]  # Bright blue for strength days
 
         # Plot setup - taller and wider chart for better spacing and legend room
         fig, ax = self._setup_chart_figure(
-            figsize=(11, ReportingConfig.STYLING["chart_height"])
+            figsize=(11, AppConfig.REPORTING_STYLING["chart_height"])
         )
 
         # Create stacked bars with different colors based on activity type
@@ -103,7 +103,7 @@ class NutritionChartGenerator(ChartGenerator):
                 width,
                 label="Protein" if i == 0 else "",
                 color=protein_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 zorder=3,
             )
             bars_protein.append(p_bar)
@@ -116,7 +116,7 @@ class NutritionChartGenerator(ChartGenerator):
                 bottom=prot,
                 label="Carbs" if i == 0 else "",
                 color=carbs_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 zorder=3,
             )
             bars_carbs.append(c_bar)
@@ -129,7 +129,7 @@ class NutritionChartGenerator(ChartGenerator):
                 bottom=prot + carb,
                 label="Fat" if i == 0 else "",
                 color=fat_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 zorder=3,
             )
             bars_fat.append(f_bar)
@@ -171,7 +171,7 @@ class NutritionChartGenerator(ChartGenerator):
                     ha="center",
                     va="center",
                     color="white",
-                    fontsize=ReportingConfig.STYLING["default_font_size"],
+                    fontsize=AppConfig.REPORTING_STYLING["default_font_size"],
                     fontweight="bold",
                     zorder=10,
                 )  # Ensure it's on top
@@ -196,7 +196,7 @@ class NutritionChartGenerator(ChartGenerator):
                 x_start,
                 x_end,
                 color=line_color,
-                linewidth=ReportingConfig.STYLING["default_line_width"],
+                linewidth=AppConfig.REPORTING_STYLING["default_line_width"],
                 linestyle=line_style,
                 zorder=4,
             )
@@ -207,7 +207,7 @@ class NutritionChartGenerator(ChartGenerator):
                 [y, y],
                 "o",
                 color=line_color,
-                markersize=ReportingConfig.STYLING["default_marker_size"],
+                markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                 zorder=5,
             )
 
@@ -230,16 +230,16 @@ class NutritionChartGenerator(ChartGenerator):
             y_lim=(0, max_cal + 300),
             y_label="Calories Consumed",
             x_label="",
-            tick_label_color=ReportingConfig.COLORS["text"],
-            axis_label_color=ReportingConfig.COLORS["text"],
-            font_size=ReportingConfig.STYLING["default_font_size"],
-            tick_font_size=ReportingConfig.STYLING["tick_font_size"],
-            grid_line_width=ReportingConfig.STYLING["grid_line_width"],
-            grid_opacity=ReportingConfig.STYLING["grid_opacity"],
+            tick_label_color=AppConfig.REPORTING_COLORS["text"],
+            axis_label_color=AppConfig.REPORTING_COLORS["text"],
+            font_size=AppConfig.REPORTING_STYLING["default_font_size"],
+            tick_font_size=AppConfig.REPORTING_STYLING["tick_font_size"],
+            grid_line_width=AppConfig.REPORTING_STYLING["grid_line_width"],
+            grid_opacity=AppConfig.REPORTING_STYLING["grid_opacity"],
             spines_to_hide=["top", "right"],
             spines_to_color={
-                "left": ReportingConfig.COLORS["grid"],
-                "bottom": ReportingConfig.COLORS["grid"],
+                "left": AppConfig.REPORTING_COLORS["grid"],
+                "bottom": AppConfig.REPORTING_COLORS["grid"],
             },
         )
 
@@ -250,7 +250,7 @@ class NutritionChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=protein_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 label="Protein",
             ),
             plt.Rectangle(
@@ -258,7 +258,7 @@ class NutritionChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=carbs_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 label="Carbs",
             ),
             plt.Rectangle(
@@ -266,7 +266,7 @@ class NutritionChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=fat_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 label="Fat",
             ),
             plt.Rectangle(
@@ -274,7 +274,7 @@ class NutritionChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=alcohol_color,
-                alpha=ReportingConfig.STYLING["macro_bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["macro_bar_alpha"],
                 label="Alcohol",
             ),
         ]
@@ -285,20 +285,20 @@ class NutritionChartGenerator(ChartGenerator):
                 [0],
                 [0],
                 color=strength_day_color,
-                lw=ReportingConfig.STYLING["default_line_width"],
+                lw=AppConfig.REPORTING_STYLING["default_line_width"],
                 linestyle="-",
                 marker="o",
-                markersize=ReportingConfig.STYLING["default_marker_size"],
+                markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                 label=f"Strength Target ({self.target_strength} cal)",
             ),
             plt.Line2D(
                 [0],
                 [0],
                 color=strength_day_color,
-                lw=ReportingConfig.STYLING["default_line_width"],
+                lw=AppConfig.REPORTING_STYLING["default_line_width"],
                 linestyle="--",
                 marker="o",
-                markersize=ReportingConfig.STYLING["default_marker_size"],
+                markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                 label=f"Rest Target ({self.target_rest} cal)",
             ),
         ]
@@ -327,12 +327,12 @@ class NutritionChartGenerator(ChartGenerator):
 
                 if weight_indices and weight_values:
                     # Define colors for weight line and trend line
-                    weight_color = ReportingConfig.COLORS[
-                        "grid"
-                    ]  # very light grey for weight line
-                    trend_color = ReportingConfig.COLORS[
+                    weight_color = AppConfig.REPORTING_COLORS[
+                        "sleep_actual"
+                    ]  # Dark red for weight line
+                    trend_color = AppConfig.REPORTING_COLORS[
                         "sleep_need"
-                    ]  # bright blue for trend line
+                    ]  # Blue for trend line
 
                     # Plot weight line with markers - use more transparency
                     ax2.plot(
@@ -340,9 +340,9 @@ class NutritionChartGenerator(ChartGenerator):
                         weight_values,
                         "o-",
                         color=weight_color,
-                        linewidth=ReportingConfig.STYLING["weight_line_width"],
-                        markersize=ReportingConfig.STYLING["default_marker_size"],
-                        alpha=ReportingConfig.STYLING["weight_line_alpha"],
+                        linewidth=AppConfig.REPORTING_STYLING["weight_line_width"],
+                        markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
+                        alpha=AppConfig.REPORTING_STYLING["weight_line_alpha"],
                         label="Weight",
                         zorder=6,
                     )
@@ -355,7 +355,7 @@ class NutritionChartGenerator(ChartGenerator):
                     ax2.set_ylim(min_weight, max_weight)
 
                     # Use text color from constants for consistent styling
-                    text_color = ReportingConfig.COLORS[
+                    text_color = AppConfig.REPORTING_COLORS[
                         "text"
                     ]  # Gray for text elements
 
@@ -363,7 +363,7 @@ class NutritionChartGenerator(ChartGenerator):
                     ax2.set_ylabel(
                         "Weight (lbs)",
                         color=text_color,
-                        fontsize=ReportingConfig.STYLING["default_font_size"],
+                        fontsize=AppConfig.REPORTING_STYLING["default_font_size"],
                     )
                     ax2.tick_params(axis="y", colors=text_color, labelsize=8)
 
@@ -372,7 +372,7 @@ class NutritionChartGenerator(ChartGenerator):
                     ax2.spines["left"].set_visible(False)
                     ax2.spines["right"].set_visible(True)
                     ax2.spines["bottom"].set_visible(False)
-                    ax2.spines["right"].set_color(ReportingConfig.COLORS["grid"])
+                    ax2.spines["right"].set_color(AppConfig.REPORTING_COLORS["grid"])
 
                     # Add a dotted trend line using numpy's polyfit
                     if (
@@ -387,8 +387,8 @@ class NutritionChartGenerator(ChartGenerator):
                             trend_y,
                             "--",
                             color=trend_color,
-                            linewidth=ReportingConfig.STYLING["default_line_width"],
-                            alpha=ReportingConfig.STYLING["weight_trend_alpha"],
+                            linewidth=AppConfig.REPORTING_STYLING["default_line_width"],
+                            alpha=AppConfig.REPORTING_STYLING["weight_trend_alpha"],
                             zorder=5,
                         )
 
@@ -398,7 +398,7 @@ class NutritionChartGenerator(ChartGenerator):
                             [0],
                             [0],
                             color=trend_color,
-                            lw=ReportingConfig.STYLING["weight_line_width"],
+                            lw=AppConfig.REPORTING_STYLING["weight_line_width"],
                             linestyle="--",
                             marker="None",
                             markersize=0,
@@ -412,10 +412,10 @@ class NutritionChartGenerator(ChartGenerator):
         macro_leg = ax.legend(
             handles=macro_legend,
             loc="lower left",
-            bbox_to_anchor=(0.0, ReportingConfig.STYLING["legend_vertical_offset"]),
+            bbox_to_anchor=(0.0, AppConfig.REPORTING_STYLING["legend_vertical_offset"]),
             ncol=2,  # Fixed 2 columns for macro legend regardless of config
             frameon=False,
-            fontsize=ReportingConfig.STYLING["legend_font_size"],
+            fontsize=AppConfig.REPORTING_STYLING["legend_font_size"],
         )
 
         # Create and place combined line legend (right)
@@ -424,10 +424,10 @@ class NutritionChartGenerator(ChartGenerator):
         line_leg = ax.legend(
             handles=combined_line_legends,
             loc="lower right",
-            bbox_to_anchor=(1.0, ReportingConfig.STYLING["legend_vertical_offset"]),
+            bbox_to_anchor=(1.0, AppConfig.REPORTING_STYLING["legend_vertical_offset"]),
             ncol=n_cols,
             frameon=False,
-            fontsize=ReportingConfig.STYLING["legend_font_size"],
+            fontsize=AppConfig.REPORTING_STYLING["legend_font_size"],
         )
 
         # Add legends as artists to the figure
@@ -436,8 +436,8 @@ class NutritionChartGenerator(ChartGenerator):
 
         # Style the legend text
         for text in macro_leg.get_texts():
-            text.set_color(ReportingConfig.COLORS["text"])
+            text.set_color(AppConfig.REPORTING_COLORS["text"])
         for text in line_leg.get_texts():
-            text.set_color(ReportingConfig.COLORS["text"])
+            text.set_color(AppConfig.REPORTING_COLORS["text"])
 
         return self._save_chart(fig, filename, extra_artists=(macro_leg, line_leg))

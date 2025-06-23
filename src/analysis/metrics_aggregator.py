@@ -9,7 +9,7 @@ from src.utils.date_utils import DateUtils
 from src.utils.file_utils import save_dataframe_to_file
 from src.utils.logging_utils import HealthLogger
 
-from .analyzer_config import AnalyzerConfig
+from src.app_config import AppConfig
 from .processor import Processor
 
 
@@ -147,7 +147,7 @@ class MetricsAggregator:
                 self.logger.logger.debug(f"_format_workout_data - workout on {date}: sport={sport}, duration missing, using default 0")
 
             # Check if sport is in excluded list
-            if sport in AnalyzerConfig.EXCLUDED_SPORTS:
+            if sport in AppConfig.ANALYSIS_EXCLUDED_SPORTS:
                 sport = "Rest"
 
             if date not in all_workouts_by_date:
@@ -171,7 +171,7 @@ class MetricsAggregator:
                 strength_workouts = [
                     w
                     for w in sorted_workouts
-                    if w["sport"] in AnalyzerConfig.STRENGTH_ACTIVITIES
+                    if w["sport"] in AppConfig.ANALYSIS_STRENGTH_ACTIVITIES
                 ]
                 if strength_workouts:
                     # Use the highest strain strength workout
@@ -181,7 +181,7 @@ class MetricsAggregator:
                     cardio_workouts = [
                         w
                         for w in sorted_workouts
-                        if w["sport"] not in AnalyzerConfig.EXCLUDED_SPORTS
+                        if w["sport"] not in AppConfig.ANALYSIS_EXCLUDED_SPORTS
                     ]
                     if cardio_workouts:
                         # Use the highest strain cardio workout but label it as "Cardio"
@@ -344,7 +344,7 @@ class MetricsAggregator:
                 # Add each workout for this date
                 for workout in workout_by_date[date]["workouts"]:
                     if (
-                        workout["sport"] not in AnalyzerConfig.EXCLUDED_SPORTS
+                        workout["sport"] not in AppConfig.ANALYSIS_EXCLUDED_SPORTS
                         and workout["sport"] != "Rest"
                     ):
                         all_workouts.append(
@@ -467,10 +467,10 @@ class MetricsAggregator:
             self.logger.logger.debug(f"Processing workout: date={date_key}, sport={sport}, strain={strain}, duration={duration}")
 
             # Categorize the sport
-            if sport in AnalyzerConfig.EXCLUDED_SPORTS:
+            if sport in AppConfig.ANALYSIS_EXCLUDED_SPORTS:
                 activity_type = "Rest"
                 priority = 0  # Lowest priority
-            elif sport in AnalyzerConfig.STRENGTH_ACTIVITIES:
+            elif sport in AppConfig.ANALYSIS_STRENGTH_ACTIVITIES:
                 activity_type = "Strength"
                 priority = 2  # Highest priority
             else:
@@ -534,9 +534,7 @@ class MetricsAggregator:
                 df.loc[df["date"] == date, "weight"] = weight_by_date[date]
 
         # Format weight values using the configured precision
-        from .analyzer_config import AnalyzerConfig
-
-        weight_precision = AnalyzerConfig.NUMERIC_PRECISION.get("weight", 1)
+        weight_precision = AppConfig.ANALYSIS_NUMERIC_PRECISION.get("weight", 1)
         df["weight"] = df["weight"].apply(
             lambda x: (
                 round(float(x), weight_precision)

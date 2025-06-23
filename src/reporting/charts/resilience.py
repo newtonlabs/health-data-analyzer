@@ -7,11 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from src.analysis.analyzer_config import AnalyzerConfig
+from src.app_config import AppConfig
 from src.utils.date_utils import DateUtils
 
 from .base import ChartGenerator
-from ..reporting_config import ReportingConfig
 
 
 class ResilienceChartGenerator(ChartGenerator):
@@ -29,7 +28,7 @@ class ResilienceChartGenerator(ChartGenerator):
         # Get resilience bands from analyzer_config
         # Use lowercase keys for internal logic but uppercase for display
         self.resilience_bands = {}
-        for level, score in AnalyzerConfig.RESILIENCE_LEVEL_SCORES.items():
+        for level, score in AppConfig.ANALYSIS_RESILIENCE_LEVEL_SCORES.items():
             # Only include the main levels, skip legacy mappings
             if level in ["exceptional", "strong", "solid", "adequate", "limited"]:
                 self.resilience_bands[level.upper()] = score
@@ -52,7 +51,7 @@ class ResilienceChartGenerator(ChartGenerator):
 
         # Plot setup - using compact chart height
         fig, ax = self._setup_chart_figure(
-            figsize=(10, ReportingConfig.STYLING["chart_height_compact"])
+            figsize=(10, AppConfig.REPORTING_STYLING["chart_height_compact"])
         )
 
         # Adjust margins to match recovery chart
@@ -67,10 +66,10 @@ class ResilienceChartGenerator(ChartGenerator):
         ax.plot(
             x_numeric,
             df["resilience_score"],
-            color=ReportingConfig.COLORS["text"],
+            color=AppConfig.REPORTING_COLORS["text"],
             marker="o",
-            markersize=ReportingConfig.STYLING["default_marker_size"],
-            linewidth=ReportingConfig.STYLING["default_line_width"],
+            markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
+            linewidth=AppConfig.REPORTING_STYLING["default_line_width"],
             zorder=3,
         )
 
@@ -78,16 +77,16 @@ class ResilienceChartGenerator(ChartGenerator):
         for label, score in self.resilience_bands.items():
             # Blue line for 'STRONG', others in dark gray
             color = (
-                ReportingConfig.COLORS["resilience_strong"]
+                AppConfig.REPORTING_COLORS["resilience_strong"]
                 if label == "STRONG"
-                else ReportingConfig.COLORS["grid"]
+                else AppConfig.REPORTING_COLORS["grid"]
             )
             # Solid line for the baseline (LIMITED = 0), dashed for others
             linestyle = "-" if score == 0 else "--"
             # Line thickness and opacity
             linewidth = 1.2 if label == "STRONG" else 0.8
             alpha = (
-                1.0 if label == "STRONG" else ReportingConfig.STYLING["grid_opacity"]
+                1.0 if label == "STRONG" else AppConfig.REPORTING_STYLING["grid_opacity"]
             )
 
             ax.axhline(
@@ -104,7 +103,7 @@ class ResilienceChartGenerator(ChartGenerator):
                 label,
                 va="center",
                 ha="right",
-                fontsize=ReportingConfig.STYLING["resilience_band_font_size"],
+                fontsize=AppConfig.REPORTING_STYLING["resilience_band_font_size"],
                 color=color,
                 fontweight="bold",
             )
@@ -116,16 +115,16 @@ class ResilienceChartGenerator(ChartGenerator):
             x_ticks=x_numeric,
             y_lim=(0, 100),
             x_label="",
-            tick_label_color=ReportingConfig.COLORS["text"],
-            axis_label_color=ReportingConfig.COLORS["text"],
-            font_size=ReportingConfig.STYLING["default_font_size"],
-            tick_font_size=ReportingConfig.STYLING["tick_font_size"],
+            tick_label_color=AppConfig.REPORTING_COLORS["text"],
+            axis_label_color=AppConfig.REPORTING_COLORS["text"],
+            font_size=AppConfig.REPORTING_STYLING["default_font_size"],
+            tick_font_size=AppConfig.REPORTING_STYLING["tick_font_size"],
             grid_axis="x",
-            grid_color=ReportingConfig.COLORS["resilience_x_grid"],
-            grid_line_width=ReportingConfig.STYLING["grid_line_width"],
+            grid_color=AppConfig.REPORTING_COLORS["resilience_x_grid"],
+            grid_line_width=AppConfig.REPORTING_STYLING["grid_line_width"],
             grid_opacity=1.0,  # Grid always visible for resilience chart
             spines_to_hide=["top", "right", "left"],  # Hide left Y-axis for main plot
-            spines_to_color={"bottom": ReportingConfig.COLORS["chart_border"]},
+            spines_to_color={"bottom": AppConfig.REPORTING_COLORS["chart_border"]},
         )
 
         # Create a twin axis on the right for score values
@@ -135,12 +134,12 @@ class ResilienceChartGenerator(ChartGenerator):
             y_lim=(0, 100),
             y_label="Score",
             y_ticks=[0, 20, 40, 60, 80],
-            tick_label_color=ReportingConfig.COLORS["text"],
-            axis_label_color=ReportingConfig.COLORS["text"],
-            font_size=ReportingConfig.STYLING["default_font_size"],
-            tick_font_size=ReportingConfig.STYLING["tick_font_size"],
+            tick_label_color=AppConfig.REPORTING_COLORS["text"],
+            axis_label_color=AppConfig.REPORTING_COLORS["text"],
+            font_size=AppConfig.REPORTING_STYLING["default_font_size"],
+            tick_font_size=AppConfig.REPORTING_STYLING["tick_font_size"],
             spines_to_hide=["top", "bottom", "left"],
-            spines_to_color={"right": ReportingConfig.COLORS["grid"]},
+            spines_to_color={"right": AppConfig.REPORTING_COLORS["grid"]},
             secondary_ax=ax2,
         )
         # Hide main y-axis completely

@@ -9,7 +9,7 @@ from markdown import markdown
 from weasyprint import HTML
 
 from .html_templates import get_report_template
-from .reporting_config import ReportingConfig
+from src.app_config import AppConfig
 
 
 class PDFConverter:
@@ -67,19 +67,19 @@ class PDFConverter:
             else ""
         )
 
-        # Get color values from ReportingConfig
-        protein_color = ReportingConfig.COLORS["protein"]
-        carbs_color = ReportingConfig.COLORS["carbs"]
-        fat_color = ReportingConfig.COLORS["fat"]
-        text_color = ReportingConfig.COLORS["text"]
-        heading_color = ReportingConfig.COLORS[
+        # Get color values from AppConfig
+        protein_color = AppConfig.REPORTING_COLORS["protein"]
+        carbs_color = AppConfig.REPORTING_COLORS["carbs"]
+        fat_color = AppConfig.REPORTING_COLORS["fat"]
+        text_color = AppConfig.REPORTING_COLORS["text"]
+        heading_color = AppConfig.REPORTING_COLORS[
             "sleep_actual"
         ]  # Using the dark red color
-
-        # Get recovery color values
-        recovery_high_color = ReportingConfig.COLORS["recovery_high"]
-        recovery_medium_color = ReportingConfig.COLORS["recovery_medium"]
-        recovery_low_color = ReportingConfig.COLORS["recovery_low"]
+        
+        # Recovery colors for badges
+        recovery_high_color = AppConfig.REPORTING_COLORS["recovery_high"]
+        recovery_medium_color = AppConfig.REPORTING_COLORS["recovery_medium"]
+        recovery_low_color = AppConfig.REPORTING_COLORS["recovery_low"]
 
         # Get the HTML template and format it with our variables
         template = get_report_template()

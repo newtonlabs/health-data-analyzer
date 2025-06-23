@@ -4,7 +4,7 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ..reporting_config import ReportingConfig
+from src.app_config import AppConfig
 
 
 class ChartGenerator:
@@ -12,7 +12,7 @@ class ChartGenerator:
 
     def __init__(self):
         """Initialize chart generator with output directory from config."""
-        self.charts_dir = ReportingConfig.CHARTS_DIR
+        self.charts_dir = AppConfig.REPORTING_CHARTS_DIR
         os.makedirs(self.charts_dir, exist_ok=True)
 
     def _setup_chart_figure(
@@ -35,15 +35,15 @@ class ChartGenerator:
         y_ticks: Optional[list[float]] = None,
         secondary_ax: Optional[plt.Axes] = None,
         grid_axis: Optional[str] = "both",
-        grid_color: str = ReportingConfig.COLORS["grid"],
+        grid_color: str = AppConfig.REPORTING_COLORS["grid"],
         spines_to_hide: Optional[list[str]] = None,
         spines_to_color: Optional[dict[str, str]] = None,
-        tick_label_color: str = ReportingConfig.COLORS["text"],
-        axis_label_color: str = ReportingConfig.COLORS["text"],
-        font_size: int = ReportingConfig.STYLING["default_font_size"],
-        tick_font_size: int = ReportingConfig.STYLING["tick_font_size"],
-        grid_line_width: float = ReportingConfig.STYLING["grid_line_width"],
-        grid_opacity: float = ReportingConfig.STYLING["grid_opacity"],
+        tick_label_color: str = AppConfig.REPORTING_COLORS["text"],
+        axis_label_color: str = AppConfig.REPORTING_COLORS["text"],
+        font_size: int = AppConfig.REPORTING_STYLING["default_font_size"],
+        tick_font_size: int = AppConfig.REPORTING_STYLING["tick_font_size"],
+        grid_line_width: float = AppConfig.REPORTING_STYLING["grid_line_width"],
+        grid_opacity: float = AppConfig.REPORTING_STYLING["grid_opacity"],
     ):
         """Applies common styling to Matplotlib axes."""
         if y_lim:
@@ -91,9 +91,9 @@ class ChartGenerator:
             if spine_name not in spines_to_hide:
                 ax.spines[spine_name].set_visible(True)
                 ax.spines[spine_name].set_color(
-                    spines_to_color.get(spine_name, ReportingConfig.COLORS["grid"])
+                    spines_to_color.get(spine_name, AppConfig.REPORTING_COLORS["grid"])
                     if spines_to_color
-                    else ReportingConfig.COLORS["grid"]
+                    else AppConfig.REPORTING_COLORS["grid"]
                 )
 
         if secondary_ax:
@@ -104,9 +104,9 @@ class ChartGenerator:
                 if spine_name not in spines_to_hide:
                     secondary_ax.spines[spine_name].set_visible(True)
                     secondary_ax.spines[spine_name].set_color(
-                        spines_to_color.get(spine_name, ReportingConfig.COLORS["grid"])
+                        spines_to_color.get(spine_name, AppConfig.REPORTING_COLORS["grid"])
                         if spines_to_color
-                        else ReportingConfig.COLORS["grid"]
+                        else AppConfig.REPORTING_COLORS["grid"]
                     )
 
     def _save_chart(

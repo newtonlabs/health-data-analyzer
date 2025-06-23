@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, Tuple, List
 
-from src.data_sources.clients.whoop_constants import get_sport_name
+from src.app_config import AppConfig
 from src.utils.date_utils import DateUtils, DateFormat
 from src.utils.logging_utils import HealthLogger
 
@@ -141,7 +141,7 @@ class WhoopProcessor:
         try:
             # Extract sport ID and get name
             sport_id = workout.get("sport_id", 0)
-            sport_name = get_sport_name(sport_id)
+            sport_name = AppConfig.get_whoop_sport_name(sport_id)
             
             # Skip if no sport name or missing required data
             if not sport_name or "score" not in workout:

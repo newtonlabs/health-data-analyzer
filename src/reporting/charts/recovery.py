@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 
 from src.utils.date_utils import DateUtils
+from src.app_config import AppConfig
 
 from .base import ChartGenerator
-from ..reporting_config import ReportingConfig
 
 
 class RecoveryChartGenerator(ChartGenerator):
@@ -23,12 +23,12 @@ class RecoveryChartGenerator(ChartGenerator):
         """
         super().__init__()
         # Get colors and thresholds from config
-        self.green_color = ReportingConfig.COLORS["recovery_high"]
-        self.yellow_color = ReportingConfig.COLORS["recovery_medium"]
-        self.red_color = ReportingConfig.COLORS["recovery_low"]
-        self.recovery_threshold_high = ReportingConfig.THRESHOLDS["recovery_high"]
-        self.recovery_threshold_medium = ReportingConfig.THRESHOLDS["recovery_medium"]
-        self.recovery_threshold_low = ReportingConfig.THRESHOLDS["recovery_low"]
+        self.green_color = AppConfig.REPORTING_COLORS["recovery_high"]
+        self.yellow_color = AppConfig.REPORTING_COLORS["recovery_medium"]
+        self.red_color = AppConfig.REPORTING_COLORS["recovery_low"]
+        self.recovery_threshold_high = AppConfig.REPORTING_THRESHOLDS["recovery_high"]
+        self.recovery_threshold_medium = AppConfig.REPORTING_THRESHOLDS["recovery_medium"]
+        self.recovery_threshold_low = AppConfig.REPORTING_THRESHOLDS["recovery_low"]
 
     def generate(self, df: pd.DataFrame, filename: str = "recovery_chart.png") -> str:
         """
@@ -47,7 +47,7 @@ class RecoveryChartGenerator(ChartGenerator):
 
         # Plot setup - slightly taller chart to accommodate bottom legend
         fig, ax1 = self._setup_chart_figure(
-            figsize=(10, ReportingConfig.STYLING["chart_height"])
+            figsize=(10, AppConfig.REPORTING_STYLING["chart_height"])
         )
 
         # Create color-coded bars based on recovery score with three levels
@@ -67,7 +67,7 @@ class RecoveryChartGenerator(ChartGenerator):
             df["recovery"],
             width=0.6,
             color=bar_colors,
-            alpha=ReportingConfig.STYLING["bar_alpha"],
+            alpha=AppConfig.REPORTING_STYLING["bar_alpha"],
             zorder=3,
         )
 
@@ -81,8 +81,8 @@ class RecoveryChartGenerator(ChartGenerator):
                 textcoords="offset points",
                 ha="center",
                 va="bottom",
-                color=ReportingConfig.COLORS["text"],
-                fontsize=ReportingConfig.STYLING["default_font_size"],
+                color=AppConfig.REPORTING_COLORS["text"],
+                fontsize=AppConfig.REPORTING_STYLING["default_font_size"],
             )
 
         # Add legend at the bottom left with rectangle patches to match nutrition chart
@@ -92,7 +92,7 @@ class RecoveryChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=self.green_color,
-                alpha=ReportingConfig.STYLING["bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["bar_alpha"],
                 label=f"High Recovery (≥{self.recovery_threshold_high})",
             ),
             plt.Rectangle(
@@ -100,7 +100,7 @@ class RecoveryChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=self.yellow_color,
-                alpha=ReportingConfig.STYLING["bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["bar_alpha"],
                 label=f"Moderate Recovery ({self.recovery_threshold_medium}-{self.recovery_threshold_high-1})",
             ),
             plt.Rectangle(
@@ -108,7 +108,7 @@ class RecoveryChartGenerator(ChartGenerator):
                 1,
                 1,
                 color=self.red_color,
-                alpha=ReportingConfig.STYLING["bar_alpha"],
+                alpha=AppConfig.REPORTING_STYLING["bar_alpha"],
                 label=f"Low Recovery (≤{self.recovery_threshold_low})",
             ),
         ]
@@ -117,15 +117,15 @@ class RecoveryChartGenerator(ChartGenerator):
         recovery_leg = ax1.legend(
             handles=recovery_legend,
             loc="lower left",
-            bbox_to_anchor=(0.0, ReportingConfig.STYLING["legend_vertical_offset"]),
-            ncol=ReportingConfig.STYLING["legend_columns"],
+            bbox_to_anchor=(0.0, AppConfig.REPORTING_STYLING["legend_vertical_offset"]),
+            ncol=AppConfig.REPORTING_STYLING["legend_columns"],
             frameon=False,
-            fontsize=ReportingConfig.STYLING["legend_font_size"],
+            fontsize=AppConfig.REPORTING_STYLING["legend_font_size"],
         )
 
         # Style the legend text
         for text in recovery_leg.get_texts():
-            text.set_color(ReportingConfig.COLORS["text"])
+            text.set_color(AppConfig.REPORTING_COLORS["text"])
 
         # Add sleep need vs. actual overlay if columns exist
         has_sleep_data = (
@@ -143,11 +143,11 @@ class RecoveryChartGenerator(ChartGenerator):
             ax2.plot(
                 x_numeric,
                 df["sleep_actual"],
-                color=ReportingConfig.COLORS["sleep_actual"],
+                color=AppConfig.REPORTING_COLORS["sleep_actual"],
                 linestyle="--",
-                linewidth=ReportingConfig.STYLING["line_thickness"],
+                linewidth=AppConfig.REPORTING_STYLING["line_thickness"],
                 marker="o",
-                markersize=ReportingConfig.STYLING["default_marker_size"],
+                markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                 label="Sleep Actual",
             )
 
@@ -155,11 +155,11 @@ class RecoveryChartGenerator(ChartGenerator):
             ax2.plot(
                 x_numeric,
                 df["sleep_need"],
-                color=ReportingConfig.COLORS["sleep_need"],
+                color=AppConfig.REPORTING_COLORS["sleep_need"],
                 linestyle="-",
-                linewidth=ReportingConfig.STYLING["line_thickness"],
+                linewidth=AppConfig.REPORTING_STYLING["line_thickness"],
                 marker="s",
-                markersize=ReportingConfig.STYLING["default_marker_size"],
+                markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                 label="Sleep Need",
             )
 
@@ -170,12 +170,12 @@ class RecoveryChartGenerator(ChartGenerator):
                 ax=ax2,
                 y_lim=(0, max_sleep * 1.2),
                 y_label="Hours",
-                tick_label_color=ReportingConfig.COLORS["text"],
-                axis_label_color=ReportingConfig.COLORS["text"],
-                font_size=ReportingConfig.STYLING["default_font_size"],
-                tick_font_size=ReportingConfig.STYLING["tick_font_size"],
+                tick_label_color=AppConfig.REPORTING_COLORS["text"],
+                axis_label_color=AppConfig.REPORTING_COLORS["text"],
+                font_size=AppConfig.REPORTING_STYLING["default_font_size"],
+                tick_font_size=AppConfig.REPORTING_STYLING["tick_font_size"],
                 spines_to_hide=["top", "left", "bottom"],
-                spines_to_color={"right": ReportingConfig.COLORS["grid"]},
+                spines_to_color={"right": AppConfig.REPORTING_COLORS["grid"]},
                 secondary_ax=ax2,  # Pass ax2 as secondary_ax to style its ticks
             )
 
@@ -184,21 +184,21 @@ class RecoveryChartGenerator(ChartGenerator):
                 plt.Line2D(
                     [0],
                     [0],
-                    color=ReportingConfig.COLORS["sleep_need"],
-                    lw=ReportingConfig.STYLING["default_line_width"],
+                    color=AppConfig.REPORTING_COLORS["sleep_need"],
+                    lw=AppConfig.REPORTING_STYLING["default_line_width"],
                     linestyle="-",
                     marker="s",
-                    markersize=ReportingConfig.STYLING["default_marker_size"],
+                    markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                     label="Sleep Need",
                 ),
                 plt.Line2D(
                     [0],
                     [0],
-                    color=ReportingConfig.COLORS["sleep_actual"],
-                    lw=ReportingConfig.STYLING["default_line_width"],
+                    color=AppConfig.REPORTING_COLORS["sleep_actual"],
+                    lw=AppConfig.REPORTING_STYLING["default_line_width"],
                     linestyle="--",
                     marker="o",
-                    markersize=ReportingConfig.STYLING["default_marker_size"],
+                    markersize=AppConfig.REPORTING_STYLING["default_marker_size"],
                     label="Sleep Actual",
                 ),
             ]
@@ -207,15 +207,15 @@ class RecoveryChartGenerator(ChartGenerator):
             sleep_leg = ax2.legend(
                 handles=sleep_legend,
                 loc="lower right",
-                bbox_to_anchor=(1.0, ReportingConfig.STYLING["legend_vertical_offset"]),
+                bbox_to_anchor=(1.0, AppConfig.REPORTING_STYLING["legend_vertical_offset"]),
                 ncol=2,
                 frameon=False,
-                fontsize=ReportingConfig.STYLING["default_font_size"],
+                fontsize=AppConfig.REPORTING_STYLING["default_font_size"],
             )
 
             # Style the legend text
             for text in sleep_leg.get_texts():
-                text.set_color(ReportingConfig.COLORS["text"])
+                text.set_color(AppConfig.REPORTING_COLORS["text"])
 
             # Make sure the sleep legend is added after the recovery legend
             ax2.add_artist(sleep_leg)
@@ -230,16 +230,16 @@ class RecoveryChartGenerator(ChartGenerator):
             y_lim=(0, 100),
             y_label="Recovery",
             x_label="",
-            tick_label_color=ReportingConfig.COLORS["text"],
-            axis_label_color=ReportingConfig.COLORS["text"],
-            font_size=ReportingConfig.STYLING["default_font_size"],
-            tick_font_size=ReportingConfig.STYLING["tick_font_size"],
-            grid_line_width=ReportingConfig.STYLING["grid_line_width"],
-            grid_opacity=ReportingConfig.STYLING["grid_opacity"],
+            tick_label_color=AppConfig.REPORTING_COLORS["text"],
+            axis_label_color=AppConfig.REPORTING_COLORS["text"],
+            font_size=AppConfig.REPORTING_STYLING["default_font_size"],
+            tick_font_size=AppConfig.REPORTING_STYLING["tick_font_size"],
+            grid_line_width=AppConfig.REPORTING_STYLING["grid_line_width"],
+            grid_opacity=AppConfig.REPORTING_STYLING["grid_opacity"],
             spines_to_hide=["top", "right"],
             spines_to_color={
-                "left": ReportingConfig.COLORS["grid"],
-                "bottom": ReportingConfig.COLORS["grid"],
+                "left": AppConfig.REPORTING_COLORS["grid"],
+                "bottom": AppConfig.REPORTING_COLORS["grid"],
             },
         )
 

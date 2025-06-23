@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, Tuple
 
 from src.utils.date_utils import DateUtils, DateFormat
 from src.utils.logging_utils import HealthLogger
-from src.analysis.analyzer_config import AnalyzerConfig
+from src.app_config import AppConfig
 
 
 class OuraProcessor:
@@ -124,8 +124,8 @@ class OuraProcessor:
                 if resilience_level is None:
                     continue
 
-                # Get score from AnalyzerConfig mapping or use default of 0
-                resilience_score = AnalyzerConfig.RESILIENCE_LEVEL_SCORES.get(
+                # Get score from AppConfig mapping or use default of 0
+                resilience_score = AppConfig.ANALYSIS_RESILIENCE_LEVEL_SCORES.get(
                     resilience_level.lower(), 0
                 )
 

@@ -1,5 +1,5 @@
 from .base import ChartGenerator
-from ..reporting_config import ReportingConfig
+from src.app_config import AppConfig
 
 
 class MacroRatioChartGenerator(ChartGenerator):
@@ -32,10 +32,10 @@ class MacroRatioChartGenerator(ChartGenerator):
             f"  <div class='progress-protein' style='width: {protein_pct_rounded}%'>"
             + (
                 f"<span class='macro-text'>Protein {protein_pct_rounded}%</span>"
-                if protein_pct >= ReportingConfig.THRESHOLDS["macro_label_full"]
+                if protein_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_full"]
                 else (
                     f"<span class='macro-text'>{protein_pct_rounded}%</span>"
-                    if protein_pct >= ReportingConfig.THRESHOLDS["macro_label_percent"]
+                    if protein_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
                     else ""
                 )
             )
@@ -43,10 +43,10 @@ class MacroRatioChartGenerator(ChartGenerator):
             + f"<div class='progress-carbs' style='width: {carbs_pct_rounded}%'>"
             + (
                 f"<span class='macro-text'>Carbs {carbs_pct_rounded}%</span>"
-                if carbs_pct >= ReportingConfig.THRESHOLDS["macro_label_full"]
+                if carbs_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_full"]
                 else (
                     f"<span class='macro-text'>{carbs_pct_rounded}%</span>"
-                    if carbs_pct >= ReportingConfig.THRESHOLDS["macro_label_percent"]
+                    if carbs_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
                     else ""
                 )
             )
@@ -54,10 +54,10 @@ class MacroRatioChartGenerator(ChartGenerator):
             + f"<div class='progress-fat' style='width: {fat_pct_rounded}%'>"
             + (
                 f"<span class='macro-text'>Fat {fat_pct_rounded}%</span>"
-                if fat_pct >= ReportingConfig.THRESHOLDS["macro_label_full"]
+                if fat_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_full"]
                 else (
                     f"<span class='macro-text'>{fat_pct_rounded}%</span>"
-                    if fat_pct >= ReportingConfig.THRESHOLDS["macro_label_percent"]
+                    if fat_pct >= AppConfig.REPORTING_THRESHOLDS["macro_label_percent"]
                     else ""
                 )
             )

@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from src.data_sources.base import APIClient, APIClientError
-from src.data_sources.clients.hevy_constants import DEFAULT_PAGE_SIZE
+from src.app_config import AppConfig
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 
@@ -58,7 +58,7 @@ class HevyClient(APIClient):
         # Set up logger
         self.logger = HealthLogger(self.__class__.__name__)
 
-    def fetch_workouts(self, page_size: int = DEFAULT_PAGE_SIZE) -> Dict[str, Any]:
+    def fetch_workouts(self, page_size: int = AppConfig.HEVY_DEFAULT_PAGE_SIZE) -> Dict[str, Any]:
         """Fetch all workout data from the Hevy API.
 
         Hevy API does not support date range filtering directly in the endpoint.
@@ -148,7 +148,7 @@ class HevyClient(APIClient):
         # Set default page size for workouts endpoint if not specified
         request_params = params if params is not None else {}
         if endpoint == "v1/workouts" and "pageSize" not in request_params:
-            request_params["pageSize"] = DEFAULT_PAGE_SIZE
+            request_params["pageSize"] = AppConfig.HEVY_DEFAULT_PAGE_SIZE
         
         try:
             # Make the request
@@ -209,7 +209,7 @@ class HevyClient(APIClient):
             raise APIClientError("No API key available for Hevy authentication")
         return True
     
-    def get_workouts(self, start_date: datetime = None, end_date: datetime = None, page_size: int = DEFAULT_PAGE_SIZE) -> Dict[str, Any]:
+    def get_workouts(self, start_date: datetime = None, end_date: datetime = None, page_size: int = AppConfig.HEVY_DEFAULT_PAGE_SIZE) -> Dict[str, Any]:
         """Get workout data from the Hevy API.
         
         This is the main method that should be called by the health pipeline.

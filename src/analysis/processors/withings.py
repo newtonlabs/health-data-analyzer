@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, Tuple, List
 
 from src.utils.date_utils import DateUtils, DateFormat
-from src.analysis.analyzer_config import AnalyzerConfig
+from src.app_config import AppConfig
 
 
 class WithingsProcessor:
@@ -113,7 +113,7 @@ class WithingsProcessor:
         
         # Convert weight from kg to pounds and round to the configured precision
         KG_TO_LB = 2.20462
-        weight_precision = AnalyzerConfig.NUMERIC_PRECISION.get("weight", 1)
+        weight_precision = AppConfig.ANALYSIS_NUMERIC_PRECISION.get("weight", 1)
         df_latest["weight"] = (df_latest["weight"] * KG_TO_LB).round(weight_precision)
         
         # Reorder columns for consistency with other DataFrames
