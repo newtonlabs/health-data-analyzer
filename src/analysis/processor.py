@@ -16,6 +16,7 @@ from src.analysis.processors.withings import WithingsProcessor
 from src.analysis.processors.hevy import HevyProcessor
 from src.data_sources.nutrition_data import NutritionData
 from src.utils.logging_utils import HealthLogger
+from src.utils.progress_indicators import ProgressIndicator
 
 
 class Processor:
@@ -94,6 +95,10 @@ class Processor:
         if hevy_raw:
             self.logger.logger.debug("Processing Hevy data")
             self.hevy_data = self.process_hevy_data(hevy_raw, end_date)
+            
+        # Process nutrition data from CSV
+        self.logger.logger.debug("Processing nutrition data")
+        nutrition_df = self.process_nutrition_data(start_date, end_date)
 
     def process_oura_data(
         self, raw_data: Dict[str, Any], start_date: datetime, end_date: datetime
@@ -184,3 +189,30 @@ class Processor:
             self.logger.logger.warning("No Hevy workout data to process - DataFrames are empty")
         
         return result
+            
+    def process_nutrition_data(self, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """Process nutrition data from CSV file.
+        
+        Args:
+            start_date: Start date for filtering data
+            end_date: End date for filtering data
+            
+        Returns:
+            DataFrame with processed nutrition data
+        """
+        # Show progress indicator
+        ProgressIndicator.step_start("Fetching nutrition data from file")
+        
+        # Load nutrition data from CSV
+        self.logger.logger.debug("Loading nutrition data from CSV")
+        nutrition_df = self.nutrition.load_data(start_date, end_date)
+        
+        # Save the processed data if not empty
+        if not nutrition_df.empty:
+            file_path = self.nutrition.save_processed_data(nutrition_df, end_date)
+            self.logger.logger.info(f"Saved processed nutrition data to {file_path}")
+        
+        # Mark nutrition data fetching as complete
+        ProgressIndicator.step_complete()
+        
+        return nutrition_df
