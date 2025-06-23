@@ -124,7 +124,7 @@ class AppConfig:
         "weight_line_width": 2,        # Line width for weight line
         "legend_font_size": 9,         # Default font size for legends
         "legend_columns": 4,           # Default number of columns for legends
-        "legend_vertical_offset": -0.12,  # Vertical offset for legends (negative moves it up)
+        "legend_vertical_offset": -0.18,  # Vertical offset for legends (negative moves it up)
     }
 
     # Caloric targets by activity type
