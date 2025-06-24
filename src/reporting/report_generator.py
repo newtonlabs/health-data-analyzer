@@ -6,24 +6,23 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from src.analysis.analyzer_config import AnalyzerConfig
-from src.analysis.metrics_aggregator import MetricsAggregator
+from src.analysis.aggregator import Aggregator
+from src.app_config import AppConfig
 from src.utils.logging_utils import HealthLogger
 
-from .chart_generator import ChartGenerator
-from .macro_ratio_chart_generator import MacroRatioChartGenerator
-from .nutrition_chart_generator import NutritionChartGenerator
-from .recovery_chart_generator import RecoveryChartGenerator
-from .reporting_config import ReportingConfig
-from .resilience_chart_generator import ResilienceChartGenerator
+from .charts.base import ChartGenerator
+from .charts.macro_ratio import MacroRatioChartGenerator
+from .charts.nutrition import NutritionChartGenerator
+from .charts.recovery import RecoveryChartGenerator
+from .charts.resilience import ResilienceChartGenerator
 
 
 class ReportGenerator:
-    def __init__(self, analyzer: MetricsAggregator):
+    def __init__(self, analyzer: Aggregator):
         """Initialize ReportGenerator.
 
         Args:
-            analyzer: MetricsAggregator instance to use for metrics generation
+            analyzer: Aggregator instance to use for metrics generation
         """
         self.analyzer = analyzer
         self.logger = HealthLogger(__name__)
@@ -103,19 +102,19 @@ class ReportGenerator:
 
     @staticmethod
     def _get_recovery_class(score: float) -> str:
-        """Get recovery class based on score using thresholds from ReportingConfig.
+        """Get recovery class based on score using thresholds from AppConfig.
 
         Args:
             score: Recovery score (0-100)
 
         Returns:
             Class name: 'recovery-low', 'recovery-medium', or 'recovery-high'
-            based on thresholds defined in ReportingConfig
+            based on thresholds defined in AppConfig
         """
         score = float(score)
-        if score <= ReportingConfig.THRESHOLDS["recovery_low"]:
+        if score <= AppConfig.REPORTING_THRESHOLDS["recovery_low"]:
             return "recovery-low"
-        elif score < ReportingConfig.THRESHOLDS["recovery_high"]:
+        elif score < AppConfig.REPORTING_THRESHOLDS["recovery_high"]:
             return "recovery-medium"
         else:
             return "recovery-high"
@@ -156,6 +155,7 @@ class ReportGenerator:
                 "protein": "PROTEIN",
                 "carbs": "CARBS",
                 "fat": "FAT",
+                "alcohol": "ALCOHOL",
                 "steps": "STEPS",
                 "activity": "ACTIVITY",
                 "weight": "WEIGHT",
@@ -215,11 +215,10 @@ class ReportGenerator:
         df: pd.DataFrame,
         filename: str,
         chart_type_name: str,
-        **kwargs,
     ) -> Optional[str]:
         """Generic helper to generate a chart and return its markdown string."""
         try:
-            chart_gen = chart_generator_class(**kwargs)
+            chart_gen = chart_generator_class()
             chart_path = chart_gen.generate(df, filename=filename)
             if chart_path:
                 # Extract relative path from charts_dir to ensure correct markdown path
@@ -281,7 +280,7 @@ class ReportGenerator:
         level_to_score = {}
 
         # Get the thresholds from analyzer_config
-        thresholds = AnalyzerConfig.RESILIENCE_LEVEL_SCORES
+        thresholds = AppConfig.ANALYSIS_RESILIENCE_LEVEL_SCORES
 
         # Calculate midpoints for main levels
         level_to_score["exceptional"] = (
@@ -343,7 +342,7 @@ class ReportGenerator:
                 macros_df["activity"] = macros_df["training"].apply(
                     lambda x: (
                         "Strength"
-                        if x in AnalyzerConfig.STRENGTH_ACTIVITIES
+                        if x in AppConfig.ANALYSIS_STRENGTH_ACTIVITIES
                         else "Rest"
                     )
                 )
@@ -356,15 +355,23 @@ class ReportGenerator:
 
         if has_macro_data:
             # Use the stacked chart with macronutrient breakdown
-            # Include weight data if available
+            # Include alcohol, calories and weight data if available
+            columns_to_include = ["date", "protein", "carbs", "fat", "activity"]
+
+            # Add alcohol if available
+            if "alcohol" in macros_df.columns:
+                columns_to_include.append("alcohol")
+                self.logger.logger.debug(
+                    f"Including alcohol column in chart data: {macros_df['alcohol'].tolist()}"
+                )
+
+            if "calories" in macros_df.columns:
+                columns_to_include.append("calories")
+
             if "weight" in macros_df.columns:
-                chart_df = macros_df[
-                    ["date", "protein", "carbs", "fat", "activity", "weight"]
-                ].copy()
-            else:
-                chart_df = macros_df[
-                    ["date", "protein", "carbs", "fat", "activity"]
-                ].copy()
+                columns_to_include.append("weight")
+
+            chart_df = macros_df[columns_to_include].copy()
 
             # Skip days with no data
             chart_df = chart_df[
@@ -379,8 +386,6 @@ class ReportGenerator:
                 df=chart_df,
                 filename=stacked_filename,
                 chart_type_name="Nutrition",
-                target_strength=ReportingConfig.CALORIC_TARGETS["strength"],
-                target_rest=ReportingConfig.CALORIC_TARGETS["rest"],
             )
         else:
             # Use the simple chart with just calories
@@ -394,8 +399,6 @@ class ReportGenerator:
                 df=chart_df,
                 filename=filename,
                 chart_type_name="Nutrition",
-                target_strength=ReportingConfig.CALORIC_TARGETS["strength"],
-                target_rest=ReportingConfig.CALORIC_TARGETS["rest"],
             )
 
     def generate_weekly_status(
@@ -435,20 +438,35 @@ class ReportGenerator:
         total_calories = active_days["calories"].sum() if len(active_days) > 0 else 0
         avg_protein = active_days["protein"].mean() if len(active_days) > 0 else 0
 
-        # Count strength days using the STRENGTH_ACTIVITIES list from AnalyzerConfig
+        # Count strength days using the STRENGTH_ACTIVITIES list from AppConfig
         strength_days = len(
-            training_df[training_df["sport"].isin(AnalyzerConfig.STRENGTH_ACTIVITIES)]
+            training_df[
+                training_df["sport"].isin(AppConfig.ANALYSIS_STRENGTH_ACTIVITIES)
+            ]
         )
 
         # Calculate macronutrient ratios
         macro_ratios = None
         if len(active_days) > 0:
-            # Calculate calorie contributions
+            # Calculate calorie contributions using factors from AppConfig
             protein_cals = (
-                active_days["protein"].sum() * 4
-            )  # 4 calories per gram of protein
-            carbs_cals = active_days["carbs"].sum() * 4  # 4 calories per gram of carbs
-            fat_cals = active_days["fat"].sum() * 9  # 9 calories per gram of fat
+                active_days["protein"].sum()
+                * AppConfig.REPORTING_CALORIE_FACTORS["protein"]
+            )
+            carbs_cals = (
+                active_days["carbs"].sum()
+                * AppConfig.REPORTING_CALORIE_FACTORS["carbs"]
+            )
+            fat_cals = (
+                active_days["fat"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["fat"]
+            )
+            # Placeholder for future alcohol calculation
+            # if "alcohol" in active_days.columns:
+            #     alcohol_cals = active_days["alcohol"].sum() * AppConfig.REPORTING_CALORIE_FACTORS["alcohol"]
+            # else:
+            #     alcohol_cals = 0
+
+            # Using reported calories instead of calculated ones for consistency
             total_calories = active_days["calories"].sum()
 
             if total_calories > 0:

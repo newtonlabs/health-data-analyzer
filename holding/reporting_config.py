@@ -1,10 +1,13 @@
 """Configuration for reporting components."""
 
-# No imports needed
+import os
 
 
 class ReportingConfig:
     """Configuration for reporting components."""
+    
+    # Charts directory
+    CHARTS_DIR = os.path.join("data", "charts")
 
     # Chart colors
     COLORS = {
@@ -21,6 +24,7 @@ class ReportingConfig:
         "protein": "#7B1F1F",  # Dark red for protein
         "carbs": "#333333",  # Black for carbs
         "fat": "#999999",  # Gray for fat
+        "alcohol": "#FF8C00",  # Dark orange for alcohol
         # Text and UI colors
         "text": "#666666",  # Gray for text elements
         "grid": "#cccccc",  # Light gray for grid lines
@@ -48,7 +52,7 @@ class ReportingConfig:
         "default_line_width": 1.5,  # Default line width for plots
         "grid_line_width": 0.7,  # Line width for grid lines
         "default_marker_size": 4,  # Default marker size for plots
-        "chart_height": 4.5,  # Standard chart height for recovery and nutrition charts
+        "chart_height": 4.8,  # Standard chart height for recovery and nutrition charts (balanced for legend space)
         "chart_height_compact": 2.0,  # Compact chart height for minimalist design
         "grid_opacity": 0.5,  # Grid line opacity
         "default_font_size": 9,  # Default font size for labels and legends
@@ -59,12 +63,20 @@ class ReportingConfig:
         "resilience_band_font_size": 8,  # Font size for resilience band labels
         "weight_line_width": 2,  # Line width for weight line
         "legend_font_size": 9,  # Default font size for legends
-        "legend_columns": 3,  # Default number of columns for legends
-        "legend_vertical_offset": -0.15,  # Vertical offset for legends (negative moves it up)
+        "legend_columns": 4,  # Default number of columns for legends
+        "legend_vertical_offset": -0.18,  # Vertical offset for legends (negative moves it up)
     }
 
     # Caloric targets by activity type
     CALORIC_TARGETS = {
         "strength": 2400,  # Target calories for strength training days
         "rest": 1800,  # Target calories for rest days
+    }
+    
+    # Calorie conversion factors for macronutrients
+    CALORIE_FACTORS = {
+        "protein": 4.1,  # 4.1 calories per gram
+        "carbs": 4.1,    # 4.1 calories per gram
+        "fat": 9.44,     # 9.44 calories per gram
+        "alcohol": 6.93  # 6.93 calories per gram (for future use)
     }

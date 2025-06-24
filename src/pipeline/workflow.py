@@ -6,23 +6,21 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-import pandas as pd
-
-from src.analysis.health_data_processor import HealthDataProcessor
-from src.analysis.metrics_aggregator import MetricsAggregator
-from src.data_sources.onedrive_client import OneDriveClient
-from src.data_sources.oura_client import OuraClient
-from src.data_sources.token_manager import TokenManager
-from src.data_sources.whoop_client import WhoopClient
-from src.data_sources.withings_client import WithingsClient
+from src.analysis.aggregator import Aggregator
+from src.analysis.processor import Processor
 from src.reporting.pdf_converter import PDFConverter
 from src.reporting.report_generator import ReportGenerator
+from src.sources.clients.hevy import HevyClient
+from src.sources.clients.onedrive import OneDriveClient
+from src.sources.clients.oura import OuraClient
+from src.sources.clients.whoop import WhoopClient
+from src.sources.clients.withings import WithingsClient
 from src.utils.date_utils import DateUtils
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 
 
-class HealthPipeline:
+class Workflow:
     """Main pipeline for health data processing."""
 
     def __init__(self, skip_auth: bool = False):
@@ -38,11 +36,12 @@ class HealthPipeline:
         self.whoop = WhoopClient()
         self.oura = OuraClient()
         self.withings = WithingsClient()
+        self.hevy = HevyClient()
         self.storage = OneDriveClient()
 
         # Initialize data processing components
-        self.processor = HealthDataProcessor()
-        self.aggregator = MetricsAggregator(self.processor)
+        self.processor = Processor()
+        self.aggregator = Aggregator(self.processor)
         self.report_gen = ReportGenerator(self.aggregator)
         self.converter = PDFConverter()
 
@@ -130,9 +129,19 @@ class HealthPipeline:
 
         ProgressIndicator.step_complete()
 
+        # Fetch Hevy workout data
+        ProgressIndicator.step_start("Fetching Hevy workout data from API")
+        hevy_raw = self.hevy.get_workouts()
+        ProgressIndicator.step_complete()
+
         # All API data fetched successfully
 
-        return {"oura": oura_raw, "whoop": whoop_raw, "withings": withings_raw}
+        return {
+            "oura": oura_raw,
+            "whoop": whoop_raw,
+            "withings": withings_raw,
+            "hevy": hevy_raw,
+        }
 
     def generate_report(
         self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
@@ -277,6 +286,7 @@ class HealthPipeline:
                 oura_raw=raw_data["oura"],
                 whoop_raw=raw_data["whoop"],
                 withings_raw=raw_data["withings"],
+                hevy_raw=raw_data["hevy"],
                 start_date=report_start,
                 end_date=report_end,
             )

@@ -5,9 +5,11 @@
 [] Cleanup WHOOP Client in health_pipeline
 [] Fix log_skipped_date
 [] Fix log_data_counts
-[] Rename health_data_processor.py to processor.py
+[x] Rename health_data_processor.py to processor.py
 [] Rename metrics_aggragator.py to aggregator.py
 [] Rename analyzer_config.py to config.py, consider consolidating all the config into yaml
 [] Move the markdown writer to use fileutils
 [] Autoamte cronometer with a HAR file and playwright
+[] Figure out if tokens can stay longged in longer, this used to work
+
 

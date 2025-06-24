@@ -5,24 +5,25 @@ import os
 from datetime import datetime
 from typing import Optional
 
+
 def configure_logging() -> None:
     """Configure logging based on LOG_LEVEL environment variable.
-    
+
     The LOG_LEVEL can be set to: DEBUG, INFO, WARNING, ERROR, CRITICAL
     If not set, defaults to WARNING.
     """
     # Get log level from environment variable or default to WARNING
     log_level_name = os.environ.get("LOG_LEVEL", "WARNING").upper()
-    
+
     # Map string log level to logging constants
     log_level = {
         "DEBUG": logging.DEBUG,
         "INFO": logging.INFO,
         "WARNING": logging.WARNING,
         "ERROR": logging.ERROR,
-        "CRITICAL": logging.CRITICAL
+        "CRITICAL": logging.CRITICAL,
     }.get(log_level_name, logging.WARNING)
-    
+
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
@@ -30,6 +31,7 @@ def configure_logging() -> None:
 
 # Configure logging when module is imported
 configure_logging()
+
 
 class HealthLogger:
     """Logger for health data operations."""
@@ -104,5 +106,3 @@ class HealthLogger:
             msg: Error message
         """
         self.logger.error(msg)
-
-   

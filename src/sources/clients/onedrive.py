@@ -9,14 +9,16 @@ import msal
 import requests
 from msal import PublicClientApplication
 
-from src.data_sources.base import APIClient, APIClientError
+from src.sources.base import APIClient, APIClientError
 from src.utils.progress_indicators import ProgressIndicator
 
 
 class OneDriveClient(APIClient):
     """OneDrive client for storing analysis results using MSAL device flow authentication."""
-    
-    def __init__(self, client_id: str = None, client_secret: str = None, token_file: str = None):
+
+    def __init__(
+        self, client_id: str = None, client_secret: str = None, token_file: str = None
+    ):
         """Initialize OneDrive storage with MSAL authentication.
 
         Args:
@@ -35,9 +37,9 @@ class OneDriveClient(APIClient):
             env_client_id="ONEDRIVE_CLIENT_ID",
             env_client_secret="ONEDRIVE_CLIENT_SECRET",
             default_token_path="~/.onedrive_tokens.json",
-            base_url="https://graph.microsoft.com/v1.0"
+            base_url="https://graph.microsoft.com/v1.0",
         )
-        
+
         # Microsoft Graph API configuration
         self.tenant_id = "consumers"  # Use 'consumers' for personal accounts
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
@@ -45,13 +47,24 @@ class OneDriveClient(APIClient):
 
         # Initialize MSAL token cache
         self.msal_token_cache = msal.SerializableTokenCache()
-        
-        # Load existing tokens from TokenManager if available
+
+        # Try to load cached tokens
         cached_tokens_data = self.token_manager.get_tokens()
         if cached_tokens_data and "msal_cache" in cached_tokens_data:
-            self.msal_token_cache.deserialize(cached_tokens_data["msal_cache"])
+            try:
+                self.msal_token_cache.deserialize(cached_tokens_data["msal_cache"])
+                self.logger.debug("Loaded MSAL token cache from file")
+                
+                # Extract access token from cached tokens
+                if "access_token" in cached_tokens_data:
+                    self.access_token = cached_tokens_data["access_token"]
+                    self.token_type = cached_tokens_data.get("token_type", "Bearer")
+                    self.expires_in = cached_tokens_data.get("expires_in", 3600)
+                    self.logger.debug("Loaded access token from cache")
+            except Exception as e:
+                self.logger.warning(f"Failed to load MSAL token cache: {e}")
 
-        # Initialize MSAL app
+        # Initialize MSAL app with the token cache
         self.app = PublicClientApplication(
             client_id=self.client_id,
             authority=self.authority,
@@ -59,109 +72,134 @@ class OneDriveClient(APIClient):
         )
 
     def authenticate(self) -> bool:
-        """Authenticate with OneDrive using device flow or cached tokens.
+        """Authenticate with OneDrive using MSAL device code flow.
 
         Returns:
-            bool: True if authentication was successful, False otherwise.
+            bool: True if authentication was successful, False otherwise
         """
-        # Use the base class handle_authentication method which handles token refresh and clearing
-        # If it returns True, authentication was successful
+        # Try to use existing tokens first
         if super().handle_authentication():
-            return True
-            
-        # If the base class authentication failed, continue with OneDrive-specific authentication
-        try:
-            # Try silent acquisition with MSAL
-            accounts = self.app.get_accounts()
-            if accounts:
-                result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
-                if result and "access_token" in result:
-                    self.token_manager.save_tokens(
-                        {
-                            "msal_cache": self.msal_token_cache.serialize(),
-                            "access_token": result["access_token"],
-                            "expires_in": result.get("expires_in", 3600),
-                        }
-                    )  # Save serialized cache
-                    self.access_token = result["access_token"]
-                    return True
-
-            # If silent acquisition fails, initiate device flow
-            flow = self.app.initiate_device_flow(scopes=self.scopes)
-            if "user_code" not in flow:
-                raise Exception("Failed to start device flow")
-
-            # Show instructions to user using ProgressIndicator for consistent UI
-            ProgressIndicator.bullet_item(
-                f"[OneDrive Auth] Please visit this URL to authorize the application: {flow['verification_uri']}"
-            )
-            ProgressIndicator.bullet_item(
-                f"[OneDrive Auth] Enter the code: {flow['user_code']}"
-            )
-            
-            # Wait for user to complete authentication
-            result = self.app.acquire_token_by_device_flow(flow)
-
-            if "access_token" not in result:
-                self.logger.error("Authentication failed")
-                return False
-
-            self.token_manager.save_tokens(
-                {
-                    "msal_cache": self.msal_token_cache.serialize(),
-                    "access_token": result["access_token"],
-                    "expires_in": result.get("expires_in", 3600),
-                }
-            )  # Save serialized cache
-            self.access_token = result["access_token"]
-            # Log success to debug only - progress indicators will show success elsewhere
-            self.logger.debug("Successfully authenticated with OneDrive!")
-            ProgressIndicator.step_complete("OneDrive authentication successful")
+            self.logger.debug("Using existing OneDrive authentication")
             return True
 
-        except Exception as e:
-            self.logger.error(f"Error during authentication: {str(e)}")
+        # Start device code flow
+        self.logger.debug("Starting new OneDrive authentication flow")
+        flow = self.app.initiate_device_flow(scopes=self.scopes)
+
+        if "user_code" not in flow:
+            self.logger.error(
+                f"Failed to start device code flow: {flow.get('error', 'Unknown error')}"
+            )
             return False
+
+        # Display instructions to user
+        ProgressIndicator.bullet_item(
+            f"[OneDrive Auth] Please visit this URL to authorize the application: {flow['verification_uri']}"
+        )
+        ProgressIndicator.bullet_item(
+            f"[OneDrive Auth] Enter the code: {flow['user_code']}"
+        )
+
+        # Wait for user to complete the flow
+        result = self.app.acquire_token_by_device_flow(flow)
+
+        if "access_token" not in result:
+            self.logger.error(
+                f"Failed to acquire token: {result.get('error', 'Unknown error')}"
+            )
+            return False
+
+        # Use base class helper method to calculate extended expiration
+        original_expires_in = result.get("expires_in", 3600)
+        extended_expires_in, validity_days = self.get_extended_expiration_seconds(original_expires_in)
+        
+        # Save tokens with extended expiration
+        self.token_manager.save_tokens(
+            {
+                "msal_cache": self.msal_token_cache.serialize(),
+                "access_token": result["access_token"],
+                "refresh_token": None,  # MSAL handles refresh internally
+                "token_type": result.get("token_type", "Bearer"),
+                "expires_in": extended_expires_in,  # Use extended expiration
+                "original_expires_in": original_expires_in,  # Store original for reference
+                "last_refresh_time": datetime.now().isoformat()  # For sliding window
+            }
+        )
+
+        # Update instance variables
+        self.access_token = result["access_token"]
+        self.token_type = result.get("token_type", "Bearer")
+        self.expires_in = extended_expires_in
+
+        # Use step_complete instead of checkmark
+        ProgressIndicator.step_complete("OneDrive authentication successful")
+        self.logger.debug(f"OneDrive authentication successful, token valid for {validity_days} days")
+        return True
 
     def refresh_access_token(self) -> bool:
         """Refresh the access token using MSAL's silent token acquisition.
-        
+
         Returns:
             bool: True if refresh was successful, False otherwise
         """
         self.logger.debug("Refreshing OneDrive access token")
-        
+
         try:
             # MSAL handles token refresh differently - it uses the token cache
             accounts = self.app.get_accounts()
+            
+            # Log account information for debugging
+            self.logger.debug(f"Found {len(accounts)} accounts in MSAL cache")
+            for i, account in enumerate(accounts):
+                self.logger.debug(f"Account {i}: {account.get('username', 'unknown')}")
+            
             if not accounts:
                 self.logger.warning("No accounts found in MSAL cache")
                 return False
-                
-            # Try silent token acquisition
+
+            # Try silent token acquisition with extended timeout
             result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
+            
             if result and "access_token" in result:
-                # Update tokens
+                # Log success with token expiration time
+                expires_in = result.get("expires_in", 3600)
+                self.logger.debug(f"Successfully refreshed token, expires in {expires_in} seconds")
+                
+                # Use base class helper method to calculate extended expiration
+                extended_expires_in, validity_days = self.get_extended_expiration_seconds(expires_in)
+                
                 self.token_manager.save_tokens(
                     {
                         "msal_cache": self.msal_token_cache.serialize(),
                         "access_token": result["access_token"],
                         "refresh_token": None,  # MSAL handles refresh internally
                         "token_type": "Bearer",
-                        "expires_in": result.get("expires_in", 3600),
+                        "expires_in": extended_expires_in,  # Use extended expiration
+                        "original_expires_in": expires_in,  # Store original for reference
+                        "last_refresh_time": datetime.now().isoformat()  # For sliding window
                     }
                 )
                 self.access_token = result["access_token"]
                 self.token_type = "Bearer"
-                self.expires_in = result.get("expires_in", 3600)
+                self.expires_in = extended_expires_in
                 return True
             else:
-                self.logger.warning("Silent token acquisition failed")
+                # Log more details about the failure
+                error = result.get("error") if result else "No result"
+                error_desc = result.get("error_description") if result else "No error description"
+                self.logger.warning(f"Silent token acquisition failed: {error} - {error_desc}")
+                
+                # Try to recover by clearing the token cache and forcing re-authentication
+                self.logger.debug("Attempting to recover by clearing token cache")
+                self.msal_token_cache.clear()
                 return False
         except Exception as e:
             self.logger.error(f"Error refreshing token: {str(e)}")
+            # Add more detailed error information
+            import traceback
+            self.logger.debug(f"Token refresh error details: {traceback.format_exc()}")
             return False
-    
+
     def _get_token(self) -> str:
         """Get a valid access token.
 
