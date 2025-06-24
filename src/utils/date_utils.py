@@ -2,10 +2,14 @@
 
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
+import logging
 from typing import Optional, Union
 
 import pandas as pd
 import pytz
+
+# Set up module logger
+logger = logging.getLogger(__name__)
 
 
 class DateFormat:
@@ -123,31 +127,45 @@ class DateUtils:
         """Convert date strings to day of week labels.
 
         Args:
-            date_strings: List of date strings in format 'YYYY-MM-DD'
+            date_strings: List of date strings in format 'MM-DD' or other formats
 
         Returns:
-            List of day of week labels (e.g., 'Mon', 'Tue', etc.)
+            List of day of week labels in format 'MM-DD (Day)'
         """
         day_labels = []
         for date_str in date_strings:
             try:
                 # Parse the date string and get the day of week
                 # Handle different date formats
-                if "-" in date_str:
+                if "-" in date_str and len(date_str) > 5:
                     # YYYY-MM-DD format
                     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                    # Format as MM-DD
+                    mm_dd = date_obj.strftime("%m-%d")
                 elif "/" in date_str:
                     # MM/DD/YYYY format
                     date_obj = datetime.strptime(date_str, "%m/%d/%Y")
+                    # Format as MM-DD
+                    mm_dd = date_obj.strftime("%m-%d")
                 else:
                     # Try to parse as MM-DD format
+                    mm_dd = date_str
+                    # Add current year for day of week calculation
                     date_obj = datetime.strptime(f"2025-{date_str}", "%Y-%m-%d")
-
+                
                 # Get abbreviated day name (Mon, Tue, etc.)
                 day_name = date_obj.strftime("%a")
-                day_labels.append(day_name)
-            except ValueError:
+                
+                # Create the combined format: MM-DD (Day)
+                formatted_label = f"{mm_dd} ({day_name})"
+                
+                # Add debug logging
+                logger.debug(f"Converting '{date_str}' to '{formatted_label}'")
+                
+                day_labels.append(formatted_label)
+            except ValueError as e:
                 # If date parsing fails, use the original string
+                logger.warning(f"Error parsing date '{date_str}': {e}")
                 day_labels.append(date_str)
         return day_labels
 

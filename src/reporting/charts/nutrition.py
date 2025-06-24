@@ -236,7 +236,16 @@ class NutritionChartGenerator(ChartGenerator):
         max_cal = max(
             total_cals.max() if not total_cals.empty else 0, self.target_strength
         )
-        day_labels = DateUtils.get_day_of_week_labels(df["date"].tolist())
+        
+        # Debug: Log the date values being passed to get_day_of_week_labels
+        date_values = df["date"].tolist()
+        self.logger.debug(f"Date values being passed to get_day_of_week_labels: {date_values}")
+        
+        # Get day labels
+        day_labels = DateUtils.get_day_of_week_labels(date_values)
+        
+        # Debug: Log the returned day labels
+        self.logger.debug(f"Day labels returned: {day_labels}")
 
         self._style_axes(
             ax=ax,
