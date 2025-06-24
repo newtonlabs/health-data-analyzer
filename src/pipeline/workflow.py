@@ -10,11 +10,11 @@ from src.analysis.aggregator import Aggregator
 from src.analysis.processor import Processor
 from src.reporting.pdf_converter import PDFConverter
 from src.reporting.report_generator import ReportGenerator
-from src.sources.clients.hevy import HevyClient
-from src.sources.clients.onedrive import OneDriveClient
-from src.sources.clients.oura import OuraClient
-from src.sources.clients.whoop import WhoopClient
-from src.sources.clients.withings import WithingsClient
+from src.sources.hevy import HevyClient
+from src.sources.onedrive import OneDriveClient
+from src.sources.oura import OuraClient
+from src.sources.whoop import WhoopClient
+from src.sources.withings import WithingsClient
 from src.utils.date_utils import DateUtils
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator

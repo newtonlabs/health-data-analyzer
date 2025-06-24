@@ -14,7 +14,7 @@ from src.analysis.processors.hevy import HevyProcessor
 from src.analysis.processors.oura import OuraProcessor
 from src.analysis.processors.whoop import WhoopProcessor
 from src.analysis.processors.withings import WithingsProcessor
-from src.sources.nutrition_data import NutritionData
+from src.sources.nutrition_file import NutritionFile
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 
@@ -47,7 +47,7 @@ class Processor:
         self.hevy_processor = HevyProcessor()
 
         # Initialize nutrition data source
-        self.nutrition = NutritionData(output_dir)
+        self.nutrition = NutritionFile(output_dir)
 
         # Hold processed data in memory
         self.oura_data = None

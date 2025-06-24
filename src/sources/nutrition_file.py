@@ -6,12 +6,12 @@ from typing import Optional
 
 import pandas as pd
 
-from src.sources.base import DataSource
+from src.utils.api_client import DataSource
 
 
-class NutritionData(DataSource):
+class NutritionFile(DataSource):
     def __init__(self, data_dir: str = "data", filename: str = "dailysummary.csv"):
-        """Initialize NutritionData.
+        """Initialize NutritionFile.
 
         Args:
             data_dir: Directory containing the dailysummary.csv file

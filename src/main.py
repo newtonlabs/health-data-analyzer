@@ -47,7 +47,9 @@ def display_welcome_banner() -> None:
 {Colors.BLUE}{Colors.BOLD}{app_name} v{version}{Colors.RESET}
 {'=' * (len(app_name) + len(version) + 3)}
 """
-    ProgressIndicator.bullet_item(banner)
+    # Print directly instead of using bullet_item to avoid the bullet point
+    sys.stdout.write(banner + "\n")
+    sys.stdout.flush()
 
 
 def main() -> None:

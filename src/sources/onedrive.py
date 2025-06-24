@@ -9,7 +9,7 @@ import msal
 import requests
 from msal import PublicClientApplication
 
-from src.sources.base import APIClient, APIClientError
+from src.utils.api_client import APIClient, APIClientError
 from src.utils.progress_indicators import ProgressIndicator
 
 

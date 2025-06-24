@@ -12,7 +12,7 @@ from typing import Any, Optional
 import requests
 
 from src.app_config import AppConfig
-from src.sources.base import APIClient, APIClientError
+from src.utils.api_client import APIClient, APIClientError
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 

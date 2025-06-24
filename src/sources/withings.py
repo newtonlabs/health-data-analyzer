@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
-from src.sources.base import APIClient, APIClientError, OAuthCallbackHandler
+from src.utils.api_client import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
 from src.utils.file_utils import save_json_to_file
 from src.utils.progress_indicators import ProgressIndicator
