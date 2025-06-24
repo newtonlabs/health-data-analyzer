@@ -78,11 +78,13 @@ class APIClient:
     # Maximum number of retries for API requests
     MAX_RETRIES = 3
 
-    # Default validity period for tokens (30 days)
-    DEFAULT_TOKEN_VALIDITY_DAYS = 30
-
+    # Default validity period for tokens (90 days)
+    DEFAULT_TOKEN_VALIDITY_DAYS = 90  # Extended to 90 days for sliding window
     # Default buffer time before expiration to trigger refresh (1 day)
     DEFAULT_REFRESH_BUFFER_HOURS = 24
+    
+    # Conversion constants
+    SECONDS_PER_DAY = 24 * 3600  # 24 hours * 3600 seconds per hour
 
     def __init__(
         self,
@@ -171,12 +173,15 @@ class APIClient:
         return bool(self.access_token)
 
     def handle_authentication(self) -> bool:
-        """Handle authentication with token refresh and fallback.
+        """Handle authentication with token refresh and sliding window approach.
 
         This method tries to authenticate in the following order:
         1. Use existing tokens if valid
         2. Try to refresh tokens if possible
         3. Return False to let subclasses handle full authentication
+
+        With the sliding window approach, each successful refresh extends
+        the token validity period by another 90 days.
 
         Returns:
             bool: True if authentication was successful with existing tokens, False otherwise
@@ -185,16 +190,23 @@ class APIClient:
         if self.is_authenticated():
             try:
                 self.logger.debug("Found saved authentication tokens")
-                self.logger.debug("Refreshing access token...")
-                if self.refresh_access_token():
-                    return True
+                
+                # Check if we need to refresh the access token
+                if self.token_manager.is_token_expired():
+                    self.logger.debug("Access token expired or expiring soon, refreshing...")
+                    if self.refresh_access_token():
+                        self.logger.debug("Successfully refreshed access token")
+                        return True
+                    else:
+                        self.logger.warning(
+                            "Token refresh failed, clearing tokens and starting new authentication..."
+                        )
+                        self.token_manager.clear_tokens()
                 else:
-                    self.logger.debug(
-                        "Token refresh failed, clearing tokens and starting new authentication..."
-                    )
-                    self.token_manager.clear_tokens()
+                    self.logger.debug("Using existing valid access token")
+                    return True
             except Exception as e:
-                self.logger.debug(
+                self.logger.warning(
                     f"Token refresh failed ({str(e)}), clearing tokens and starting new authentication..."
                 )
                 self.token_manager.clear_tokens()
@@ -246,6 +258,24 @@ class APIClient:
         """
         raise APIClientError("refresh_access_token not implemented")
 
+    def get_extended_expiration_seconds(self, original_expires_in: int = 3600) -> tuple[int, int]:
+        """
+        Calculate extended expiration time in seconds based on TokenManager's validity period.
+        
+        Args:
+            original_expires_in: Original expiration time in seconds from the API
+            
+        Returns:
+            Tuple of (extended_expires_in, validity_days)
+        """
+        # Get validity period from token manager
+        validity_days = self.token_manager.validity_days
+        
+        # Convert days to seconds
+        extended_expires_in = validity_days * self.SECONDS_PER_DAY
+        
+        return extended_expires_in, validity_days
+        
     def _make_request(
         self,
         endpoint: str,

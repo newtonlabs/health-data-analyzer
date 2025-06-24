@@ -79,11 +79,11 @@ class OneDriveClient(APIClient):
         """
         # Try to use existing tokens first
         if super().handle_authentication():
-            self.logger.info("Using existing OneDrive authentication")
+            self.logger.debug("Using existing OneDrive authentication")
             return True
 
         # Start device code flow
-        self.logger.info("Starting new OneDrive authentication flow")
+        self.logger.debug("Starting new OneDrive authentication flow")
         flow = self.app.initiate_device_flow(scopes=self.scopes)
 
         if "user_code" not in flow:
@@ -109,9 +109,9 @@ class OneDriveClient(APIClient):
             )
             return False
 
-        # Use extended expiration (7 days)
+        # Use base class helper method to calculate extended expiration
         original_expires_in = result.get("expires_in", 3600)
-        extended_expires_in = 7 * 24 * 3600  # 7 days in seconds
+        extended_expires_in, validity_days = self.get_extended_expiration_seconds(original_expires_in)
         
         # Save tokens with extended expiration
         self.token_manager.save_tokens(
@@ -122,6 +122,7 @@ class OneDriveClient(APIClient):
                 "token_type": result.get("token_type", "Bearer"),
                 "expires_in": extended_expires_in,  # Use extended expiration
                 "original_expires_in": original_expires_in,  # Store original for reference
+                "last_refresh_time": datetime.now().isoformat()  # For sliding window
             }
         )
 
@@ -132,7 +133,7 @@ class OneDriveClient(APIClient):
 
         # Use step_complete instead of checkmark
         ProgressIndicator.step_complete("OneDrive authentication successful")
-        self.logger.info(f"OneDrive authentication successful, token valid for 7 days")
+        self.logger.debug(f"OneDrive authentication successful, token valid for {validity_days} days")
         return True
 
     def refresh_access_token(self) -> bool:
@@ -141,7 +142,7 @@ class OneDriveClient(APIClient):
         Returns:
             bool: True if refresh was successful, False otherwise
         """
-        self.logger.info("Refreshing OneDrive access token")
+        self.logger.debug("Refreshing OneDrive access token")
 
         try:
             # MSAL handles token refresh differently - it uses the token cache
@@ -162,10 +163,10 @@ class OneDriveClient(APIClient):
             if result and "access_token" in result:
                 # Log success with token expiration time
                 expires_in = result.get("expires_in", 3600)
-                self.logger.info(f"Successfully refreshed token, expires in {expires_in} seconds")
+                self.logger.debug(f"Successfully refreshed token, expires in {expires_in} seconds")
                 
-                # Update tokens with extended expiration (7 days)
-                extended_expires_in = 7 * 24 * 3600  # 7 days in seconds
+                # Use base class helper method to calculate extended expiration
+                extended_expires_in, validity_days = self.get_extended_expiration_seconds(expires_in)
                 
                 self.token_manager.save_tokens(
                     {
@@ -175,6 +176,7 @@ class OneDriveClient(APIClient):
                         "token_type": "Bearer",
                         "expires_in": extended_expires_in,  # Use extended expiration
                         "original_expires_in": expires_in,  # Store original for reference
+                        "last_refresh_time": datetime.now().isoformat()  # For sliding window
                     }
                 )
                 self.access_token = result["access_token"]
@@ -188,7 +190,7 @@ class OneDriveClient(APIClient):
                 self.logger.warning(f"Silent token acquisition failed: {error} - {error_desc}")
                 
                 # Try to recover by clearing the token cache and forcing re-authentication
-                self.logger.info("Attempting to recover by clearing token cache")
+                self.logger.debug("Attempting to recover by clearing token cache")
                 self.msal_token_cache.clear()
                 return False
         except Exception as e:

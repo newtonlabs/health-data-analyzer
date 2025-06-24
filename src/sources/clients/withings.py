@@ -353,7 +353,7 @@ class WithingsClient(APIClient):
             self.logger.warning("No refresh token available for Withings")
             return False
 
-        self.logger.info("Refreshing Withings access token")
+        self.logger.debug("Refreshing Withings access token")
         
         params = {
             "action": "requesttoken",  # Required action parameter
@@ -394,9 +394,9 @@ class WithingsClient(APIClient):
             self.refresh_token = token_data.get("refresh_token")
             self.token_type = token_data.get("token_type", "Bearer")
             
-            # Use extended expiration (7 days)
+            # Use base class helper method to calculate extended expiration
             original_expires_in = token_data.get("expires_in", 3600)
-            extended_expires_in = 7 * 24 * 3600  # 7 days in seconds
+            extended_expires_in, validity_days = self.get_extended_expiration_seconds(original_expires_in)
             self.expires_in = extended_expires_in
 
             # Save tokens with extended expiration
@@ -408,10 +408,11 @@ class WithingsClient(APIClient):
                     "expires_in": extended_expires_in,
                     "original_expires_in": original_expires_in,
                     "timestamp": datetime.now().timestamp(),
+                    "last_refresh_time": datetime.now().isoformat(),  # For sliding window
                 }
             )
             
-            self.logger.info(f"Successfully refreshed Withings token, extended validity to 7 days")
+            self.logger.debug(f"Successfully refreshed Withings token, extended validity to {validity_days} days")
             return True
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Failed to refresh Withings access token: {str(e)}")

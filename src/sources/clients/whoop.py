@@ -291,7 +291,7 @@ class WhoopClient(APIClient):
             return False
 
         try:
-            self.logger.info("Refreshing Whoop access token")
+            self.logger.debug("Refreshing Whoop access token")
             response = requests.post(
                 "https://api.prod.whoop.com/oauth/oauth2/token",
                 data={
@@ -314,13 +314,14 @@ class WhoopClient(APIClient):
                 self.logger.warning(f"Invalid token response from Whoop: missing required fields")
                 return False
                 
-            # Use extended expiration (7 days)
+            # Use base class helper method to calculate extended expiration
             original_expires_in = token_data.get("expires_in", 3600)
-            extended_expires_in = 7 * 24 * 3600  # 7 days in seconds
+            extended_expires_in, validity_days = self.get_extended_expiration_seconds(original_expires_in)
             
             # Add extended expiration to token data
             token_data["original_expires_in"] = original_expires_in
             token_data["expires_in"] = extended_expires_in
+            token_data["last_refresh_time"] = datetime.now().isoformat()  # For sliding window
             
             # Save tokens with extended expiration
             self.token_manager.save_tokens(token_data)
@@ -331,7 +332,7 @@ class WhoopClient(APIClient):
             self.token_type = token_data.get("token_type")
             self.expires_in = extended_expires_in
             
-            self.logger.info(f"Successfully refreshed Whoop token, extended validity to 7 days")
+            self.logger.debug(f"Successfully refreshed Whoop token, extended validity to {validity_days} days")
             return True
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Failed to refresh Whoop access token: {str(e)}")
