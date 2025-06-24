@@ -2,6 +2,7 @@
 
 import json
 import os
+import stat
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -33,7 +34,8 @@ class TokenManager:
         if token_file is None:
             raise ValueError("token_file is required for TokenManager")
 
-        self.token_file = token_file
+        # Create a dedicated token directory with proper permissions
+        self.token_file = self._ensure_token_file_path(token_file)
         self.tokens: dict[str, Any] = {}
         self.token_expiry: Optional[datetime] = None
         self.token_created: Optional[datetime] = None
@@ -48,6 +50,37 @@ class TokenManager:
 
         self.logger = HealthLogger(__name__)
         self._load_tokens()
+        
+    def _ensure_token_file_path(self, token_file: str) -> str:
+        """Ensure the token file path exists with proper permissions.
+        
+        Args:
+            token_file: Path to token storage file
+            
+        Returns:
+            Absolute path to the token file
+        """
+        # Expand user directory if needed
+        token_file = os.path.expanduser(token_file)
+        
+        # Create a dedicated token directory if it doesn't exist
+        token_dir = os.path.dirname(token_file)
+        if not token_dir:
+            # If no directory specified, use a dedicated directory in user's home
+            token_dir = os.path.join(os.path.expanduser("~"), ".health_analyzer_tokens")
+            token_file = os.path.join(token_dir, os.path.basename(token_file))
+            
+        # Create the directory if it doesn't exist
+        if not os.path.exists(token_dir):
+            try:
+                os.makedirs(token_dir, exist_ok=True)
+                # Set permissions to user read/write only (0o700)
+                os.chmod(token_dir, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+                self.logger.debug(f"Created token directory with secure permissions: {token_dir}")
+            except Exception as e:
+                self.logger.warning(f"Failed to create token directory with secure permissions: {e}")
+                
+        return token_file
 
     def _load_tokens(self) -> None:
         """Load tokens from file and set expiry."""
@@ -178,13 +211,14 @@ class TokenManager:
             )
             return True
 
-        # Consider token expired if it will expire within the buffer period
-        buffer = timedelta(hours=self.refresh_buffer_hours)
+        # Use a smaller buffer for expiration check (1 hour instead of default 24)
+        # This helps prevent unnecessary token refreshes
+        buffer = timedelta(hours=1)  # Use 1 hour buffer instead of self.refresh_buffer_hours
         is_expiring_soon = datetime.now() + buffer >= self.token_expiry
 
         if is_expiring_soon:
             self.logger.debug(
-                f"[TokenManager] Token will expire within {self.refresh_buffer_hours} hours"
+                f"[TokenManager] Token will expire within 1 hour"
             )
 
         return is_expiring_soon

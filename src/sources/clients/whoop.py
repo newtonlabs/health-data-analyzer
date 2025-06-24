@@ -287,10 +287,11 @@ class WhoopClient(APIClient):
             APIClientError: If refresh fails or no refresh token is available
         """
         if not self.refresh_token:
-            raise APIClientError("No refresh token available")
+            self.logger.warning("No refresh token available for Whoop")
+            return False
 
         try:
-            self.logger.debug("Refreshing Whoop access token")
+            self.logger.info("Refreshing Whoop access token")
             response = requests.post(
                 "https://api.prod.whoop.com/oauth/oauth2/token",
                 data={
@@ -300,20 +301,43 @@ class WhoopClient(APIClient):
                     "grant_type": "refresh_token",
                 },
             )
-            response.raise_for_status()
-
+            
+            # Check for HTTP errors
+            if response.status_code != 200:
+                self.logger.warning(f"Whoop token refresh failed with status {response.status_code}: {response.text}")
+                return False
+                
             token_data = response.json()
+            
+            # Validate the response contains required fields
+            if "access_token" not in token_data or "refresh_token" not in token_data:
+                self.logger.warning(f"Invalid token response from Whoop: missing required fields")
+                return False
+                
+            # Use extended expiration (7 days)
+            original_expires_in = token_data.get("expires_in", 3600)
+            extended_expires_in = 7 * 24 * 3600  # 7 days in seconds
+            
+            # Add extended expiration to token data
+            token_data["original_expires_in"] = original_expires_in
+            token_data["expires_in"] = extended_expires_in
+            
+            # Save tokens with extended expiration
             self.token_manager.save_tokens(token_data)
 
             # Update instance variables
             self.access_token = token_data.get("access_token")
             self.refresh_token = token_data.get("refresh_token")
             self.token_type = token_data.get("token_type")
-            self.expires_in = token_data.get("expires_in", 0)
-
+            self.expires_in = extended_expires_in
+            
+            self.logger.info(f"Successfully refreshed Whoop token, extended validity to 7 days")
             return True
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Failed to refresh access token: {str(e)}")
+            self.logger.error(f"Failed to refresh Whoop access token: {str(e)}")
+            # Add more detailed error information
+            import traceback
+            self.logger.debug(f"Whoop token refresh error details: {traceback.format_exc()}")
             return False
 
     # Using base class is_authenticated method instead of custom implementation

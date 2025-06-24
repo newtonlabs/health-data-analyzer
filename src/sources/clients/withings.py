@@ -350,10 +350,13 @@ class WithingsClient(APIClient):
             bool: True if refresh was successful, False otherwise
         """
         if not self.refresh_token:
-            self.logger.warning("No refresh token available")
+            self.logger.warning("No refresh token available for Withings")
             return False
 
+        self.logger.info("Refreshing Withings access token")
+        
         params = {
+            "action": "requesttoken",  # Required action parameter
             "grant_type": "refresh_token",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -364,34 +367,55 @@ class WithingsClient(APIClient):
             response = requests.post(
                 "https://wbsapi.withings.net/v2/oauth2", data=params
             )
-            response.raise_for_status()
+            
+            # Check for HTTP errors
+            if response.status_code != 200:
+                self.logger.warning(f"Withings token refresh failed with status {response.status_code}: {response.text}")
+                return False
+                
             data = response.json()
 
-            # Check for errors
+            # Check for API errors
             if data.get("status") != 0:
                 error_msg = data.get("error", "Unknown error")
-                self.logger.warning(f"Token refresh failed: {error_msg}")
+                error_code = data.get("error_code", "Unknown code")
+                self.logger.warning(f"Withings token refresh failed: {error_msg} (code: {error_code})")
                 return False
 
             # Extract token data
             token_data = data.get("body", {})
+            
+            # Validate the response contains required fields
+            if "access_token" not in token_data or "refresh_token" not in token_data:
+                self.logger.warning(f"Invalid token response from Withings: missing required fields")
+                return False
+                
             self.access_token = token_data.get("access_token")
             self.refresh_token = token_data.get("refresh_token")
             self.token_type = token_data.get("token_type", "Bearer")
-            self.expires_in = token_data.get("expires_in", 0)
+            
+            # Use extended expiration (7 days)
+            original_expires_in = token_data.get("expires_in", 3600)
+            extended_expires_in = 7 * 24 * 3600  # 7 days in seconds
+            self.expires_in = extended_expires_in
 
-            # Save tokens
+            # Save tokens with extended expiration
             self.token_manager.save_tokens(
                 {
                     "access_token": self.access_token,
                     "refresh_token": self.refresh_token,
                     "token_type": self.token_type,
-                    "expires_in": self.expires_in,
+                    "expires_in": extended_expires_in,
+                    "original_expires_in": original_expires_in,
                     "timestamp": datetime.now().timestamp(),
                 }
             )
-
+            
+            self.logger.info(f"Successfully refreshed Withings token, extended validity to 7 days")
             return True
         except requests.exceptions.RequestException as e:
-            self.logger.warning(f"Token refresh failed: {str(e)}")
+            self.logger.error(f"Failed to refresh Withings access token: {str(e)}")
+            # Add more detailed error information
+            import traceback
+            self.logger.debug(f"Withings token refresh error details: {traceback.format_exc()}")
             return False
