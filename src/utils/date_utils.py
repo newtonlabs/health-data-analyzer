@@ -1,10 +1,11 @@
 """Utility functions for date operations."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
+import pytz
 
 
 class DateFormat:
@@ -37,6 +38,9 @@ class DateConfig:
     FETCH_END_HOUR = 23  # Hour to end data fetch (23 = 11 PM)
     FETCH_END_MINUTE = 59  # Minute to end data fetch
     FETCH_END_SECOND = 59  # Second to end data fetch
+    
+    # Default timezone for the application
+    DEFAULT_TIMEZONE = "America/New_York"  # Eastern Time
 
 
 class DateUtils:
@@ -184,3 +188,90 @@ class DateUtils:
             return DateStatus.FUTURE
         else:
             return DateStatus.TODAY
+            
+    @staticmethod
+    def convert_utc_to_local(utc_datetime: datetime, timezone_str: str = DateConfig.DEFAULT_TIMEZONE) -> datetime:
+        """Convert UTC datetime to local time.
+        
+        Args:
+            utc_datetime: Datetime in UTC (can be timezone-aware or naive)
+            timezone_str: Timezone identifier (default: from DateConfig)
+            
+        Returns:
+            Naive datetime object in local time
+        """
+        # Ensure the datetime is timezone-aware with UTC
+        if utc_datetime.tzinfo is None:
+            utc_datetime = utc_datetime.replace(tzinfo=timezone.utc)
+        
+        # Convert to the target timezone
+        local_tz = pytz.timezone(timezone_str)
+        local_datetime = utc_datetime.astimezone(local_tz)
+        
+        # Return naive datetime for compatibility with existing code
+        return local_datetime.replace(tzinfo=None)
+
+    @staticmethod
+    def parse_iso_timestamp(timestamp_str: str, to_local: bool = True, 
+                           timezone_str: str = DateConfig.DEFAULT_TIMEZONE) -> datetime:
+        """Parse ISO format timestamp and optionally convert to local time.
+        
+        Args:
+            timestamp_str: ISO format timestamp string (with or without timezone info)
+            to_local: Whether to convert to local time (default: True)
+            timezone_str: Timezone identifier (default: from DateConfig)
+            
+        Returns:
+            Naive datetime object (in UTC or local time)
+        """
+        # Handle 'Z' suffix for UTC
+        if timestamp_str.endswith('Z'):
+            timestamp_str = timestamp_str.replace('Z', '+00:00')
+        
+        # Parse the timestamp
+        dt = datetime.fromisoformat(timestamp_str)
+        
+        # If no timezone info in string, assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        
+        # Convert to local time if requested
+        if to_local:
+            return DateUtils.convert_utc_to_local(dt, timezone_str)
+        
+        # Otherwise return naive UTC datetime
+        return dt.replace(tzinfo=None)
+        
+    @staticmethod
+    def parse_timestamp(timestamp: Union[str, int, float], to_local: bool = True,
+                       timezone_str: str = DateConfig.DEFAULT_TIMEZONE) -> Optional[datetime]:
+        """Parse different timestamp formats and convert to datetime.
+        
+        Handles:
+        - ISO format strings (with or without timezone)
+        - Unix timestamps (seconds since epoch)
+        
+        Args:
+            timestamp: Timestamp as string, int, or float
+            to_local: Whether to convert to local time
+            timezone_str: Timezone identifier
+            
+        Returns:
+            Datetime object or None if parsing fails
+        """
+        try:
+            # Handle ISO format timestamps (string)
+            if isinstance(timestamp, str):
+                return DateUtils.parse_iso_timestamp(timestamp, to_local, timezone_str)
+            
+            # Handle Unix timestamps (integer or float)
+            elif isinstance(timestamp, (int, float)):
+                dt_utc = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                if to_local:
+                    return DateUtils.convert_utc_to_local(dt_utc, timezone_str)
+                return dt_utc.replace(tzinfo=None)
+                
+            return None
+        except Exception:
+            # Silent failure, return None
+            return None

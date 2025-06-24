@@ -3,16 +3,19 @@
 This module provides functionality to process and analyze data from the Withings API.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
-import pytz
 
+from src.analysis.processors.base import BaseProcessor
 from src.app_config import AppConfig
 
 
-class WithingsProcessor:
+class WithingsProcessor(BaseProcessor):
+    def __init__(self):
+        """Initialize the WithingsProcessor."""
+        super().__init__()
     """Processor for Withings data."""
 
     def process_data(
@@ -51,9 +54,6 @@ class WithingsProcessor:
         Returns:
             DataFrame with processed weight data
         """
-        # Import and define timezone early to avoid NameError
-        local_tz = pytz.timezone("America/New_York")
-
         # Extract weight data
         weight_records = []
 
@@ -66,9 +66,10 @@ class WithingsProcessor:
                 if not timestamp:
                     continue
 
-                # Convert timestamp from UTC to local time
-                dt_utc = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                dt_local = dt_utc.astimezone(local_tz)
+                # Convert timestamp from UTC to local time using our utility
+                dt_local = self.parse_timestamp(timestamp)
+                if not dt_local:
+                    continue
 
                 # Skip if outside date range
                 if start_date and dt_local.date() < start_date.date():
@@ -101,7 +102,8 @@ class WithingsProcessor:
         df_latest = df_sorted.groupby("date", as_index=True).last()
 
         # Build full 7-day index (yesterday to 6 days prior) to ensure all days are included
-        today = datetime.now(local_tz).date()
+        # Use datetime.now() without timezone for consistency with other processors
+        today = datetime.now().date()
         yesterday = today - timedelta(days=1)
         week_start = yesterday - timedelta(days=6)
         full_index = [week_start + timedelta(days=i) for i in range(7)]

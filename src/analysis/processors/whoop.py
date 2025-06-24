@@ -8,17 +8,17 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from src.analysis.processors.base import BaseProcessor
 from src.app_config import AppConfig
 from src.utils.date_utils import DateUtils
-from src.utils.logging_utils import HealthLogger
 
 
-class WhoopProcessor:
+class WhoopProcessor(BaseProcessor):
     """Processor for Whoop data."""
 
     def __init__(self):
         """Initialize WhoopProcessor."""
-        self.logger = HealthLogger(__name__)
+        super().__init__()
 
     def process_data(self, raw_data: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """Extract and clean workout and recovery data from Whoop API response.
@@ -171,11 +171,13 @@ class WhoopProcessor:
             if not start_time_str:
                 return None
 
-            # Parse start time
-            start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
-
-            # Convert to local time
-            start_local = start_time.replace(tzinfo=None)
+            # Parse start time using our utility
+            start_local = self.parse_timestamp(start_time_str)
+            if not start_local:
+                return None
+                
+            # Log the conversion for debugging
+            self.log_timestamp_conversion(start_time_str, start_local, "Workout start time")
 
             # Calculate duration in minutes
             # First check for duration_seconds directly
@@ -247,28 +249,16 @@ class WhoopProcessor:
                 self.logger.logger.debug("Recovery missing creation time")
                 return None
 
-            # Parse the UTC creation time
-            created_utc = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-
-            # Use local timezone if available, otherwise assume UTC
-            timezone_offset = recovery.get("timezone_offset")
-            if timezone_offset:
-                # Parse the timezone offset into hours and minutes
-                offset_sign = -1 if timezone_offset.startswith("-") else 1
-                offset_hours = int(timezone_offset[1:3])
-                offset_minutes = int(timezone_offset[4:6])
-                offset_seconds = offset_sign * (
-                    offset_hours * 3600 + offset_minutes * 60
-                )
-
-                # Apply the offset to convert to local time
-                created_local = (
-                    created_utc + timedelta(seconds=offset_seconds)
-                ).replace(tzinfo=None)
-            else:
-                # If no timezone offset is provided, assume UTC and convert to local time
-                self.logger.logger.debug("No timezone offset provided, assuming UTC")
-                created_local = created_utc.replace(tzinfo=None)
+            # Parse the creation time using our utility
+            # If timezone_offset is provided in the recovery data, we should use it
+            # but our parse_timestamp utility already handles timezone conversion
+            created_local = self.parse_timestamp(created_at)
+            if not created_local:
+                self.logger.warning(f"Failed to parse recovery timestamp: {created_at}")
+                return None
+                
+            # Log the conversion for debugging
+            self.log_timestamp_conversion(created_at, created_local, "Recovery created time")
 
             # Normalize the date to account for recovery scores that come in after midnight
             # Keep as datetime object for compatibility with metrics_aggregator

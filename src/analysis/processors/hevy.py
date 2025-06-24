@@ -6,20 +6,21 @@ It creates two dataframes:
 2. A detailed breakdown of exercises per workout with tonnage per exercise
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
 
-from src.utils.logging_utils import HealthLogger
+from src.analysis.processors.base import BaseProcessor
+from src.utils.date_utils import DateUtils
 
 
-class HevyProcessor:
+class HevyProcessor(BaseProcessor):
     """Processor for Hevy workout data."""
 
     def __init__(self):
         """Initialize the HevyProcessor with a logger."""
-        self.logger = HealthLogger(__name__)
+        super().__init__()
 
     def process_workouts(
         self, workouts_data: dict[str, Any]
@@ -99,17 +100,13 @@ class HevyProcessor:
             start_time = workout.get("start_time")
             end_time = workout.get("end_time")
 
-            # Convert timestamps to datetime objects
-            start_datetime = (
-                datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                if start_time
-                else None
-            )
-            end_datetime = (
-                datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-                if end_time
-                else None
-            )
+            # Parse timestamps using the utility methods
+            start_datetime = self.parse_timestamp(start_time) if start_time else None
+            end_datetime = self.parse_timestamp(end_time) if end_time else None
+            
+            # Log the timestamp conversion for debugging
+            if start_time and start_datetime:
+                self.log_timestamp_conversion(start_time, start_datetime, "Workout start time")
 
             # Calculate workout duration in minutes
             duration_minutes = None
@@ -164,6 +161,11 @@ class HevyProcessor:
                     start_datetime.strftime("%a") if start_datetime else ""
                 )
 
+                # Format the time for readability
+                workout_time_str = (
+                    start_datetime.strftime("%H:%M") if start_datetime else ""
+                )
+
                 # Add record to exercise_records
                 exercise_records.append(
                     {
@@ -175,6 +177,8 @@ class HevyProcessor:
                         ),  # Full date object
                         "date": workout_date_str,  # MM-DD format for consistency
                         "day": workout_day_str,  # Day of week for readability
+                        "time": workout_time_str,  # Time in HH:MM format
+                        "start_time": start_datetime,  # Full datetime object
                         "exercise_name": exercise_title,
                         "exercise_notes": exercise_notes,
                         "tonnage": round(exercise_tonnage, 2),
@@ -189,6 +193,11 @@ class HevyProcessor:
 
             # Add day of week for better readability
             workout_day_str = start_datetime.strftime("%a") if start_datetime else ""
+            
+            # Format the time for readability
+            workout_time_str = (
+                start_datetime.strftime("%H:%M") if start_datetime else ""
+            )
 
             # Add record to workout_records
             workout_records.append(
@@ -199,6 +208,7 @@ class HevyProcessor:
                     "date": start_datetime.date() if start_datetime else None,
                     "workout_date": workout_date_str,  # Added for consistency with other processors
                     "day": workout_day_str,  # Added for consistency with other processors
+                    "time": workout_time_str,  # Time in HH:MM format
                     "start_time": start_datetime,
                     "end_time": end_datetime,
                     "duration_minutes": (

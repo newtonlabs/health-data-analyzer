@@ -8,16 +8,16 @@ from typing import Any
 
 import pandas as pd
 
+from src.analysis.processors.base import BaseProcessor
 from src.app_config import AppConfig
-from src.utils.logging_utils import HealthLogger
 
 
-class OuraProcessor:
+class OuraProcessor(BaseProcessor):
     """Processor for Oura data."""
 
     def __init__(self):
         """Initialize OuraProcessor."""
-        self.logger = HealthLogger(__name__)
+        super().__init__()
 
     def process_data(
         self, raw_data: dict[str, Any], start_date: datetime, end_date: datetime
@@ -120,6 +120,7 @@ class OuraProcessor:
                     continue
 
                 # Convert to datetime for filtering
+                # Since this is just a date without time, we don't need timezone conversion
                 day_date = datetime.strptime(date_str, "%Y-%m-%d")
 
                 # Skip if outside date range
