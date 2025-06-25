@@ -1,0 +1,109 @@
+# Example user configuration file for health-data-analyzer
+# Copy this to user_config.yaml and customize for your needs
+
+# Activity Classifications
+# Define which activities are considered strength training
+strength_activities:
+  - "strength_training"
+  - "weightlifting"
+  - "powerlifting"
+  - "bodybuilding"
+  - "crossfit"
+  - "functional_fitness"
+  - "resistance_training"
+
+# Daily Caloric Targets
+# Customize based on your goals and body composition
+caloric_targets:
+  strength_day: 2400  # Calories on strength training days
+  rest_day: 2000      # Calories on rest/cardio days
+
+# Recovery Score Thresholds
+# Adjust based on your typical recovery patterns
+recovery_thresholds:
+  low: 50       # Below this = low recovery
+  moderate: 70  # Above this = high recovery
+
+# Macro Ratio Targets (percentage of total calories)
+macro_targets:
+  strength_day:
+    protein_pct: 30.0  # 30% protein on strength days
+    carbs_pct: 40.0    # 40% carbs for energy
+    fat_pct: 30.0      # 30% fat
+  rest_day:
+    protein_pct: 25.0  # 25% protein on rest days
+    carbs_pct: 35.0    # 35% carbs
+    fat_pct: 40.0      # 40% fat
+
+# Heart Rate Zones (customize based on your max HR)
+# These are used for workout intensity classification
+hr_zones:
+  default:
+    zone1_max: 140  # Recovery/easy zone
+    zone2_max: 160  # Aerobic base zone
+    zone3_max: 180  # Tempo/threshold zone
+    zone4_max: 200  # VO2 max/anaerobic zone
+
+# Personal Settings (future expansion)
+personal:
+  # Example: age, weight, height for more accurate calculations
+  # age: 30
+  # weight_kg: 75
+  # height_cm: 175
+  # max_heart_rate: 190
+
+# API ID Mappings
+# Customize these based on the sport IDs you see in your data
+
+# Whoop Sport ID Mappings
+# Map Whoop API sport IDs to human names and internal sport types
+whoop_sport_mappings:
+  18:
+    name: "Rowing"
+    sport_type: "rowing"
+  63:
+    name: "Walking" 
+    sport_type: "walking"
+  65:
+    name: "Elliptical"
+    sport_type: "other"
+  66:
+    name: "Stairmaster"
+    sport_type: "other"
+  45:
+    name: "Weightlifting"
+    sport_type: "strength_training"
+  123:
+    name: "Strength"
+    sport_type: "strength_training"
+  # Add more as you discover them in your Whoop data
+  # Example: 
+  # 44:
+  #   name: "Cycling"
+  #   sport_type: "cycling"
+
+# Oura Activity Mappings
+# Map Oura activity classifications
+oura_activity_mappings:
+  high:
+    name: "High Intensity"
+    sport_type: "other"
+  medium:
+    name: "Medium Intensity" 
+    sport_type: "other"
+  low:
+    name: "Low Intensity"
+    sport_type: "walking"
+  rest:
+    name: "Rest"
+    sport_type: "other"
+
+# Withings Measurement Types
+# Usually don't need to change these, but available for customization
+withings_measurement_types:
+  1: "weight"
+  4: "height"
+  5: "fat_free_mass"
+  6: "fat_ratio"
+  8: "fat_mass_weight"
+  # Add more if you use additional Withings measurements

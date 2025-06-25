@@ -22,16 +22,27 @@ from .collections import (
     PipelineResult
 )
 
-# Import enums and constants
+# Import enums
 from .enums import (
     DataSource,
     SportType,
     WorkoutIntensity,
     RecoveryLevel,
-    SleepStage,
+    SleepStage
+)
+
+# Import user-configurable constants
+from src.config import (
+    UserConfig,
+    default_config,
     STRENGTH_ACTIVITIES,
     CALORIC_TARGETS,
-    RECOVERY_THRESHOLDS
+    RECOVERY_THRESHOLDS,
+    MACRO_TARGETS,
+    HR_ZONES,
+    WHOOP_SPORT_MAPPINGS,
+    OURA_ACTIVITY_MAPPINGS,
+    WITHINGS_MEASUREMENT_TYPES
 )
 
 __all__ = [
@@ -56,8 +67,17 @@ __all__ = [
     'RecoveryLevel',
     'SleepStage',
     
+    # Configuration
+    'UserConfig',
+    'default_config',
+    
     # Constants
     'STRENGTH_ACTIVITIES',
     'CALORIC_TARGETS',
-    'RECOVERY_THRESHOLDS'
+    'RECOVERY_THRESHOLDS',
+    'MACRO_TARGETS',
+    'HR_ZONES',
+    'WHOOP_SPORT_MAPPINGS',
+    'OURA_ACTIVITY_MAPPINGS',
+    'WITHINGS_MEASUREMENT_TYPES'
 ]

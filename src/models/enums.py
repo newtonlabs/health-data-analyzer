@@ -1,4 +1,8 @@
-"""Enumerations and constants for health data models."""
+"""Enumerations for health data models.
+
+This module contains only fixed enumeration values that should not be
+user-configurable. User-configurable constants are in models/config.py.
+"""
 
 from enum import Enum
 
@@ -59,27 +63,3 @@ class SleepStage(Enum):
     LIGHT = "light"
     DEEP = "deep"
     REM = "rem"
-
-
-# Constants
-STRENGTH_ACTIVITIES = [
-    "strength_training",
-    "weightlifting",
-    "powerlifting",
-    "bodybuilding",
-    "crossfit",
-    "functional_fitness",
-    "resistance_training"
-]
-
-# Caloric targets (can be moved to config later)
-CALORIC_TARGETS = {
-    "strength_day": 2400,
-    "rest_day": 2000
-}
-
-# Recovery score thresholds
-RECOVERY_THRESHOLDS = {
-    "low": 50,
-    "moderate": 70
-}
