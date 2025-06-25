@@ -34,11 +34,14 @@ class WhoopExtractor(BaseExtractor):
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Whoop API response.
         
+        This is pure extraction - converts raw API data to basic data models
+        without any transformation, cleaning, or persistence.
+        
         Args:
             raw_data: Raw API response data containing workouts, recovery, sleep
             
         Returns:
-            Dictionary with keys 'workouts', 'recovery', 'sleep' and lists of records
+            Dictionary with keys 'workouts', 'recovery', 'sleep' and lists of raw records
         """
         extracted = {
             'workouts': [],
@@ -46,26 +49,22 @@ class WhoopExtractor(BaseExtractor):
             'sleep': []
         }
         
-        # Extract workouts
+        # Extract workouts (pure conversion, no transformation)
         if 'workouts' in raw_data:
             extracted['workouts'] = self.extract_workouts(raw_data['workouts'])
-            self.log_extraction_stats('workouts', len(extracted['workouts']))
+            self.logger.info(f"Extracted {len(extracted['workouts'])} raw workout records")
         
-        # Extract recovery
+        # Extract recovery (pure conversion, no transformation)
         if 'recovery' in raw_data:
             extracted['recovery'] = self.extract_recovery(raw_data['recovery'])
-            self.log_extraction_stats('recovery', len(extracted['recovery']))
+            self.logger.info(f"Extracted {len(extracted['recovery'])} raw recovery records")
         
-        # Extract sleep
+        # Extract sleep (pure conversion, no transformation)
         if 'sleep' in raw_data:
             extracted['sleep'] = self.extract_sleep(raw_data['sleep'])
-            self.log_extraction_stats('sleep', len(extracted['sleep']))
+            self.logger.info(f"Extracted {len(extracted['sleep'])} raw sleep records")
         
-        # Save extracted data to CSV files
-        saved_files = self.save_extracted_data_to_csv(extracted)
-        if saved_files:
-            self.logger.info(f"💾 Whoop data exported to: {list(saved_files.values())}")
-        
+        self.logger.info("Pure extraction completed - no transformation or persistence")
         return extracted
     
     def extract_workouts(self, raw_data: Dict[str, Any]) -> List[WorkoutRecord]:

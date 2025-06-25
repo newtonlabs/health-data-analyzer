@@ -186,46 +186,40 @@ class HealthDataPipelineTest:
         return extraction_results
     
     def _extract_whoop_data(self):
-        """Extract Whoop workout data."""
+        """Extract Whoop workout data using clean 3-stage pipeline."""
         try:
-            from src.api.services.whoop_service import WhoopService
-            from src.processing.extractors.whoop_extractor import WhoopExtractor
-            from src.utils.data_export import DataExporter
+            from src.pipeline.clean_pipeline import CleanHealthPipeline
             
-            service = WhoopService()
-            extractor = WhoopExtractor()
-            exporter = DataExporter()
+            # Use clean pipeline for Whoop
+            clean_pipeline = CleanHealthPipeline()
             
-            # Date range
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=self.days)
+            # Check authentication first
+            if not clean_pipeline.whoop_service.is_authenticated():
+                print("❌ Whoop: Not authenticated")
+                return False
             
-            # Fetch and extract
-            raw_data = service.get_workouts_data(start_date, end_date)
+            print(f"✅ Whoop: Using clean 3-stage pipeline ({self.days} days)")
             
-            if raw_data and 'records' in raw_data:
-                # Restructure for extractor
-                restructured_data = {
-                    'workouts': {
-                        'records': raw_data['records']
-                    }
-                }
+            # Run complete pipeline
+            file_paths = clean_pipeline.process_whoop_data(days=self.days)
+            
+            if file_paths:
+                print(f"✅ Whoop: Pipeline completed successfully")
+                print(f"   📄 Raw data: {file_paths.get('01_raw', 'N/A')}")
+                print(f"   📄 Extracted: {file_paths.get('02_extracted', 'N/A')}")
+                print(f"   📄 Transformed: {file_paths.get('03_transformed', 'N/A')}")
                 
-                extracted_data = extractor.extract_data(restructured_data)
+                # Get pipeline summary
+                summary = clean_pipeline.get_pipeline_summary(file_paths)
+                print(f"   📊 Stages completed: {summary['stages_completed']}/3")
                 
-                if 'workouts' in extracted_data and extracted_data['workouts']:
-                    workout_records = extracted_data['workouts']
-                    csv_file = exporter.save_records_to_csv(workout_records, 'whoop', 'workouts', datetime.now())
-                    
-                    self.csv_files.append(csv_file)
-                    print(f"✅ Whoop: {len(workout_records)} workouts → {csv_file}")
-                    return True
-            
-            print("⚠️  Whoop: No data available")
-            return True
-            
+                return True
+            else:
+                print("⚠️  Whoop: Pipeline completed but no files generated")
+                return True
+                
         except Exception as e:
-            print(f"❌ Whoop: Extraction failed - {e}")
+            print(f"❌ Whoop: Pipeline failed - {e}")
             return False
     
     def _extract_oura_data(self):
