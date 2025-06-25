@@ -1,24 +1,19 @@
 """Configuration system for health-data-analyzer.
 
 This module provides user-configurable settings that are used across
-all stages of the data pipeline: API services, extractors, transformers,
-aggregators, and reporting.
+all stages of the data pipeline. Contains ONLY settings that exist
+in the current codebase - no speculative features.
 """
 
 from .user_config import (
     UserConfig,
     default_config,
     
-    # Activity and target settings
+    # Settings that actually exist in current app_config.py
     STRENGTH_ACTIVITIES,
     CALORIC_TARGETS,
     RECOVERY_THRESHOLDS,
-    MACRO_TARGETS,
-    HR_ZONES,
-    
-    # API ID mappings
     WHOOP_SPORT_MAPPINGS,
-    OURA_ACTIVITY_MAPPINGS,
     WITHINGS_MEASUREMENT_TYPES
 )
 
@@ -27,15 +22,10 @@ __all__ = [
     'UserConfig',
     'default_config',
     
-    # Activity and target settings
+    # Settings that actually exist in current codebase
     'STRENGTH_ACTIVITIES',
     'CALORIC_TARGETS', 
     'RECOVERY_THRESHOLDS',
-    'MACRO_TARGETS',
-    'HR_ZONES',
-    
-    # API ID mappings
     'WHOOP_SPORT_MAPPINGS',
-    'OURA_ACTIVITY_MAPPINGS',
     'WITHINGS_MEASUREMENT_TYPES'
 ]
