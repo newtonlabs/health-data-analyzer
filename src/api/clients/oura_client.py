@@ -7,19 +7,13 @@ from typing import Any
 
 import requests
 
-from src.utils.token_manager import TokenManager
+from src.utils.api_client import APIClient, APIClientError
 from src.utils.date_utils import DateFormat, DateUtils
 from src.utils.file_utils import save_json_to_file
 from src.utils.logging_utils import HealthLogger
 
 
-class OuraError(Exception):
-    """Custom exception for Oura API errors."""
-
-    pass
-
-
-class OuraClient:
+class OuraClient(APIClient):
     def __init__(
         self,
         personal_access_token: str = None,
@@ -30,6 +24,7 @@ class OuraClient:
         """Initialize the Oura client.
 
         Args:
+            personal_access_token: Optional personal access token
             client_id: Optional client ID. If not provided, will look for OURA_CLIENT_ID in environment.
             client_secret: Optional client secret. If not provided, will look for OURA_CLIENT_SECRET in environment.
             token_file: Optional path to token storage file.
@@ -37,20 +32,18 @@ class OuraClient:
         Raises:
             ValueError: If credentials are not provided or found in environment.
         """
-        # Set up API configuration
-        self.base_url = "https://api.ouraring.com/v2"
-        self.access_token = None
-        self.token_type = None
-        self.expires_in = 0
-        self.refresh_token = None
-        self.state = None
-
-        # Set up logging
-        self.logger = HealthLogger(__name__)
-
         # Try personal access token first
         self.personal_access_token = personal_access_token or os.getenv("OURA_API_KEY")
         if self.personal_access_token:
+            # Initialize with dummy values for OAuth parameters since we're using personal token
+            super().__init__(
+                client_id="dummy",
+                client_secret="dummy", 
+                env_client_id="OURA_DUMMY_ID",
+                env_client_secret="OURA_DUMMY_SECRET",
+                default_token_path="~/.oura_dummy_tokens.json",
+                base_url="https://api.ouraring.com/v2",
+            )
             self.access_token = self.personal_access_token
             self.token_type = "Bearer"
             self.expires_in = 0  # Personal tokens don't expire
@@ -58,25 +51,23 @@ class OuraClient:
             return
 
         # Fall back to OAuth2 if no personal token
-        self.client_id = client_id or os.getenv("OURA_CLIENT_ID")
-        self.client_secret = client_secret or os.getenv("OURA_CLIENT_SECRET")
-        if not self.client_id or not self.client_secret:
+        client_id = client_id or os.getenv("OURA_CLIENT_ID")
+        client_secret = client_secret or os.getenv("OURA_CLIENT_SECRET")
+        if not client_id or not client_secret:
             raise ValueError(
                 "Either personal access token or client ID/secret are required"
             )
 
-        # Set up token storage
-        self.token_manager = TokenManager(
-            token_file or os.path.expanduser("~/.oura_tokens.json")
+        # Initialize base class with OAuth2 parameters
+        super().__init__(
+            client_id=client_id,
+            client_secret=client_secret,
+            token_file=token_file,
+            env_client_id="OURA_CLIENT_ID",
+            env_client_secret="OURA_CLIENT_SECRET", 
+            default_token_path="~/.oura_tokens.json",
+            base_url="https://api.ouraring.com/v2",
         )
-
-        # Try to load existing tokens
-        saved_tokens = self.token_manager.get_tokens()
-        if saved_tokens:
-            self.access_token = saved_tokens.get("access_token")
-            self.refresh_token = saved_tokens.get("refresh_token")
-            self.token_type = saved_tokens.get("token_type")
-            self.expires_in = saved_tokens.get("expires_in", 0)
 
     def get_token(self, code: str, state: str) -> None:
         """Exchange authorization code for access token.
@@ -86,10 +77,10 @@ class OuraClient:
             state: State parameter from callback, must match the one we sent
 
         Raises:
-            OuraError: If token exchange fails or state doesn't match
+            APIClientError: If token exchange fails or state doesn't match
         """
         if state != self.state:
-            raise OuraError("State parameter doesn't match. Possible CSRF attack.")
+            raise APIClientError("State parameter doesn't match. Possible CSRF attack.")
 
         try:
             response = requests.post(
@@ -119,16 +110,16 @@ class OuraClient:
                 }
             )
         except requests.exceptions.RequestException as e:
-            raise OuraError(f"Failed to get access token: {str(e)}")
+            raise APIClientError(f"Failed to get access token: {str(e)}")
 
     def refresh_access_token(self) -> None:
         """Refresh the access token using the refresh token.
 
         Raises:
-            OuraError: If refresh fails or no refresh token is available
+            APIClientError: If refresh fails or no refresh token is available
         """
         if not self.refresh_token:
-            raise OuraError("No refresh token available")
+            raise APIClientError("No refresh token available")
 
         try:
             response = requests.post(
@@ -159,96 +150,82 @@ class OuraClient:
             )
 
         except requests.exceptions.RequestException as e:
-            raise OuraError(f"Failed to refresh access token: {str(e)}")
+            raise APIClientError(f"Failed to refresh access token: {str(e)}")
 
     def is_authenticated(self) -> bool:
         """Check if we have valid authentication.
 
         Returns:
-            True if we have either a personal access token or both access and refresh tokens
+            True if we have either a personal access token or valid OAuth tokens
         """
         if self.personal_access_token:
             return True
-        return bool(self.access_token and self.refresh_token)
+        # Use base class authentication check for OAuth2
+        return super().is_authenticated()
 
-    def _make_request(
-        self, endpoint: str, params: dict[str, Any] = None
-    ) -> dict[str, Any]:
-        """Make a request to the Oura API.
-
-        Args:
-            endpoint: API endpoint to call
-            params: Optional query parameters
-
+    def _get_access_token(self) -> str:
+        """Get a valid access token for API requests.
+        
         Returns:
-            JSON response from API
+            str: A valid access token
+            
+        Raises:
+            APIClientError: If unable to obtain a valid token
         """
-        # Skip token refresh for personal access tokens
-        if not self.personal_access_token:
-            # Check if we need to refresh the token
-            if self.token_manager.is_token_expired():
-                try:
-                    self.refresh_access_token()
-                except OuraError:
-                    raise OuraError(
-                        "Token expired and refresh failed. Please authenticate again."
-                    )
-
-        headers = {
-            "Authorization": f"{self.token_type} {self.access_token}",
-            "Content-Type": "application/json",
-        }
-
-        try:
-            response = requests.get(
-                f"{self.base_url}/{endpoint}", headers=headers, params=params
-            )
-            response.raise_for_status()
-            # Always log the JSON response when in debug mode
-            response_data = response.json()
-
-            # Save API response as JSON file
-            save_json_to_file(
-                response_data,
-                f"oura-{endpoint.replace('/', '-')}",
-                subdir="api-responses/oura",
-            )
-            return response_data
-        except requests.exceptions.RequestException as e:
-            raise OuraError(f"Failed to fetch data from Oura API: {str(e)}")
+        if self.personal_access_token:
+            return self.personal_access_token
+        # Use base class implementation for OAuth2
+        return super()._get_access_token()
 
     def get_activity_data(
         self, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
-        """Fetch activity data for a date range."""
+        """Get activity data for a date range.
+
+        Args:
+            start_date: Start date for data collection
+            end_date: End date for data collection
+
+        Returns:
+            Dictionary containing activity data
+        """
         # Add one day to end_date to ensure we get the full day
         api_end_date = end_date + timedelta(days=1)
+        
+        save_path = f"oura-activity-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        
         return self._make_request(
-            "usercollection/daily_activity",
-            {
+            endpoint="usercollection/daily_activity",
+            params={
                 "start_date": start_date.strftime("%Y-%m-%d"),
                 "end_date": api_end_date.strftime("%Y-%m-%d"),
             },
+            save_response=True,
+            save_path=save_path,
         )
 
     def get_resilience_data(
         self, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
-        """Fetch resilience data for a date range.
+        """Get resilience data for a date range.
 
         Args:
-            start_date: Start date for data fetch
-            end_date: End date for data fetch
+            start_date: Start date for data collection
+            end_date: End date for data collection
 
         Returns:
             Dictionary containing resilience data
         """
+        save_path = f"oura-resilience-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
+        
         return self._make_request(
-            "usercollection/daily_resilience",
-            {
+            endpoint="usercollection/daily_resilience",
+            params={
                 "start_date": start_date.strftime("%Y-%m-%d"),
                 "end_date": end_date.strftime("%Y-%m-%d"),
             },
+            save_response=True,
+            save_path=save_path,
         )
 
     def get_workouts(
@@ -272,4 +249,11 @@ class OuraClient:
         if limit:
             params["limit"] = limit
 
-        return self._make_request("usercollection/workout", params)
+        save_path = f"oura-workouts-{DateUtils.format_date(start or datetime.now(), DateFormat.STANDARD)}"
+        
+        return self._make_request(
+            endpoint="usercollection/workout",
+            params=params,
+            save_response=True,
+            save_path=save_path,
+        )

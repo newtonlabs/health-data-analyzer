@@ -14,7 +14,7 @@ from src.analysis.processors.hevy import HevyProcessor
 from src.analysis.processors.oura import OuraProcessor
 from src.analysis.processors.whoop import WhoopProcessor
 from src.analysis.processors.withings import WithingsProcessor
-from src.sources.nutrition_file import NutritionFile
+from src.api.clients.nutrition_file_client import NutritionFile
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator
 

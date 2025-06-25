@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
+from src.app_config import AppConfig
 from src.utils.api_client import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
 from src.utils.file_utils import save_json_to_file
@@ -19,12 +20,7 @@ class WithingsCallbackHandler(OAuthCallbackHandler):
     """Handle OAuth callback from Withings."""
 
     def do_GET(self):
-        """Handle OAuth callback from Withings.
-
-        This method is called when Withings redirects back to our local server
-        after the user approves access. The URL contains an authorization code
-        that we exchange for an access token.
-        """
+        """Handle OAuth callback from Withings."""
         try:
             parsed_url = urlparse(self.path)
             query_components = parse_qs(parsed_url.query)
@@ -57,9 +53,6 @@ class WithingsCallbackHandler(OAuthCallbackHandler):
         finally:
             # Signal the server to stop after handling the request
             self.server.should_stop = True
-
-
-# Using APIClientError from base.py instead of a custom WithingsError
 
 
 class WithingsClient(APIClient):
@@ -99,79 +92,14 @@ class WithingsClient(APIClient):
 
         # Withings-specific state
         self.state = None
+        
+        # Load existing tokens (needed for Withings-specific authentication check)
         saved_tokens = self.token_manager.get_tokens()
         if saved_tokens:
             self.access_token = saved_tokens.get("access_token")
             self.refresh_token = saved_tokens.get("refresh_token")
             self.token_type = saved_tokens.get("token_type")
             self.expires_in = saved_tokens.get("expires_in", 0)
-
-    def _make_request(
-        self, endpoint: str, params: dict[str, Any] = None, method: str = "POST"
-    ) -> dict[str, Any]:
-        """Make a request to the Withings API.
-
-        Args:
-            endpoint: API endpoint to call
-            params: Optional query parameters
-            method: HTTP method (GET or POST)
-
-        Returns:
-            Dictionary containing response data
-
-        Raises:
-            APIClientError: If the request fails
-        """
-        # Ensure we have a valid token
-        if not self.is_authenticated():
-            if not self.refresh_access_token():
-                raise APIClientError("Not authenticated and token refresh failed")
-
-        # Build the URL and headers
-        url = f"{self.base_url}/{endpoint}"
-        headers = {
-            # Force capital B for Bearer
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-        }
-
-        # Make the request
-        try:
-            if method.upper() == "GET":
-                response = requests.get(url, headers=headers, params=params)
-            else:  # POST
-                response = requests.post(url, headers=headers, data=params)
-
-            # Check for errors
-            response.raise_for_status()
-            data = response.json()
-
-            # Save API response as JSON file
-            save_json_to_file(
-                data,
-                f"withings-{endpoint.replace('/', '-')}",
-                subdir="api-responses/withings",
-            )
-
-            # Withings API returns a status code in the response body
-            if data.get("status") != 0:
-                error_msg = data.get("error", "Unknown error")
-                raise APIClientError(f"API error: {error_msg}")
-
-            return data.get("body", {})
-        except requests.exceptions.RequestException as e:
-            # Try to refresh token if unauthorized
-            if (
-                hasattr(e, "response")
-                and hasattr(e.response, "status_code")
-                and e.response.status_code == 401
-            ):
-                if self.refresh_access_token():
-                    # Retry the request
-                    return self._make_request(endpoint, params, method)
-
-            raise APIClientError(f"Request failed: {str(e)}")
 
     def get_weight_data(
         self, start_date: datetime, end_date: datetime
@@ -183,11 +111,10 @@ class WithingsClient(APIClient):
             end_date: End date for weight data
 
         Returns:
-            Dict containing weight measurements
+            Dict containing weight measurements and body composition data
 
         Raises:
             APIClientError: If the API call fails
-            SystemExit: Stops execution if the API call fails
         """
         # Ensure we're authenticated
         if not self.is_authenticated():
@@ -199,29 +126,33 @@ class WithingsClient(APIClient):
 
         # Format parameters according to Withings API documentation
         # https://developer.withings.com/api-reference/#tag/measure/operation/measure-getmeas
+        # Request all body composition measurement types:
+        # 1=weight, 6=body_fat_percentage, 76=muscle_mass, 88=bone_mass, 77=water_percentage
+        meastype_values = [
+            str(AppConfig.WITHINGS_MEASUREMENT_TYPE_WEIGHT),
+            str(AppConfig.WITHINGS_MEASUREMENT_TYPE_FAT_RATIO),
+            str(AppConfig.WITHINGS_MEASUREMENT_TYPE_MUSCLE_MASS),
+            str(AppConfig.WITHINGS_MEASUREMENT_TYPE_BONE_MASS),
+            str(AppConfig.WITHINGS_MEASUREMENT_TYPE_WATER_PERCENTAGE),
+        ]
+        
         params = {
             "action": "getmeas",
-            "meastype": 1,  # Weight measurement type (1)
+            "meastype": ",".join(meastype_values),  # All body composition measurement types
             "category": 1,  # Real measurements (1)
             "startdate": startdate,
             "enddate": enddate,
         }
 
-        try:
-            result = self._make_request("measure", params, method="POST")
+        save_path = f"withings-weight-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
 
-            return result
-        except APIClientError as e:
-            error_msg = f"Withings API error: {str(e)}"
-            self.logger.warning(error_msg)
-            # Use ProgressIndicator imported at the top
-            ProgressIndicator.step_error(f"ERROR: {error_msg}")
-            ProgressIndicator.bullet_item(
-                "Pipeline execution stopped due to Withings API error."
-            )
-            import sys
-
-            sys.exit(1)
+        return self._make_request(
+            endpoint="measure",
+            params=params,
+            method="POST",
+            save_response=True,
+            save_path=save_path,
+        )
 
     def authenticate(self) -> bool:
         """Authenticate with Withings using OAuth2 flow.

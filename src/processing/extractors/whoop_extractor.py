@@ -26,14 +26,10 @@ class WhoopExtractor(BaseExtractor):
     using configuration for sport ID mappings.
     """
     
-    def __init__(self, config=None):
-        """Initialize the Whoop extractor.
-        
-        Args:
-            config: Optional UserConfig instance for sport mappings
-        """
+    def __init__(self):
+        """Initialize the Whoop extractor."""
         super().__init__(DataSource.WHOOP)
-        self.config = config or default_config
+        self.config = default_config
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Whoop API response.
@@ -65,6 +61,11 @@ class WhoopExtractor(BaseExtractor):
             extracted['sleep'] = self.extract_sleep(raw_data['sleep'])
             self.log_extraction_stats('sleep', len(extracted['sleep']))
         
+        # Save extracted data to CSV files
+        saved_files = self.save_extracted_data_to_csv(extracted)
+        if saved_files:
+            self.logger.info(f"💾 Whoop data exported to: {list(saved_files.values())}")
+        
         return extracted
     
     def extract_workouts(self, raw_data: Dict[str, Any]) -> List[WorkoutRecord]:
@@ -77,7 +78,7 @@ class WhoopExtractor(BaseExtractor):
             List of WorkoutRecord instances
         """
         workouts = []
-        raw_workouts = raw_data.get('data', [])
+        raw_workouts = raw_data.get('records', [])  # Whoop API uses 'records' not 'data'
         
         for workout_data in raw_workouts:
             try:
@@ -145,7 +146,7 @@ class WhoopExtractor(BaseExtractor):
             List of RecoveryRecord instances
         """
         recovery_records = []
-        raw_recovery = raw_data.get('data', [])
+        raw_recovery = raw_data.get('records', [])  # Whoop API uses 'records' not 'data'
         
         for recovery_data in raw_recovery:
             try:
@@ -219,7 +220,7 @@ class WhoopExtractor(BaseExtractor):
             List of SleepRecord instances
         """
         sleep_records = []
-        raw_sleep = raw_data.get('data', [])
+        raw_sleep = raw_data.get('records', [])  # Whoop API uses 'records' not 'data'
         
         for sleep_data in raw_sleep:
             try:

@@ -17,46 +17,6 @@ from src.utils.file_utils import save_json_to_file
 from src.utils.progress_indicators import ProgressIndicator
 
 
-class WhoopCallbackHandler(OAuthCallbackHandler):
-    """Handle OAuth callback from Whoop."""
-
-    def do_GET(self):
-        """Handle OAuth callback from Whoop.
-
-        This method is called when Whoop redirects back to our local server
-        after the user approves access. The URL contains an authorization code
-        that we exchange for an access token.
-        """
-        try:
-            parsed_url = urlparse(self.path)
-            query_components = parse_qs(parsed_url.query)
-
-            if "code" in query_components and "state" in query_components:
-                self.server.auth_code = query_components["code"][0]
-                self.server.auth_state = query_components["state"][0]
-                self.send_response(200)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(
-                    b"<html><body><h1>Authentication successful! You can close this window.</h1></body></html>"
-                )
-            else:
-                self.send_response(400)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(
-                    b"<html><body><h1>Authentication failed. No code received.</h1></body></html>"
-                )
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write(f"<html><body><h1>Error: {e}</h1></body></html>".encode())
-        finally:
-            # Signal the server to stop after handling the request
-            self.server.should_stop = True
-
-
 class WhoopClient(APIClient):
     """Client for interacting with the Whoop API."""
 
@@ -222,7 +182,7 @@ class WhoopClient(APIClient):
         )
 
         # Start local server to handle callback
-        server = HTTPServer(("localhost", 8080), WhoopCallbackHandler)
+        server = HTTPServer(("localhost", 8080), OAuthCallbackHandler)
         server.auth_code = None
         server.auth_state = None
         server.should_stop = False  # Add flag for graceful shutdown
@@ -263,7 +223,6 @@ class WhoopClient(APIClient):
         Raises:
             APIClientError: If token exchange fails or state doesn't match
         """
-        # Prepare token parameters
         token_params = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -271,10 +230,13 @@ class WhoopClient(APIClient):
             "grant_type": "authorization_code",
             "redirect_uri": self.redirect_uri,
         }
-
-        # Use the base class method to exchange the code for a token
+        
         self.exchange_code_for_token(
-            code, state, self.state, self.token_url, token_params
+            code=code,
+            state=state,
+            expected_state=self.state,
+            token_url=self.token_url,
+            token_params=token_params,
         )
 
     def refresh_access_token(self) -> bool:

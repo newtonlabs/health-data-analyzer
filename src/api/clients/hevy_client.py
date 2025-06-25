@@ -114,6 +114,19 @@ class HevyClient(APIClient):
             ProgressIndicator.step_error(f"ERROR: {error_msg}")
             raise APIClientError(error_msg)
 
+    def _get_access_token(self) -> str:
+        """Get API key for Hevy authentication.
+        
+        Returns:
+            str: The API key for authentication
+            
+        Raises:
+            APIClientError: If no API key is available
+        """
+        if not self.api_key:
+            raise APIClientError("No API key available for Hevy authentication")
+        return self.api_key
+
     def _make_request(
         self,
         endpoint: str,
@@ -152,8 +165,7 @@ class HevyClient(APIClient):
 
         # Set up headers with API key
         request_headers = headers or {}
-        # Use the correct header format for the Hevy API
-        request_headers["api-key"] = self.api_key
+        request_headers["api-key"] = self._get_access_token()
         request_headers["accept"] = "application/json"
 
         # Set default page size for workouts endpoint if not specified
@@ -221,17 +233,16 @@ class HevyClient(APIClient):
     def authenticate(self) -> bool:
         """Authenticate with the Hevy API.
 
-        For Hevy, authentication is handled via API key, so this method
-        simply checks if we have a valid API key.
+        For Hevy, authentication is handled via API key.
 
         Returns:
-            True if authentication is successful, False otherwise
+            True if authentication is successful
 
         Raises:
             APIClientError: If authentication fails
         """
-        if not self.api_key:
-            raise APIClientError("No API key available for Hevy authentication")
+        # For API key auth, just verify we have the key
+        self._get_access_token()  # Will raise APIClientError if no key
         return True
 
     def get_workouts(

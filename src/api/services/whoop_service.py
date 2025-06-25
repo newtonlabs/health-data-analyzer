@@ -1,146 +1,78 @@
-"""Whoop API service for pure data fetching.
+"""Whoop API service for clean separation of concerns."""
 
-This service handles only API communication with Whoop.
-No data processing or transformation is performed here.
-"""
+from datetime import date, datetime
+from typing import Optional, Dict, Any
 
-from datetime import datetime, date, timedelta
-from typing import Dict, Any, Optional
-
-from .base_service import BaseAPIService
-from src.sources.whoop import WhoopClient
-from src.utils.date_utils import DateUtils, DateFormat
+from src.api.services.base_service import BaseAPIService
+from src.api.clients.whoop_client import WhoopClient
 
 
 class WhoopService(BaseAPIService):
-    """Pure API service for Whoop data fetching.
+    """Service for Whoop API communication.
     
-    This service is responsible only for making API calls and returning
-    raw responses. All data processing is handled by extractors.
+    This service provides a clean interface to Whoop data while delegating
+    all actual API communication to the existing WhoopClient.
     """
     
     def __init__(self):
         """Initialize the Whoop service."""
-        # Initialize the Whoop client
-        client = WhoopClient()
-        
-        super().__init__(client)
+        self.whoop_client = WhoopClient()
+        super().__init__(self.whoop_client)
     
-    def fetch_data(
-        self, 
-        start_date: Optional[date] = None, 
-        end_date: Optional[date] = None
-    ) -> Dict[str, Any]:
-        """Fetch all available data from the Whoop API.
+    def is_authenticated(self) -> bool:
+        """Check if the service is authenticated.
         
-        Args:
-            start_date: Start date for data range
-            end_date: End date for data range
-            
         Returns:
-            Dictionary containing raw API responses
+            True if authenticated, False otherwise
         """
-        if not start_date or not end_date:
-            # Default to last 7 days
-            end_date = datetime.now().date()
-            start_date = (datetime.now() - timedelta(days=7)).date()
-        
-        # Convert dates to datetime for API calls
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        
-        return {
-            "workouts": self.get_workouts(start_dt, end_dt),
-            "recovery": self.get_recovery_data(start_dt, end_dt),
-        }
+        return self.whoop_client.is_authenticated()
     
-    def fetch_workouts(
+    def get_workouts_data(
         self, 
-        start_date: date, 
-        end_date: date, 
+        start_date: datetime, 
+        end_date: datetime, 
         limit: int = 25
     ) -> Dict[str, Any]:
-        """Fetch workout data from Whoop API.
-        
+        """Get workouts data for a date range.
+
         Args:
-            start_date: Start date for workouts
-            end_date: End date for workouts
+            start_date: Start date for data collection
+            end_date: End date for data collection
             limit: Maximum number of workouts to return
-            
+
         Returns:
             Raw API response containing workout data
         """
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        
-        try:
-            self.log_api_call("v1/activity/workout", {
-                "start": start_dt, 
-                "end": end_dt, 
-                "limit": limit
-            })
-            
-            response = self.client.get_workouts(start_dt, end_dt, limit)
-            
-            self.log_api_call("v1/activity/workout", 
-                            response_size=len(response.get('data', [])))
-            
-            return response
-            
-        except Exception as e:
-            self.handle_api_error(e, "v1/activity/workout")
-            return {"data": []}
-    
-    def fetch_recovery(self, start_date: date, end_date: date) -> Dict[str, Any]:
-        """Fetch recovery data from Whoop API.
-        
+        return self.whoop_client.get_workouts(start_date, end_date, limit)
+
+    def get_recovery_data(
+        self, 
+        start_date: datetime, 
+        end_date: datetime
+    ) -> Dict[str, Any]:
+        """Get recovery data for a date range.
+
         Args:
-            start_date: Start date for recovery data
-            end_date: End date for recovery data
-            
+            start_date: Start date for data collection
+            end_date: End date for data collection
+
         Returns:
             Raw API response containing recovery data
         """
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        
-        try:
-            self.log_api_call("v1/recovery", {"start": start_dt, "end": end_dt})
-            
-            response = self.client.get_recovery(start_dt, end_dt)
-            
-            self.log_api_call("v1/recovery", 
-                            response_size=len(response.get('data', [])))
-            
-            return response
-            
-        except Exception as e:
-            self.handle_api_error(e, "v1/recovery")
-            return {"data": []}
-    
-    def fetch_sleep(self, start_date: date, end_date: date) -> Dict[str, Any]:
-        """Fetch sleep data from Whoop API.
-        
+        return self.whoop_client.get_recovery_data(start_date, end_date)
+
+    def get_sleep_data(
+        self, 
+        start_date: datetime, 
+        end_date: datetime
+    ) -> Dict[str, Any]:
+        """Get sleep data for a date range.
+
         Args:
-            start_date: Start date for sleep data
-            end_date: End date for sleep data
-            
+            start_date: Start date for data collection
+            end_date: End date for data collection
+
         Returns:
             Raw API response containing sleep data
         """
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        
-        try:
-            self.log_api_call("v1/activity/sleep", {"start": start_dt, "end": end_dt})
-            
-            response = self.client.get_sleep(start_dt, end_dt)
-            
-            self.log_api_call("v1/activity/sleep", 
-                            response_size=len(response.get('data', [])))
-            
-            return response
-            
-        except Exception as e:
-            self.handle_api_error(e, "v1/activity/sleep")
-            return {"data": []}
+        return self.whoop_client.get_sleep(start_date, end_date)

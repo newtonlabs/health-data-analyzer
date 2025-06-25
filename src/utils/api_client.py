@@ -58,6 +58,41 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
         # Disable logging of HTTP requests
         pass
 
+    def do_GET(self):
+        """Handle OAuth callback - generic implementation."""
+        try:
+            from urllib.parse import urlparse, parse_qs
+            
+            parsed_url = urlparse(self.path)
+            query_components = parse_qs(parsed_url.query)
+
+            if "code" in query_components and "state" in query_components:
+                # Store auth code and state in server for client to retrieve
+                self.server.auth_code = query_components["code"][0]
+                self.server.auth_state = query_components["state"][0]
+                
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(
+                    b"<html><body><h1>Authentication successful! You can close this window.</h1></body></html>"
+                )
+            else:
+                self.send_response(400)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(
+                    b"<html><body><h1>Authentication failed. No code received.</h1></body></html>"
+                )
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(f"<html><body><h1>Error: {e}</h1></body></html>".encode())
+        finally:
+            # Signal the server to stop after handling the request
+            self.server.should_stop = True
+
 
 class APIClientError(Exception):
     """Base exception for API client errors."""

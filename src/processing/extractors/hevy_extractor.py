@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.processing.extractors.base_extractor import BaseExtractor
 from src.models.data_records import WorkoutRecord
+from src.models.enums import DataSource
 from src.analysis.processors.hevy import HevyProcessor
 
 
@@ -15,7 +16,7 @@ class HevyExtractor(BaseExtractor):
     
     def __init__(self):
         """Initialize the Hevy extractor."""
-        super().__init__()
+        super().__init__(DataSource.HEVY)
         self.hevy_processor = HevyProcessor()
     
     def extract_workouts(
@@ -159,3 +160,33 @@ class HevyExtractor(BaseExtractor):
             return "flexibility"
         else:
             return "strength_training"  # Default for most Hevy workouts
+    
+    def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
+        """Extract all data types from raw Hevy API response.
+        
+        This is the main entry point for Hevy data extraction, implementing
+        the BaseExtractor interface.
+        
+        Args:
+            raw_data: Raw API response data from Hevy
+            
+        Returns:
+            Dictionary with keys like 'workout_records', 'processed_data', etc.
+            and values as lists of structured records or processed DataFrames
+        """
+        self.logger.info("Starting Hevy data extraction")
+        
+        # Use a reasonable end date if not provided in raw_data
+        # Hevy API doesn't support date filtering, so we use current time
+        from datetime import datetime
+        end_date = datetime.now()
+        
+        # Leverage the existing extract_all_data method
+        extracted_data = self.extract_all_data(raw_data, end_date)
+        
+        # Save extracted data to CSV files
+        saved_files = self.save_extracted_data_to_csv(extracted_data)
+        if saved_files:
+            self.logger.info(f" Hevy data exported to: {list(saved_files.values())}")
+        
+        return extracted_data

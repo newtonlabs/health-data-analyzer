@@ -8,13 +8,13 @@ from typing import Any, Optional
 
 from src.analysis.aggregator import Aggregator
 from src.analysis.processor import Processor
+from src.api.clients.hevy_client import HevyClient
+from src.api.clients.onedrive_client import OneDriveClient
+from src.api.clients.oura_client import OuraClient
+from src.api.clients.whoop_client import WhoopClient
+from src.api.clients.withings_client import WithingsClient
 from src.reporting.pdf_converter import PDFConverter
 from src.reporting.report_generator import ReportGenerator
-from src.sources.hevy import HevyClient
-from src.sources.onedrive import OneDriveClient
-from src.sources.oura import OuraClient
-from src.sources.whoop import WhoopClient
-from src.sources.withings import WithingsClient
 from src.utils.date_utils import DateUtils
 from src.utils.logging_utils import HealthLogger
 from src.utils.progress_indicators import ProgressIndicator

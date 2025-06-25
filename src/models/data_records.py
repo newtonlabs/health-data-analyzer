@@ -203,20 +203,10 @@ class ActivityRecord:
     date: date
     source: DataSource
     
-    # Activity metrics
+    # Core activity metrics
     steps: Optional[int] = None
     active_calories: Optional[int] = None
     total_calories: Optional[int] = None
-    distance_meters: Optional[float] = None
-    
-    # Activity time
-    active_minutes: Optional[int] = None
-    sedentary_minutes: Optional[int] = None
-    
-    # Activity intensity zones (in minutes)
-    low_intensity_minutes: Optional[int] = None
-    moderate_intensity_minutes: Optional[int] = None
-    high_intensity_minutes: Optional[int] = None
     
     # Raw data for debugging/analysis
     raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)

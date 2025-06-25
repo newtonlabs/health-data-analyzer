@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.processing.extractors.base_extractor import BaseExtractor
 from src.models.data_records import WeightRecord
+from src.models.enums import DataSource
 from src.analysis.processors.withings import WithingsProcessor
 
 
@@ -15,7 +16,7 @@ class WithingsExtractor(BaseExtractor):
     
     def __init__(self):
         """Initialize the Withings extractor."""
-        super().__init__()
+        super().__init__(DataSource.WITHINGS)
         self.withings_processor = WithingsProcessor()
     
     def extract_weight_data(
@@ -34,13 +35,14 @@ class WithingsExtractor(BaseExtractor):
         Returns:
             List of WeightRecord objects
         """
-        if not raw_data or "weight" not in raw_data:
+        if not raw_data or "body" not in raw_data:
             self.logger.warning("No weight data found in Withings response")
             return []
         
         # Process the raw data using the existing WithingsProcessor
+        # Pass the body data which contains measuregrps
         processed_data = self.withings_processor.process_weight_data(
-            raw_data["weight"], start_date, end_date
+            raw_data["body"], start_date, end_date
         )
         
         if processed_data.empty:
@@ -51,19 +53,25 @@ class WithingsExtractor(BaseExtractor):
         weight_records = []
         for _, row in processed_data.iterrows():
             try:
+                # Convert date to datetime for timestamp field
+                record_date = row["date"]
+                if isinstance(record_date, str):
+                    timestamp = datetime.strptime(record_date, "%Y-%m-%d")
+                else:
+                    timestamp = datetime.combine(record_date, datetime.min.time())
+                
                 record = WeightRecord(
-                    date=row["date"],
-                    source="withings",
-                    weight_kg=row.get("weight_kg", 0.0),
-                    weight_lbs=row.get("weight_lbs", 0.0),
-                    bmi=row.get("bmi", 0.0),
-                    metadata={
-                        "measurement_type": row.get("measurement_type", ""),
-                        "category": row.get("category", ""),
-                        "device_id": row.get("device_id", ""),
-                        "raw_value": row.get("raw_value", 0),
-                        "unit": row.get("unit", ""),
+                    timestamp=timestamp,
+                    source=DataSource.WITHINGS,
+                    weight_kg=row.get("weight", 0.0),  # Already in kg from updated processor
+                    body_fat_percentage=row.get("body_fat_percentage"),
+                    muscle_mass_kg=row.get("muscle_mass_kg"),
+                    bone_mass_kg=row.get("bone_mass_kg"),
+                    water_percentage=row.get("water_percentage"),
+                    raw_data={
+                        "date": str(row.get("date", "")),
                         "timestamp": row.get("timestamp", 0),
+                        "original_weight": row.get("weight", 0.0),
                     }
                 )
                 weight_records.append(record)
@@ -104,4 +112,35 @@ class WithingsExtractor(BaseExtractor):
             extracted_data["processed_data"] = processed_data
         
         self.logger.info(f"Extracted Withings data with {len(extracted_data)} data types")
+        return extracted_data
+
+    def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
+        """Extract all data types from raw Withings API response.
+        
+        This is the main entry point for Withings data extraction, implementing
+        the BaseExtractor interface.
+        
+        Args:
+            raw_data: Raw API response data from Withings
+            
+        Returns:
+            Dictionary with keys like 'weight_records', 'processed_data', etc.
+            and values as lists of structured records or processed DataFrames
+        """
+        self.logger.info("Starting Withings data extraction")
+        
+        # Use a reasonable date range if not provided in raw_data
+        # In practice, the calling code should provide proper date filtering
+        from datetime import datetime, timedelta
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=30)  # Default to last 30 days
+        
+        # Leverage the existing extract_all_data method
+        extracted_data = self.extract_all_data(raw_data, start_date, end_date)
+        
+        # Save extracted data to CSV files
+        saved_files = self.save_extracted_data_to_csv(extracted_data)
+        if saved_files:
+            self.logger.info(f"💾 Withings data exported to: {list(saved_files.values())}")
+        
         return extracted_data

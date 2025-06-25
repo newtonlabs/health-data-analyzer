@@ -52,9 +52,9 @@ class WithingsProcessor(BaseProcessor):
             end_date: End date for filtering data
 
         Returns:
-            DataFrame with processed weight data
+            DataFrame with processed weight data including body composition
         """
-        # Extract weight data
+        # Extract weight data with body composition
         weight_records = []
 
         if "measuregrps" in weight_data:
@@ -77,59 +77,58 @@ class WithingsProcessor(BaseProcessor):
                 if end_date and dt_local.date() > end_date.date():
                     continue
 
-                # Process weight measurements (type 1)
+                # Initialize record with basic info
+                record = {
+                    "date": dt_local.date(),
+                    "timestamp": timestamp,
+                    "weight": None,
+                    "body_fat_percentage": None,
+                    "muscle_mass_kg": None,
+                    "bone_mass_kg": None,
+                    "water_percentage": None,
+                }
+
+                # Process all measurements in this group
                 for measure in group.get("measures", []):
-                    if measure.get("type") == 1:
-                        # Convert value using unit multiplier (e.g., -3 means ×10^-3)
-                        value = measure.get("value", 0) * (10 ** measure.get("unit", 0))
-                        weight_records.append(
-                            {
-                                "date": dt_local.date(),
-                                "weight": value,
-                                "timestamp": timestamp,
-                            }
-                        )
+                    measure_type = measure.get("type")
+                    value = measure.get("value", 0)
+                    unit = measure.get("unit", 0)
+                    
+                    # Convert value using unit multiplier (e.g., -3 means ×10^-3)
+                    actual_value = value * (10 ** unit) if value is not None else None
+                    
+                    # Map measurement types to record fields
+                    if measure_type == AppConfig.WITHINGS_MEASUREMENT_TYPE_WEIGHT:
+                        record["weight"] = actual_value
+                    elif measure_type == AppConfig.WITHINGS_MEASUREMENT_TYPE_FAT_RATIO:
+                        record["body_fat_percentage"] = actual_value
+                    elif measure_type == AppConfig.WITHINGS_MEASUREMENT_TYPE_MUSCLE_MASS:
+                        record["muscle_mass_kg"] = actual_value
+                    elif measure_type == AppConfig.WITHINGS_MEASUREMENT_TYPE_BONE_MASS:
+                        record["bone_mass_kg"] = actual_value
+                    elif measure_type == AppConfig.WITHINGS_MEASUREMENT_TYPE_WATER_PERCENTAGE:
+                        record["water_percentage"] = actual_value
+                    elif measure_type == AppConfig.WITHINGS_MEASUREMENT_TYPE_FAT_FREE_MASS:
+                        # Fat-free mass can be used to calculate water percentage
+                        # Water % ≈ (Fat-free mass - Muscle mass - Bone mass) / Weight * 100
+                        # For now, we'll store it as a separate field if needed
+                        pass
+
+                # Only add record if we have at least weight data
+                if record["weight"] is not None:
+                    weight_records.append(record)
 
         # Create DataFrame
         if not weight_records:
-            return pd.DataFrame(columns=["date", "day", "weight"])
+            return pd.DataFrame(columns=["date", "weight", "body_fat_percentage", "muscle_mass_kg", "bone_mass_kg", "water_percentage", "timestamp"])
 
-        # Create DataFrame with both date and timestamp
-        df = pd.DataFrame(weight_records, columns=["date", "weight", "timestamp"])
+        # Create DataFrame with all body composition fields
+        df = pd.DataFrame(weight_records)
 
         # Sort by timestamp so the latest measurement per day is always kept
-        df_sorted = df.sort_values("timestamp")
-        df_latest = df_sorted.groupby("date", as_index=True).last()
+        df = df.sort_values("timestamp").drop_duplicates(subset=["date"], keep="last")
 
-        # Build full 7-day index (yesterday to 6 days prior) to ensure all days are included
-        # Use datetime.now() without timezone for consistency with other processors
-        today = datetime.now().date()
-        yesterday = today - timedelta(days=1)
-        week_start = yesterday - timedelta(days=6)
-        full_index = [week_start + timedelta(days=i) for i in range(7)]
-
-        # Reindex to include all days in the reporting window
-        df_latest = df_latest.reindex(full_index)
-
-        # Format date as MM-DD to match other DataFrames
-        df_latest["date"] = [
-            d.strftime("%m-%d") if d is not None else "" for d in df_latest.index
-        ]
-
-        # Add day of week for better readability
-        df_latest["day"] = [
-            d.strftime("%a") if d is not None else "" for d in df_latest.index
-        ]
-
-        # Convert weight from kg to pounds and round to the configured precision
-        KG_TO_LB = 2.20462
-        weight_precision = AppConfig.ANALYSIS_NUMERIC_PRECISION.get("weight", 1)
-        df_latest["weight"] = (df_latest["weight"] * KG_TO_LB).round(weight_precision)
-
-        # Reorder columns for consistency with other DataFrames
-        df_latest = df_latest[["date", "day", "weight"]]
-
-        return df_latest
+        return df
 
     def save_processed_data(self, data: dict[str, pd.DataFrame]) -> dict[str, str]:
         """Save processed Withings data to CSV files.

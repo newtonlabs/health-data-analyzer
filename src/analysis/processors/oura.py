@@ -67,21 +67,26 @@ class OuraProcessor(BaseProcessor):
             DataFrame with daily activity metrics
         """
         # Create empty DataFrame with correct columns
-        df = pd.DataFrame(columns=["date", "steps"])
+        df = pd.DataFrame(columns=["date", "steps", "active_calories", "calories_total"])
 
         # Return empty DataFrame if no data
         if not raw_data or "data" not in raw_data:
             self.logger.logger.debug("Invalid Oura activity data structure")
             return df
 
-        # Extract activity data and round steps
+        # Extract activity data
         activity_data = []
 
         for activity in raw_data.get("data", []):
-            if "steps" in activity and "day" in activity:
-                activity_data.append(
-                    {"date": activity["day"], "steps": round(activity["steps"])}
-                )
+            if "day" in activity:
+                # Extract available fields with defaults
+                record = {
+                    "date": activity["day"],
+                    "steps": round(activity.get("steps", 0)),
+                    "active_calories": activity.get("active_calories", 0),
+                    "calories_total": activity.get("total_calories", 0),
+                }
+                activity_data.append(record)
 
         # Create DataFrame if we have data
         if activity_data:

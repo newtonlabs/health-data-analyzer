@@ -32,7 +32,6 @@ class AppConfig:
         "avg_hr": 0,
         "max_hr": 0,
         "kilojoules": 0,
-        "distance_meters": 0,
         "altitude_gain": 0,
         "hrv_rmssd": 1,
         "resting_hr": 1,
@@ -169,6 +168,7 @@ class AppConfig:
     WITHINGS_MEASUREMENT_TYPE_BODY_TEMPERATURE = 71
     WITHINGS_MEASUREMENT_TYPE_SKIN_TEMPERATURE = 73
     WITHINGS_MEASUREMENT_TYPE_MUSCLE_MASS = 76
+    WITHINGS_MEASUREMENT_TYPE_WATER_PERCENTAGE = 77
     WITHINGS_MEASUREMENT_TYPE_BONE_MASS = 88
     WITHINGS_MEASUREMENT_TYPE_PULSE_WAVE_VELOCITY = 91
 

@@ -20,6 +20,7 @@ from src.models.data_records import (
 from src.models.enums import DataSource
 from src.utils.logging_utils import HealthLogger
 from src.utils.date_utils import DateUtils
+from src.utils.data_export import DataExporter
 
 
 class BaseExtractor(ABC):
@@ -38,6 +39,7 @@ class BaseExtractor(ABC):
         """
         self.data_source = data_source
         self.logger = HealthLogger(self.__class__.__name__)
+        self.data_exporter = DataExporter()
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw API response.
@@ -266,3 +268,68 @@ class BaseExtractor(ABC):
             log_msg += f" from {raw_count} raw records"
         
         self.logger.info(log_msg)
+
+    def save_extracted_data_to_csv(self, extracted_data: Dict[str, Any]) -> Dict[str, str]:
+        """Save extracted data to CSV files.
+        
+        Args:
+            extracted_data: Dictionary containing extracted data (records, DataFrames, etc.)
+            
+        Returns:
+            Dictionary mapping data type to saved file path
+        """
+        saved_files = {}
+        extractor_name = self.data_source.value.lower()
+        
+        for data_type, data in extracted_data.items():
+            if data is None:
+                continue
+                
+            # Handle empty collections
+            if isinstance(data, list) and len(data) == 0:
+                continue
+            elif hasattr(data, 'empty') and data.empty:
+                continue
+                
+            try:
+                # Handle different data types
+                if isinstance(data, list) and data:
+                    # List of data records
+                    filepath = self.data_exporter.save_records_to_csv(
+                        records=data,
+                        extractor_name=extractor_name,
+                        data_type=data_type
+                    )
+                elif hasattr(data, 'to_csv'):
+                    # DataFrame or similar
+                    filepath = self.data_exporter.save_dataframe_to_csv(
+                        df=data,
+                        extractor_name=extractor_name,
+                        data_type=data_type
+                    )
+                else:
+                    self.logger.warning(f"Unsupported data type for {data_type}: {type(data)}")
+                    continue
+                
+                if filepath:
+                    saved_files[data_type] = filepath
+                    
+            except Exception as e:
+                self.logger.error(f"Failed to save {data_type} to CSV: {e}")
+        
+        if saved_files:
+            self.logger.info(f"Saved {len(saved_files)} data types to CSV: {list(saved_files.keys())}")
+        
+        return saved_files
+
+    def export_to_csv(self, data: Dict[str, List], filename: str) -> None:
+        """Export extracted data to CSV file.
+        
+        Args:
+            data: Dictionary with extracted data records
+            filename: Output CSV file name
+            
+        Deprecated: Use save_extracted_data_to_csv instead
+        """
+        self.logger.warning("export_to_csv is deprecated, use save_extracted_data_to_csv instead")
+        return self.save_extracted_data_to_csv(data)

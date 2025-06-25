@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.processing.extractors.base_extractor import BaseExtractor
 from src.models.data_records import ActivityRecord
+from src.models.enums import DataSource
 from src.analysis.processors.oura import OuraProcessor
 
 
@@ -15,7 +16,7 @@ class OuraExtractor(BaseExtractor):
     
     def __init__(self):
         """Initialize the Oura extractor."""
-        super().__init__()
+        super().__init__(DataSource.OURA)
         self.oura_processor = OuraProcessor()
     
     def extract_activity_data(
@@ -53,25 +54,24 @@ class OuraExtractor(BaseExtractor):
             try:
                 record = ActivityRecord(
                     date=row["date"],
-                    source="oura",
-                    activity_type="daily_activity",
-                    calories_burned=row.get("calories_total", 0),
+                    source=DataSource.OURA,
                     steps=row.get("steps", 0),
-                    distance_meters=row.get("distance", 0),
-                    active_minutes=row.get("active_calories", 0),  # Using active_calories as proxy
-                    metadata={
+                    active_calories=row.get("active_calories", 0),
+                    total_calories=row.get("calories_total", 0),
+                    raw_data={
                         "activity_score": row.get("score", 0),
                         "met_1min": row.get("met_1min", 0),
                         "met_2plus": row.get("met_2plus", 0),
                         "average_met": row.get("average_met", 0.0),
                         "class_5min": row.get("class_5min", ""),
-                        "rest_calories": row.get("rest_calories", 0),
+                        "non_wear_time": row.get("non_wear_time", 0),
+                        "equivalent_walking_distance": row.get("equivalent_walking_distance", 0),
+                        # Moved detailed activity data to raw_data for reference
+                        "distance": row.get("distance", 0),
                         "inactive_time": row.get("inactive_time", 0),
                         "low_activity_time": row.get("low_activity_time", 0),
                         "medium_activity_time": row.get("medium_activity_time", 0),
                         "high_activity_time": row.get("high_activity_time", 0),
-                        "non_wear_time": row.get("non_wear_time", 0),
-                        "equivalent_walking_distance": row.get("equivalent_walking_distance", 0),
                     }
                 )
                 activity_records.append(record)
@@ -149,4 +149,35 @@ class OuraExtractor(BaseExtractor):
             extracted_data["processed_data"] = processed_data
         
         self.logger.info(f"Extracted Oura data with {len(extracted_data)} data types")
+        return extracted_data
+    
+    def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
+        """Extract all data types from raw Oura API response.
+        
+        This is the main entry point for Oura data extraction, implementing
+        the BaseExtractor interface.
+        
+        Args:
+            raw_data: Raw API response data from Oura
+            
+        Returns:
+            Dictionary with keys like 'activity_records', 'resilience_data', etc.
+            and values as lists of structured records or processed DataFrames
+        """
+        self.logger.info("Starting Oura data extraction")
+        
+        # Use a reasonable date range if not provided in raw_data
+        # In practice, the calling code should provide proper date filtering
+        from datetime import datetime, timedelta
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=30)  # Default to last 30 days
+        
+        # Leverage the existing extract_all_data method
+        extracted_data = self.extract_all_data(raw_data, start_date, end_date)
+        
+        # Save extracted data to CSV files
+        saved_files = self.save_extracted_data_to_csv(extracted_data)
+        if saved_files:
+            self.logger.info(f"💾 Oura data exported to: {list(saved_files.values())}")
+        
         return extracted_data
