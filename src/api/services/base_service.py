@@ -4,7 +4,7 @@ This module provides the base class for all API service implementations,
 defining the common interface and shared functionality.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime, date
 from typing import Any, Dict, Optional
 
@@ -28,7 +28,6 @@ class BaseAPIService(ABC):
         self.client = client
         self.logger = HealthLogger(self.__class__.__name__)
     
-    @abstractmethod
     def fetch_data(
         self, 
         start_date: Optional[date] = None, 
@@ -48,9 +47,9 @@ class BaseAPIService(ABC):
             Dictionary containing raw API responses
             
         Raises:
-            APIClientError: If API calls fail
+            NotImplementedError: If not implemented by subclass
         """
-        pass
+        raise NotImplementedError("Subclasses must implement fetch_data method")
     
     def validate_date_range(
         self, 

@@ -5,7 +5,7 @@ defining the common interface and shared functionality for converting
 raw API responses into structured data records.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional, Union
 
@@ -39,7 +39,6 @@ class BaseExtractor(ABC):
         self.data_source = data_source
         self.logger = HealthLogger(self.__class__.__name__)
     
-    @abstractmethod
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw API response.
         
@@ -54,7 +53,7 @@ class BaseExtractor(ABC):
             Dictionary with keys like 'workouts', 'recovery', etc.
             and values as lists of structured records
         """
-        pass
+        raise NotImplementedError("Subclasses must implement extract_data method")
     
     def extract_workouts(self, raw_data: Dict[str, Any]) -> List[WorkoutRecord]:
         """Extract workout records from raw data.
