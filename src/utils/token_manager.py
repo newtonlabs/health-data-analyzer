@@ -226,11 +226,8 @@ class TokenManager:
         if not self.tokens:
             return None
 
-        # Check if tokens are expired (consider a small buffer for network latency)
-        if (
-            self.token_expiry
-            and datetime.now() + timedelta(minutes=1) >= self.token_expiry
-        ):
+        # Use consistent expiration check with is_token_expired()
+        if self.is_token_expired():
             self.logger.debug(f"[TokenManager] Tokens expired for {self.token_file}")
             return None
 

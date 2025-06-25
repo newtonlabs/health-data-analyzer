@@ -218,7 +218,7 @@ class APIClient:
         """Get a valid access token for API requests.
 
         This method tries to:
-        1. Use an existing token if available
+        1. Use an existing token if available and not expired
         2. Refresh the token if needed
         3. Authenticate if necessary
 
@@ -228,11 +228,11 @@ class APIClient:
         Raises:
             APIClientError: If unable to obtain a valid token
         """
-        # Try to use existing token
-        if self.access_token:
+        # Check if current token is valid and not expired
+        if self.access_token and not self.token_manager.is_token_expired():
             return self.access_token
 
-        # Try to refresh token
+        # Token is expired or missing, try to refresh
         if self.refresh_token and self.refresh_access_token():
             return self.access_token
 
