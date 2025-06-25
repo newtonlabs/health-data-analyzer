@@ -1,5 +1,13 @@
-"""API services for health data platforms.
+"""API services for health data sources.
 
-This module contains pure API service classes that handle data fetching
-without any processing or transformation logic.
+This module contains pure API service classes that handle only
+data fetching from external APIs. No data processing is performed here.
 """
+
+from .base_service import BaseAPIService
+from .whoop_service import WhoopService
+
+__all__ = [
+    'BaseAPIService',
+    'WhoopService'
+]
