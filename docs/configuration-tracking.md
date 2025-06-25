@@ -78,6 +78,19 @@ Track which configuration settings actually exist in the codebase vs speculative
 - [ ] `REPORTING_STYLING` - When updating reporting module
 - [ ] `REPORTING_CALORIE_FACTORS` - When updating nutrition analysis
 
+## Enum Cleanup (Applied Same Principle)
+
+### ✅ SportType - Minimal Set
+- **Kept**: `ROWING`, `WALKING`, `STRENGTH_TRAINING`, `OTHER`, `UNKNOWN`
+- **Removed**: `CYCLING`, `RUNNING`, `YOGA`, `SWIMMING`, `BASKETBALL`, `SOCCER`, `TENNIS`, `GOLF`, `HIKING`, `BOXING`, `MARTIAL_ARTS`, `DANCE`, `CLIMBING`, `SKIING`, `SNOWBOARDING`, `SURFING`
+- **Reason**: Only kept sports that appear in current `WHOOP_SPORT_MAPPINGS` + required `UNKNOWN`
+
+### ✅ Other Enums - Kept Minimal
+- **DataSource**: All 5 values used (whoop, oura, withings, hevy, nutrition_file)
+- **WorkoutIntensity**: Kept all 4 values (used in WorkoutRecord model)
+- **RecoveryLevel**: Kept all 3 values (used by recovery threshold logic)
+- **SleepStage**: Kept all 4 values (used in SleepRecord model)
+
 ## Validation Commands
 
 ```bash
@@ -89,6 +102,12 @@ python -c "from src.config import STRENGTH_ACTIVITIES, CALORIC_TARGETS, RECOVERY
 
 # Test that config methods work
 python -c "from src.config import default_config; print(f'Sport 45: {default_config.get_whoop_sport_name(45)}'); print(f'Calories: {default_config.get_caloric_target(True)}')"
+
+# Test that enums load without errors
+python -c "from src.models import DataSource, SportType, WorkoutIntensity, RecoveryLevel, SleepStage; print('✅ All enums load')"
+
+# Test available sport types
+python -c "from src.models import SportType; print(f'Available sports: {[s.value for s in SportType]}')"
 ```
 
 ## Review Checklist

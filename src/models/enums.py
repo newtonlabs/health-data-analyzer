@@ -1,7 +1,7 @@
 """Enumerations for health data models.
 
-This module contains only fixed enumeration values that should not be
-user-configurable. User-configurable constants are in models/config.py.
+This module contains only fixed enumeration values that are actually used
+in the current codebase. No speculative or unused enum values.
 """
 
 from enum import Enum
@@ -17,33 +17,27 @@ class DataSource(Enum):
 
 
 class SportType(Enum):
-    """Enumeration of sport/activity types."""
-    # Whoop sport IDs
-    CYCLING = "cycling"
-    RUNNING = "running"
+    """Enumeration of sport/activity types.
+    
+    Only includes sports that are actually used in current configuration
+    or required for the data models.
+    """
+    # Sports from current WHOOP_SPORT_MAPPINGS
+    ROWING = "rowing"
     WALKING = "walking"
     STRENGTH_TRAINING = "strength_training"
-    YOGA = "yoga"
-    SWIMMING = "swimming"
-    BASKETBALL = "basketball"
-    SOCCER = "soccer"
-    TENNIS = "tennis"
-    GOLF = "golf"
-    HIKING = "hiking"
-    ROWING = "rowing"
-    BOXING = "boxing"
-    MARTIAL_ARTS = "martial_arts"
-    DANCE = "dance"
-    CLIMBING = "climbing"
-    SKIING = "skiing"
-    SNOWBOARDING = "snowboarding"
-    SURFING = "surfing"
     OTHER = "other"
+    
+    # Required for data model validation
     UNKNOWN = "unknown"
 
 
 class WorkoutIntensity(Enum):
-    """Enumeration of workout intensity levels."""
+    """Enumeration of workout intensity levels.
+    
+    Currently used in WorkoutRecord but not populated by extractors yet.
+    Keeping minimal set for future use.
+    """
     LOW = "low"
     MODERATE = "moderate"
     HIGH = "high"
@@ -51,14 +45,21 @@ class WorkoutIntensity(Enum):
 
 
 class RecoveryLevel(Enum):
-    """Enumeration of recovery levels."""
+    """Enumeration of recovery levels.
+    
+    Used by recovery threshold calculations in config.
+    """
     LOW = "low"          # < 50
     MODERATE = "moderate"  # 50-69
     HIGH = "high"        # >= 70
 
 
 class SleepStage(Enum):
-    """Enumeration of sleep stages."""
+    """Enumeration of sleep stages.
+    
+    Currently used in SleepRecord but not populated by extractors yet.
+    Keeping for future sleep data processing.
+    """
     AWAKE = "awake"
     LIGHT = "light"
     DEEP = "deep"
