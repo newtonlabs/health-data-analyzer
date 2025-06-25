@@ -31,9 +31,6 @@ class WorkoutRecord:
     set_count: Optional[int] = None
     volume_kg: Optional[float] = None
     
-    # Raw data for debugging/analysis
-    raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)
-    
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):
@@ -137,9 +134,6 @@ class WeightRecord:
     bone_mass_kg: Optional[float] = None
     water_percentage: Optional[float] = None
     
-    # Raw data for debugging/analysis
-    raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)
-    
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):
@@ -208,8 +202,28 @@ class ActivityRecord:
     active_calories: Optional[int] = None
     total_calories: Optional[int] = None
     
-    # Raw data for debugging/analysis
-    raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)
+    def __post_init__(self):
+        """Validate and normalize data after initialization."""
+        if isinstance(self.source, str):
+            self.source = DataSource(self.source)
+
+
+@dataclass
+class ExerciseRecord:
+    """Structured exercise record with sets and reps."""
+    timestamp: datetime
+    source: DataSource
+    workout_id: str
+    exercise_name: str
+    
+    # Set details
+    set_number: int
+    set_type: str  # normal, warmup, failure, etc.
+    weight_kg: Optional[float] = None
+    reps: Optional[int] = None
+    distance_meters: Optional[float] = None
+    duration_seconds: Optional[int] = None
+    rpe: Optional[int] = None  # Rate of Perceived Exertion
     
     def __post_init__(self):
         """Validate and normalize data after initialization."""

@@ -129,8 +129,7 @@ class WhoopExtractor(BaseExtractor):
             sport=SportType(sport_info['sport_type']),
             duration_minutes=duration_minutes,
             strain_score=strain_score,
-            calories=calories,
-            raw_data=workout_data
+            calories=calories
         )
         
         return workout

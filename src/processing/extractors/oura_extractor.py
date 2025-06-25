@@ -5,19 +5,16 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
-from src.processing.extractors.base_extractor import BaseExtractor
 from src.models.data_records import ActivityRecord
 from src.models.enums import DataSource
-from src.analysis.processors.oura import OuraProcessor
 
 
-class OuraExtractor(BaseExtractor):
+class OuraExtractor:
     """Extractor for processing Oura Ring health data."""
     
     def __init__(self):
         """Initialize the Oura extractor."""
-        super().__init__(DataSource.OURA)
-        self.oura_processor = OuraProcessor()
+        self.source = DataSource.OURA
     
     def extract_activity_data(
         self, 
@@ -27,60 +24,48 @@ class OuraExtractor(BaseExtractor):
     ) -> List[ActivityRecord]:
         """Extract activity records from Oura API response.
         
+        This is pure extraction - converts raw API data to basic ActivityRecord models
+        without any transformation, cleaning, or persistence.
+        
         Args:
             raw_data: Raw response from Oura API containing activity data
             start_date: Start date for filtering data
             end_date: End date for filtering data
             
         Returns:
-            List of ActivityRecord objects
+            List of raw ActivityRecord objects
         """
-        if not raw_data or "activity" not in raw_data:
-            self.logger.warning("No activity data found in Oura response")
+        if not raw_data or "data" not in raw_data:
+            print("No activity data found in Oura response")
             return []
         
-        # Process the raw data using the existing OuraProcessor
-        processed_data = self.oura_processor._process_oura_activity(
-            raw_data["activity"], start_date, end_date
-        )
-        
-        if processed_data.empty:
-            self.logger.warning("No activity data after processing")
-            return []
-        
-        # Convert DataFrame to ActivityRecord objects
         activity_records = []
-        for _, row in processed_data.iterrows():
+        
+        # Direct conversion from raw API data to ActivityRecord objects
+        for activity_item in raw_data["data"]:
             try:
+                # Parse date from API response
+                activity_date = datetime.strptime(activity_item["day"], "%Y-%m-%d").date()
+                
+                # Filter by date range
+                if not (start_date.date() <= activity_date <= end_date.date()):
+                    continue
+                
+                # Create ActivityRecord with raw data (no transformation)
                 record = ActivityRecord(
-                    date=row["date"],
+                    date=activity_date,
                     source=DataSource.OURA,
-                    steps=row.get("steps", 0),
-                    active_calories=row.get("active_calories", 0),
-                    total_calories=row.get("calories_total", 0),
-                    raw_data={
-                        "activity_score": row.get("score", 0),
-                        "met_1min": row.get("met_1min", 0),
-                        "met_2plus": row.get("met_2plus", 0),
-                        "average_met": row.get("average_met", 0.0),
-                        "class_5min": row.get("class_5min", ""),
-                        "non_wear_time": row.get("non_wear_time", 0),
-                        "equivalent_walking_distance": row.get("equivalent_walking_distance", 0),
-                        # Moved detailed activity data to raw_data for reference
-                        "distance": row.get("distance", 0),
-                        "inactive_time": row.get("inactive_time", 0),
-                        "low_activity_time": row.get("low_activity_time", 0),
-                        "medium_activity_time": row.get("medium_activity_time", 0),
-                        "high_activity_time": row.get("high_activity_time", 0),
-                    }
+                    steps=activity_item.get("steps", 0),
+                    active_calories=activity_item.get("active_calories", 0),
+                    total_calories=activity_item.get("total_calories", 0)
                 )
                 activity_records.append(record)
                 
             except Exception as e:
-                self.logger.error(f"Error creating ActivityRecord from Oura data: {e}")
+                print(f"Error creating ActivityRecord from Oura data: {e}")
                 continue
         
-        self.logger.info(f"Extracted {len(activity_records)} activity records from Oura")
+        print(f"Extracted {len(activity_records)} raw activity records from Oura")
         return activity_records
     
     def extract_resilience_data(
@@ -100,19 +85,17 @@ class OuraExtractor(BaseExtractor):
             DataFrame with processed resilience data
         """
         if not raw_data or "resilience" not in raw_data:
-            self.logger.warning("No resilience data found in Oura response")
+            print("No resilience data found in Oura response")
             return pd.DataFrame()
         
-        # Process the raw data using the existing OuraProcessor
-        processed_data = self.oura_processor._process_oura_resilience(
-            raw_data["resilience"], start_date, end_date
-        )
+        # Process the raw data 
+        processed_data = pd.DataFrame(raw_data["resilience"])
         
         if processed_data.empty:
-            self.logger.warning("No resilience data after processing")
+            print("No resilience data after processing")
             return pd.DataFrame()
         
-        self.logger.info(f"Extracted {len(processed_data)} resilience records from Oura")
+        print(f"Extracted {len(processed_data)} resilience records from Oura")
         return processed_data
     
     def extract_all_data(
@@ -143,19 +126,13 @@ class OuraExtractor(BaseExtractor):
         if not resilience_data.empty:
             extracted_data["resilience_data"] = resilience_data
         
-        # Process all data using the existing processor for consistency
-        processed_data = self.oura_processor.process_data(raw_data, start_date, end_date)
-        if processed_data:
-            extracted_data["processed_data"] = processed_data
-        
-        self.logger.info(f"Extracted Oura data with {len(extracted_data)} data types")
+        print(f"Extracted Oura data with {len(extracted_data)} data types")
         return extracted_data
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Oura API response.
         
-        This is the main entry point for Oura data extraction, implementing
-        the BaseExtractor interface.
+        This is the main entry point for Oura data extraction.
         
         Args:
             raw_data: Raw API response data from Oura
@@ -164,7 +141,7 @@ class OuraExtractor(BaseExtractor):
             Dictionary with keys like 'activity_records', 'resilience_data', etc.
             and values as lists of structured records or processed DataFrames
         """
-        self.logger.info("Starting Oura data extraction")
+        print("Starting Oura data extraction")
         
         # Use a reasonable date range if not provided in raw_data
         # In practice, the calling code should provide proper date filtering
@@ -174,10 +151,5 @@ class OuraExtractor(BaseExtractor):
         
         # Leverage the existing extract_all_data method
         extracted_data = self.extract_all_data(raw_data, start_date, end_date)
-        
-        # Save extracted data to CSV files
-        saved_files = self.save_extracted_data_to_csv(extracted_data)
-        if saved_files:
-            self.logger.info(f"💾 Oura data exported to: {list(saved_files.values())}")
         
         return extracted_data
