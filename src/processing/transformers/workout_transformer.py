@@ -1,4 +1,4 @@
-"""Hevy data transformer for cleaning and normalizing workout records."""
+"""Workout data transformer for cleaning and normalizing workout records."""
 
 from typing import List, Optional
 from datetime import datetime
@@ -8,8 +8,11 @@ from src.models.data_records import WorkoutRecord
 from src.models.enums import DataSource
 
 
-class HevyTransformer(RecordListTransformer[WorkoutRecord]):
-    """Transformer for cleaning and normalizing Hevy workout records.
+class WorkoutTransformer(RecordListTransformer[WorkoutRecord]):
+    """Transformer for cleaning and normalizing workout records.
+    
+    This transformer handles WorkoutRecord objects from any source (Whoop, Hevy, etc.)
+    and focuses on data type-specific cleaning rather than source-specific logic.
     
     This transformer handles:
     - Basic data validation
@@ -18,14 +21,19 @@ class HevyTransformer(RecordListTransformer[WorkoutRecord]):
     """
     
     def __init__(self):
-        """Initialize the Hevy transformer."""
+        """Initialize the Workout transformer."""
         super().__init__()
         
-        # No strict validation thresholds needed for Hevy data - it's reliable
-        # Focus on data cleaning and normalization only
+        # Validation thresholds
+        self.min_duration_minutes = 0  # Allow 0 duration workouts (Whoop sometimes reports these)
+        self.max_duration_minutes = 480  # Maximum workout duration (8 hours)
+        self.min_calories = 0  # Allow 0 calories (some workouts may not burn calories)
+        self.max_calories = 2000  # Maximum calories burned
+        self.min_strain = 0.0  # Minimum strain score
+        self.max_strain = 21.0  # Maximum strain score
     
     def transform_record(self, record: WorkoutRecord) -> Optional[WorkoutRecord]:
-        """Transform a single Hevy workout record.
+        """Transform a single workout record.
         
         Args:
             record: Raw workout record from extractor
@@ -44,16 +52,17 @@ class HevyTransformer(RecordListTransformer[WorkoutRecord]):
             sport=record.sport,
             duration_minutes=self._normalize_duration(record.duration_minutes),
             calories=self._normalize_calories(record.calories),
-            exercise_count=self._normalize_count(record.exercise_count),
-            set_count=self._normalize_count(record.set_count),
-            volume_kg=self._normalize_volume(record.volume_kg)
+            strain_score=self._normalize_strain(record.strain_score),
+            average_heart_rate=record.average_heart_rate,
+            max_heart_rate=record.max_heart_rate,
+            intensity=record.intensity
         )
         
         self.logger.debug(f"Transformed workout record: {cleaned_record.timestamp}")
         return cleaned_record
     
     def validate_record(self, record: WorkoutRecord) -> bool:
-        """Validate a workout record for basic requirements.
+        """Validate a workout record for data quality.
         
         Args:
             record: Workout record to validate
@@ -61,20 +70,32 @@ class HevyTransformer(RecordListTransformer[WorkoutRecord]):
         Returns:
             True if record is valid, False otherwise
         """
-        # Only check essential fields - no value validation needed for Hevy
+        # Check required fields
         if not record.timestamp:
             return False
         
         # Check source
-        if record.source != DataSource.HEVY:
+        if record.source != DataSource.WHOOP:
             return False
         
-        # Must have some workout data
-        if (record.exercise_count is None or record.exercise_count <= 0) and \
-           (record.set_count is None or record.set_count <= 0):
+        # Validate duration
+        if (record.duration_minutes is not None and 
+            (record.duration_minutes < self.min_duration_minutes or 
+             record.duration_minutes > self.max_duration_minutes)):
             return False
         
-        # Hevy data is reliable - no need for extensive validation
+        # Validate calories
+        if (record.calories is not None and 
+            (record.calories < self.min_calories or 
+             record.calories > self.max_calories)):
+            return False
+        
+        # Validate strain score
+        if (record.strain_score is not None and 
+            (record.strain_score < self.min_strain or 
+             record.strain_score > self.max_strain)):
+            return False
+        
         return True
     
     def filter_record(self, record: WorkoutRecord) -> bool:
@@ -89,20 +110,20 @@ class HevyTransformer(RecordListTransformer[WorkoutRecord]):
         # Keep all valid transformed records
         return record is not None
     
-    def _normalize_duration(self, duration: Optional[int]) -> Optional[int]:
+    def _normalize_duration(self, duration: Optional[float]) -> Optional[float]:
         """Normalize workout duration.
         
         Args:
             duration: Raw duration in minutes
             
         Returns:
-            Normalized duration as integer
+            Normalized duration, rounded to 1 decimal place
         """
         if duration is None:
             return None
         
-        # Ensure it's an integer
-        return int(round(duration))
+        # Round to 1 decimal place
+        return round(duration, 1)
     
     def _normalize_calories(self, calories: Optional[int]) -> Optional[int]:
         """Normalize calories burned.
@@ -119,32 +140,18 @@ class HevyTransformer(RecordListTransformer[WorkoutRecord]):
         # Ensure it's an integer
         return int(round(calories))
     
-    def _normalize_count(self, count: Optional[int]) -> Optional[int]:
-        """Normalize count values (exercises, sets).
+    def _normalize_strain(self, strain: Optional[float]) -> Optional[float]:
+        """Normalize strain score.
         
         Args:
-            count: Raw count value
+            strain: Raw strain score
             
         Returns:
-            Normalized count as integer
+            Normalized strain score, rounded to 2 decimal places
         """
-        if count is None:
+        if strain is None:
             return None
         
-        # Ensure it's an integer
-        return int(count)
-    
-    def _normalize_volume(self, volume: Optional[float]) -> Optional[float]:
-        """Normalize volume in kg.
-        
-        Args:
-            volume: Raw volume in kg
-            
-        Returns:
-            Normalized volume, rounded to 2 decimal places
-        """
-        if volume is None:
-            return None
-        
-        # Round to 2 decimal places
-        return round(volume, 2)
+        # Round to 2 decimal places and clamp to valid range
+        normalized = round(strain, 2)
+        return max(self.min_strain, min(self.max_strain, normalized))

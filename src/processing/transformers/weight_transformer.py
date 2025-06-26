@@ -1,4 +1,4 @@
-"""Withings data transformer for cleaning and normalizing weight records."""
+"""Weight data transformer for cleaning and normalizing weight records."""
 
 from typing import List, Optional
 from datetime import datetime
@@ -8,24 +8,27 @@ from src.models.data_records import WeightRecord
 from src.models.enums import DataSource
 
 
-class WithingsTransformer(RecordListTransformer[WeightRecord]):
-    """Transformer for cleaning and normalizing Withings weight records.
+class WeightTransformer(RecordListTransformer[WeightRecord]):
+    """Transformer for cleaning and normalizing weight records.
+    
+    This transformer handles WeightRecord objects from any source (Withings, etc.)
+    and focuses on data type-specific cleaning rather than source-specific logic.
     
     This transformer handles:
     - Basic data validation
     - Data normalization and standardization
-    - Body composition data cleaning
+    - Weight and body composition metrics cleaning
     """
     
     def __init__(self):
-        """Initialize the Withings transformer."""
+        """Initialize the Weight transformer."""
         super().__init__()
         
-        # No strict validation thresholds needed for Withings data - it's reliable
+        # No strict validation thresholds needed for Weight data - it's reliable
         # Focus on data cleaning and normalization only
     
     def transform_record(self, record: WeightRecord) -> Optional[WeightRecord]:
-        """Transform a single Withings weight record.
+        """Transform a single Weight record.
         
         Args:
             record: Raw weight record from extractor
@@ -60,7 +63,7 @@ class WithingsTransformer(RecordListTransformer[WeightRecord]):
         Returns:
             True if record is valid, False otherwise
         """
-        # Only check essential fields - no value validation needed for Withings
+        # Only check essential fields - no value validation needed for Weight
         if not record.timestamp:
             return False
         
@@ -72,7 +75,7 @@ class WithingsTransformer(RecordListTransformer[WeightRecord]):
         if record.weight_kg is None or record.weight_kg <= 0:
             return False
         
-        # Withings data is reliable - no need for extensive validation
+        # Weight data is reliable - no need for extensive validation
         return True
     
     def filter_record(self, record: WeightRecord) -> bool:

@@ -1,4 +1,4 @@
-"""Oura data transformer for cleaning and normalizing activity records."""
+"""Activity data transformer for cleaning and normalizing activity records."""
 
 from typing import List, Optional
 from datetime import datetime
@@ -8,24 +8,27 @@ from src.models.data_records import ActivityRecord
 from src.models.enums import DataSource
 
 
-class OuraTransformer(RecordListTransformer[ActivityRecord]):
-    """Transformer for cleaning and normalizing Oura activity records.
+class ActivityTransformer(RecordListTransformer[ActivityRecord]):
+    """Transformer for cleaning and normalizing activity records.
+    
+    This transformer handles ActivityRecord objects from any source (Oura, etc.)
+    and focuses on data type-specific cleaning rather than source-specific logic.
     
     This transformer handles:
     - Basic data validation
     - Data normalization and standardization
-    - Missing value handling
+    - Activity metrics cleaning
     """
     
     def __init__(self):
-        """Initialize the Oura transformer."""
+        """Initialize the Activity transformer."""
         super().__init__()
         
-        # No validation thresholds needed for Oura data - it's already reliable
+        # No validation thresholds needed for activity data - it's already reliable
         # Focus on data cleaning and normalization only
     
     def transform_record(self, record: ActivityRecord) -> Optional[ActivityRecord]:
-        """Transform a single Oura activity record.
+        """Transform a single activity record.
         
         Args:
             record: Raw activity record from extractor
@@ -58,7 +61,7 @@ class OuraTransformer(RecordListTransformer[ActivityRecord]):
         Returns:
             True if record is valid, False otherwise
         """
-        # Only check essential fields - no value validation needed for Oura
+        # Only check essential fields - no value validation needed for activity data
         if not record.date:
             return False
         
@@ -66,7 +69,7 @@ class OuraTransformer(RecordListTransformer[ActivityRecord]):
         if record.source != DataSource.OURA:
             return False
         
-        # Oura data is reliable - no need for value range validation
+        # Activity data is reliable - no need for value range validation
         return True
     
     def filter_record(self, record: ActivityRecord) -> bool:

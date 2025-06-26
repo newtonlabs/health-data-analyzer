@@ -60,14 +60,14 @@ Stage 5: Reporter       → Visualizations (future)
 
 **Examples:**
 ```python
-# ✅ Good - Pure extraction
+# Good - Pure extraction
 record = WorkoutRecord(
     timestamp=datetime.fromisoformat(workout["start_time"]),
     weight_kg=set_data.get("weight_kg"),  # Keep original precision
     exercise_name=exercise.get("title")   # Keep original text
 )
 
-# ❌ Bad - This belongs in Transformer
+# Bad - This belongs in Transformer
 record = WorkoutRecord(
     weight_kg=round(set_data.get("weight_kg"), 2),  # Don't round here
     exercise_name=exercise.get("title", "").strip().title()  # Don't clean here
@@ -106,7 +106,7 @@ record = WorkoutRecord(
 
 **Examples:**
 ```python
-# ✅ Good - Data cleaning and normalization
+# Good - Data cleaning and normalization
 def _normalize_weight(self, weight: Optional[float]) -> Optional[float]:
     if weight is None:
         return None
@@ -148,7 +148,7 @@ def validate_record(self, record: ExerciseRecord) -> bool:
 
 **Examples:**
 ```python
-# ✅ Future - Data aggregation and analysis
+# Future - Data aggregation and analysis
 class WeeklyStrengthSummary:
     week_start: date
     total_volume_kg: float
@@ -230,13 +230,66 @@ Chart: "Weekly Back Volume: 15.5 tons" with trend line
    - Parse JSON to data models
    - No data cleaning
 
-3. **Create Transformer** (`src/processing/transformers/new_transformer.py`)
-   - Clean and normalize data
-   - Validate ranges
+3. **Use Existing Transformers** (`src/processing/transformers/`)
+   - Use data type-based transformers (WorkoutTransformer, ActivityTransformer, etc.)
+   - Create new transformer only if new data type is introduced
 
 4. **Update Clean Pipeline** (`src/pipeline/clean_pipeline.py`)
-   - Add service, extractor, transformer
+   - Add service and extractor
+   - Use appropriate existing transformer
    - Create `process_new_service_data()` method
+
+### Adding Flat File Data Sources
+
+**Flat file sources (CSV, JSON files) follow the same 3-stage architecture:**
+
+1. **Create File Service** (`src/api/services/file_service.py`)
+   - Read from local files instead of APIs
+   - Convert file data to JSON-like format
+   - Handle file existence and error cases
+
+2. **Create Extractor** (`src/processing/extractors/file_extractor.py`)
+   - Convert file data to data models
+   - Same extraction pattern as API data
+
+3. **Use Data Type Transformer** (`src/processing/transformers/`)
+   - Same transformers handle data regardless of source
+   - Clean abstraction maintained
+
+**Example: Nutrition CSV Integration**
+```python
+# Stage 1: File Service
+nutrition_service.get_nutrition_data() → CSV → JSON-like format
+
+# Stage 2: Extractor  
+nutrition_extractor.extract_nutrition() → JSON-like → NutritionRecord objects
+
+# Stage 3: Transformer
+nutrition_transformer.transform() → Clean & normalize NutritionRecord
+```
+
+**Benefits:**
+- **Same Architecture**: File sources use identical 3-stage pattern
+- **Rich Data**: CSV files can contain more fields than APIs (40+ nutrients vs 5-10 API fields)
+- **Clean Abstraction**: Transformers don't know if data came from API or file
+- **Consistency**: All data sources follow same processing pipeline
+
+### Transformer Architecture
+
+**Data Type-Based Transformers (Clean Abstraction):**
+- `WorkoutTransformer` - Handles WorkoutRecord objects from any source (Whoop, Hevy, etc.)
+- `ActivityTransformer` - Handles ActivityRecord objects from any source (Oura, etc.)
+- `WeightTransformer` - Handles WeightRecord objects from any source (Withings, etc.)
+- `ExerciseTransformer` - Handles ExerciseRecord objects from any source
+- `RecoveryTransformer` - Handles RecoveryRecord objects from any source
+- `SleepTransformer` - Handles SleepRecord objects from any source
+- `NutritionTransformer` - Handles NutritionRecord objects from any source
+
+**Benefits:**
+- **Clean Abstraction**: Transformers focus on data type, not source
+- **Reusability**: Same transformer handles same data type from multiple services
+- **Consistency**: All transformers follow same naming pattern
+- **Maintainability**: Logic organized by data structure, not API source
 
 ### Data Model Guidelines
 
@@ -273,14 +326,23 @@ src/
 
 ## Current Status
 
-### ✅ Implemented (Stages 1-3)
-- **4 API Services**: Whoop, Oura, Withings, Hevy
-- **4 Extractors**: Pure data extraction
-- **5 Transformers**: Data cleaning (including ExerciseTransformer)
-- **Complete pipeline**: All services use clean 3-stage architecture
-- **Rich data extraction**: Workout summaries + individual exercise details
+### Implemented (Stages 1-3)
+- **5 Data Sources**: Whoop, Oura, Withings, Hevy, Nutrition (CSV)
+- **5 Extractors**: Pure data extraction (4 API-based + 1 file-based)
+- **7 Transformers**: Data cleaning (data type-based)
+  - WorkoutTransformer (handles Whoop + Hevy workouts)
+  - ActivityTransformer (handles Oura activities)
+  - WeightTransformer (handles Withings weights)
+  - ExerciseTransformer (handles Hevy exercises)
+  - RecoveryTransformer (handles Whoop recovery)
+  - SleepTransformer (handles Whoop sleep)
+  - NutritionTransformer (handles CSV nutrition data with 40+ micronutrients)
+- **Complete pipeline**: All data sources use clean 3-stage architecture
+- **Rich data extraction**: Workout summaries + individual exercise details + comprehensive nutrition
+- **Clean abstraction**: Data type-based transformers with no source leakage
+- **Flat file support**: CSV/file sources integrated with same architecture as APIs
 
-### 🚧 Future Work (Stages 4-5)
+### Future Work (Stages 4-5)
 - **Aggregator stage**: Weekly/monthly summaries, cross-service analysis
 - **Reporter stage**: Charts, dashboards, formatted reports
 - **Advanced analytics**: Trend analysis, correlation detection

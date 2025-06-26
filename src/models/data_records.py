@@ -66,9 +66,6 @@ class RecoveryRecord:
     sleep_performance: Optional[float] = None
     sleep_consistency: Optional[float] = None
     
-    # Raw data for debugging/analysis
-    raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)
-    
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):
@@ -112,9 +109,6 @@ class SleepRecord:
     bedtime: Optional[datetime] = None
     wake_time: Optional[datetime] = None
     
-    # Raw data for debugging/analysis
-    raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)
-    
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):
@@ -142,27 +136,58 @@ class WeightRecord:
 
 @dataclass
 class NutritionRecord:
-    """Structured nutrition data record."""
+    """Structured nutrition data record with comprehensive micronutrient tracking."""
     date: date
     source: DataSource
     
-    # Macronutrients
+    # Macronutrients (required)
     calories: int
-    protein_g: float
-    carbs_g: float
-    fat_g: float
+    protein: float
+    carbs: float
+    fat: float
     
-    # Optional micronutrients
-    fiber_g: Optional[float] = None
-    sugar_g: Optional[float] = None
-    sodium_mg: Optional[float] = None
+    # Additional macronutrients
+    alcohol: Optional[float] = None
+    fiber: Optional[float] = None
+    sugar: Optional[float] = None
+    
+    # Vitamins
+    vitamin_a: Optional[float] = None  # Vitamin A (micrograms)
+    vitamin_c: Optional[float] = None  # Vitamin C (milligrams)
+    vitamin_d: Optional[float] = None  # Vitamin D (International Units)
+    vitamin_e: Optional[float] = None  # Vitamin E (milligrams)
+    vitamin_k: Optional[float] = None  # Vitamin K (micrograms)
+    
+    # B Vitamins
+    b1_thiamine: Optional[float] = None     # B1 Thiamine (milligrams)
+    b2_riboflavin: Optional[float] = None   # B2 Riboflavin (milligrams)
+    b3_niacin: Optional[float] = None       # B3 Niacin (milligrams)
+    b6_pyridoxine: Optional[float] = None   # B6 Pyridoxine (milligrams)
+    b12_cobalamin: Optional[float] = None   # B12 Cobalamin (micrograms)
+    folate: Optional[float] = None          # Folate (micrograms)
+    
+    # Essential Minerals
+    calcium: Optional[float] = None    # Calcium (milligrams)
+    iron: Optional[float] = None       # Iron (milligrams)
+    magnesium: Optional[float] = None  # Magnesium (milligrams)
+    potassium: Optional[float] = None  # Potassium (milligrams)
+    sodium: Optional[float] = None     # Sodium (milligrams)
+    zinc: Optional[float] = None       # Zinc (milligrams)
+    
+    # Fat Breakdown
+    cholesterol: Optional[float] = None        # Cholesterol (milligrams)
+    saturated_fat: Optional[float] = None       # Saturated fat (grams)
+    monounsaturated_fat: Optional[float] = None # Monounsaturated fat (grams)
+    polyunsaturated_fat: Optional[float] = None # Polyunsaturated fat (grams)
+    omega3: Optional[float] = None              # Omega-3 fatty acids (grams)
+    omega6: Optional[float] = None              # Omega-6 fatty acids (grams)
+    
+    # Other Nutrients
+    caffeine: Optional[float] = None   # Caffeine (milligrams)
+    water: Optional[float] = None       # Water content (grams)
     
     # Meal timing and context
     meal_count: Optional[int] = None
-    is_strength_day: Optional[bool] = None
-    
-    # Raw data for debugging/analysis
-    raw_data: Optional[Dict[str, Any]] = field(default_factory=dict)
     
     def __post_init__(self):
         """Validate and normalize data after initialization."""
@@ -174,21 +199,21 @@ class NutritionRecord:
         """Calculate protein percentage of total calories."""
         if self.calories == 0:
             return 0.0
-        return (self.protein_g * 4) / self.calories * 100
+        return (self.protein * 4) / self.calories * 100
     
     @property
     def carbs_percentage(self) -> float:
         """Calculate carbohydrate percentage of total calories."""
         if self.calories == 0:
             return 0.0
-        return (self.carbs_g * 4) / self.calories * 100
+        return (self.carbs * 4) / self.calories * 100
     
     @property
     def fat_percentage(self) -> float:
         """Calculate fat percentage of total calories."""
         if self.calories == 0:
             return 0.0
-        return (self.fat_g * 9) / self.calories * 100
+        return (self.fat * 9) / self.calories * 100
 
 
 @dataclass

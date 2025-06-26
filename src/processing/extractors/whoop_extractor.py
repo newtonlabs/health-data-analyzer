@@ -167,23 +167,41 @@ class WhoopExtractor(BaseExtractor):
         Returns:
             RecoveryRecord instance or None if extraction fails
         """
-        # Parse date from cycle_id (format: YYYY-MM-DD)
-        cycle_id = self.safe_get(recovery_data, 'cycle_id', '', str)
+        # Parse date from cycle_id (format: YYYY-MM-DD or integer)
+        cycle_id = self.safe_get(recovery_data, 'cycle_id', '', (str, int))
         if not cycle_id:
             self.logger.warning("Missing cycle_id in recovery data")
             return None
         
+        # Convert cycle_id to string if it's an integer
+        cycle_id_str = str(cycle_id)
+        
         try:
-            record_date = datetime.strptime(cycle_id, '%Y-%m-%d').date()
+            record_date = datetime.strptime(cycle_id_str, '%Y-%m-%d').date()
         except ValueError:
-            self.logger.warning(f"Invalid cycle_id format: {cycle_id}")
-            return None
+            # If cycle_id is not in date format, try to extract date from created_at
+            created_at = self.safe_get(recovery_data, 'created_at', '', str)
+            if created_at:
+                try:
+                    record_date = self.parse_timestamp(created_at).date()
+                except:
+                    self.logger.warning(f"Could not parse date from cycle_id: {cycle_id} or created_at: {created_at}")
+                    return None
+            else:
+                self.logger.warning(f"Invalid cycle_id format and no created_at: {cycle_id}")
+                return None
         
         # Extract score data
         score_data = self.safe_get(recovery_data, 'score', {}, dict)
-        recovery_score = self.safe_get(score_data, 'recovery_score', None, int)
+        recovery_score = self.safe_get(score_data, 'recovery_score', None, (int, float))
         hrv_rmssd = self.safe_get(score_data, 'hrv_rmssd_milli', None, (int, float))
-        resting_hr = self.safe_get(score_data, 'resting_heart_rate', None, int)
+        resting_hr = self.safe_get(score_data, 'resting_heart_rate', None, (int, float))
+        
+        # Convert to integers if they exist
+        if recovery_score is not None:
+            recovery_score = int(recovery_score)
+        if resting_hr is not None:
+            resting_hr = int(resting_hr)
         
         # Convert HRV from milliseconds to standard units if needed
         if hrv_rmssd:
@@ -202,8 +220,7 @@ class WhoopExtractor(BaseExtractor):
             recovery_score=recovery_score,
             recovery_level=recovery_level,
             hrv_rmssd=hrv_rmssd,
-            resting_hr=resting_hr,
-            raw_data=recovery_data
+            resting_hr=resting_hr
         )
         
         return recovery
@@ -295,8 +312,7 @@ class WhoopExtractor(BaseExtractor):
             awake_minutes=awake_minutes,
             sleep_score=int(sleep_score) if sleep_score else None,
             bedtime=bedtime,
-            wake_time=wake_time,
-            raw_data=sleep_data
+            wake_time=wake_time
         )
         
         return sleep_record
