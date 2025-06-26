@@ -102,9 +102,7 @@ class NutritionService:
                     "omega6": float(row["Omega-6 (g)"]) if pd.notna(row["Omega-6 (g)"]) else None,
                     # Other nutrients
                     "caffeine": float(row["Caffeine (mg)"]) if pd.notna(row["Caffeine (mg)"]) else None,
-                    "water": float(row["Water (g)"]) if pd.notna(row["Water (g)"]) else None,
-                    # Fields that don't exist in CSV
-                    "meal_count": None
+                    "water": float(row["Water (g)"]) if pd.notna(row["Water (g)"]) else None
                 }
                 records.append(record)
             

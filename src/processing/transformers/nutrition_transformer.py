@@ -77,9 +77,7 @@ class NutritionTransformer(RecordListTransformer[NutritionRecord]):
             omega6=self._normalize_optional_nutrient(record.omega6),
             # Other Nutrients
             caffeine=self._normalize_optional_nutrient(record.caffeine),
-            water=self._normalize_optional_nutrient(record.water),
-            # Context
-            meal_count=self._normalize_meal_count(record.meal_count)
+            water=self._normalize_optional_nutrient(record.water)
         )
         
         self.logger.debug(f"Transformed nutrition record: {cleaned_record.date}")
@@ -184,27 +182,3 @@ class NutritionTransformer(RecordListTransformer[NutritionRecord]):
             return 0.0
         
         return normalized_value
-    
-    def _normalize_meal_count(self, meal_count: Optional[int]) -> Optional[int]:
-        """Normalize meal count values.
-        
-        Args:
-            meal_count: Raw meal count
-            
-        Returns:
-            Normalized meal count as integer, or None
-        """
-        if meal_count is None:
-            return None
-        
-        # Ensure it's an integer and within reasonable range (1-10 meals per day)
-        normalized_count = int(meal_count)
-        if normalized_count < 1:
-            self.logger.warning(f"Meal count {normalized_count} below minimum 1")
-            return 1
-        
-        if normalized_count > 10:
-            self.logger.warning(f"Meal count {normalized_count} exceeds maximum 10")
-            return 10
-        
-        return normalized_count

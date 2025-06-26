@@ -188,9 +188,6 @@ class NutritionRecord:
     caffeine: Optional[float] = None   # Caffeine (milligrams)
     water: Optional[float] = None       # Water content (grams)
     
-    # Meal timing and context
-    meal_count: Optional[int] = None
-    
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):

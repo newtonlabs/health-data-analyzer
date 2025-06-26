@@ -98,9 +98,7 @@ class NutritionExtractor:
                     omega6=record.get("omega6"),
                     # Other Nutrients
                     caffeine=record.get("caffeine"),
-                    water=record.get("water"),
-                    # Context
-                    meal_count=record.get("meal_count")
+                    water=record.get("water")
                 )
                 
                 nutrition_records.append(nutrition_record)
