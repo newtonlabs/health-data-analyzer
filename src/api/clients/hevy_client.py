@@ -84,13 +84,10 @@ class HevyClient(APIClient):
         try:
             while True:
                 params = {"page": page, "pageSize": page_size}
-                save_path = f"hevy-workouts-page-{page}"
 
                 response_data = self._make_request(
                     endpoint="v1/workouts",
                     params=params,
-                    save_response=True,
-                    save_path=save_path,
                 )
 
                 workouts = response_data.get("workouts", [])
@@ -134,8 +131,6 @@ class HevyClient(APIClient):
         method: str = "GET",
         headers: dict[str, str] = None,
         retry_count: int = 0,
-        save_response: bool = False,
-        save_path: str = None,
     ) -> dict[str, Any]:
         """Make a request to the Hevy API.
 
@@ -148,14 +143,12 @@ class HevyClient(APIClient):
             method: HTTP method (only GET is supported by Hevy API)
             headers: Additional headers (will be merged with API key header)
             retry_count: Current retry attempt (used internally for recursion)
-            save_response: Whether to save the response to a file
-            save_path: Path to save the response (if save_response is True)
 
         Returns:
-            JSON response from the API
+            JSON response from API
 
         Raises:
-            APIClientError: If the request fails
+            APIClientError: If the request fails after all retries
         """
         if method.upper() != "GET":
             raise APIClientError("Hevy API only supports GET requests")
@@ -184,15 +177,6 @@ class HevyClient(APIClient):
             response.raise_for_status()
             response_data = response.json()
 
-            # Save response to file if requested
-            if save_response and save_path:
-                from src.utils.file_utils import save_json_to_file
-
-                # Extract client name from class name for the subdir
-                client_name = self.__class__.__name__.replace("Client", "").lower()
-                subdir = f"api-responses/{client_name}"
-                save_json_to_file(response_data, save_path, subdir=subdir)
-
             return response_data
 
         except requests.exceptions.RequestException as e:
@@ -211,8 +195,6 @@ class HevyClient(APIClient):
                     method,
                     headers,
                     retry_count + 1,
-                    save_response,
-                    save_path,
                 )
 
             # All retries failed

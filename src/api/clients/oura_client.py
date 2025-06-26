@@ -9,7 +9,6 @@ import requests
 
 from src.utils.api_client import APIClient, APIClientError
 from src.utils.date_utils import DateFormat, DateUtils
-from src.utils.file_utils import save_json_to_file
 from src.utils.logging_utils import HealthLogger
 
 
@@ -192,16 +191,12 @@ class OuraClient(APIClient):
         # Add one day to end_date to ensure we get the full day
         api_end_date = end_date + timedelta(days=1)
         
-        save_path = f"oura-activity-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
-        
         return self._make_request(
             endpoint="usercollection/daily_activity",
             params={
                 "start_date": start_date.strftime("%Y-%m-%d"),
                 "end_date": api_end_date.strftime("%Y-%m-%d"),
             },
-            save_response=True,
-            save_path=save_path,
         )
 
     def get_resilience_data(
@@ -216,16 +211,12 @@ class OuraClient(APIClient):
         Returns:
             Dictionary containing resilience data
         """
-        save_path = f"oura-resilience-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
-        
         return self._make_request(
             endpoint="usercollection/daily_resilience",
             params={
                 "start_date": start_date.strftime("%Y-%m-%d"),
                 "end_date": end_date.strftime("%Y-%m-%d"),
             },
-            save_response=True,
-            save_path=save_path,
         )
 
     def get_workouts(
@@ -249,11 +240,7 @@ class OuraClient(APIClient):
         if limit:
             params["limit"] = limit
 
-        save_path = f"oura-workouts-{DateUtils.format_date(start or datetime.now(), DateFormat.STANDARD)}"
-        
         return self._make_request(
             endpoint="usercollection/workout",
             params=params,
-            save_response=True,
-            save_path=save_path,
         )

@@ -340,16 +340,17 @@ class HealthDataPipelineTest:
         print("\n📁 CSV FILE VALIDATION")
         print("=" * 25)
         
-        # Check all generated files
-        extracted_dir = 'data/extracted'
+        # Check all generated files in the new pipeline structure
+        data_dirs = ['data/02_extracted', 'data/03_transformed']
         all_csv_files = []
         
-        if os.path.exists(extracted_dir):
-            for root, dirs, files in os.walk(extracted_dir):
-                for file in files:
-                    if file.endswith('.csv') and datetime.now().strftime('%Y-%m-%d') in file:
-                        file_path = os.path.join(root, file)
-                        all_csv_files.append(file_path)
+        for data_dir in data_dirs:
+            if os.path.exists(data_dir):
+                for root, dirs, files in os.walk(data_dir):
+                    for file in files:
+                        if file.endswith('.csv') and datetime.now().strftime('%Y-%m-%d') in file:
+                            file_path = os.path.join(root, file)
+                            all_csv_files.append(file_path)
         
         if all_csv_files:
             print(f"✅ Generated {len(all_csv_files)} CSV files:")

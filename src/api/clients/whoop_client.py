@@ -13,7 +13,6 @@ import requests
 
 from src.utils.api_client import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
-from src.utils.file_utils import save_json_to_file
 from src.utils.progress_indicators import ProgressIndicator
 
 
@@ -82,15 +81,9 @@ class WhoopClient(APIClient):
             "start": DateUtils.format_date(start_date, DateFormat.ISO),
             "end": DateUtils.format_date(api_end, DateFormat.ISO),
         }
-        # Save the API response to the data directory
-        save_path = (
-            f"whoop-recovery-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
-        )
         response = self._make_request(
             endpoint="v1/recovery",
             params=params,
-            save_response=True,
-            save_path=save_path,
         )
         return response
 
@@ -124,15 +117,9 @@ class WhoopClient(APIClient):
             "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "limit": min(limit, 25),
         }
-        # Save the API response to the data directory
-        save_path = (
-            f"whoop-workouts-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
-        )
         return self._make_request(
             endpoint="v1/activity/workout",
             params=params,
-            save_response=True,
-            save_path=save_path,
         )
 
     def get_sleep(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
@@ -149,15 +136,9 @@ class WhoopClient(APIClient):
             "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
-        # Save the API response to the data directory
-        save_path = (
-            f"whoop-sleep-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
-        )
         return self._make_request(
             endpoint="v1/activity/sleep",
             params=params,
-            save_response=True,
-            save_path=save_path,
         )
 
     # Authentication methods

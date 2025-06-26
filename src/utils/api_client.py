@@ -318,8 +318,6 @@ class APIClient:
         method: str = "GET",
         headers: dict[str, str] = None,
         retry_count: int = 0,
-        save_response: bool = False,
-        save_path: str = None,
     ) -> dict[str, Any]:
         """Make a request to the API with retry logic and token refresh.
 
@@ -329,8 +327,6 @@ class APIClient:
             method: HTTP method (GET, POST, etc.)
             headers: Optional headers
             retry_count: Current retry attempt (used internally for recursion)
-            save_response: Whether to save the response to a file
-            save_path: Path to save the response (if save_response is True)
 
         Returns:
             JSON response from API
@@ -352,8 +348,6 @@ class APIClient:
                     method,
                     headers,
                     retry_count + 1,
-                    save_response,
-                    save_path,
                 )
             raise e
 
@@ -376,15 +370,6 @@ class APIClient:
             response.raise_for_status()
             response_data = response.json()
 
-            # Save response to file if requested
-            if save_response and save_path:
-                from src.utils.file_utils import save_json_to_file
-
-                # Extract client name from class name for the subdir
-                client_name = self.__class__.__name__.replace("Client", "").lower()
-                subdir = f"api-responses/{client_name}"
-                save_json_to_file(response_data, save_path, subdir=subdir)
-
             return response_data
         except requests.exceptions.RequestException as e:
             # Try token refresh if unauthorized
@@ -403,8 +388,6 @@ class APIClient:
                                     method,
                                     headers,
                                     retry_count + 1,
-                                    save_response,
-                                    save_path,
                                 )
                     except Exception as refresh_error:
                         self.logger.warning(
@@ -423,8 +406,6 @@ class APIClient:
                             method,
                             headers,
                             retry_count + 1,
-                            save_response,
-                            save_path,
                         )
                     except Exception as auth_error:
                         self.logger.warning(
@@ -446,8 +427,6 @@ class APIClient:
                     method,
                     headers,
                     retry_count + 1,
-                    save_response,
-                    save_path,
                 )
 
             # All retries failed

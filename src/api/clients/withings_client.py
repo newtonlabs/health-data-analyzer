@@ -12,7 +12,6 @@ import requests
 from src.app_config import AppConfig
 from src.utils.api_client import APIClient, APIClientError, OAuthCallbackHandler
 from src.utils.date_utils import DateFormat, DateUtils
-from src.utils.file_utils import save_json_to_file
 from src.utils.progress_indicators import ProgressIndicator
 
 
@@ -144,14 +143,10 @@ class WithingsClient(APIClient):
             "enddate": enddate,
         }
 
-        save_path = f"withings-weight-{DateUtils.format_date(start_date, DateFormat.STANDARD)}"
-
         return self._make_request(
             endpoint="measure",
             params=params,
             method="POST",
-            save_response=True,
-            save_path=save_path,
         )
 
     def authenticate(self) -> bool:
