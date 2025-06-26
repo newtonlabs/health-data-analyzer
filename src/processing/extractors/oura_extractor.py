@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.models.data_records import ActivityRecord
 from src.models.enums import DataSource
+from src.utils.date_utils import DateUtils
 
 
 class OuraExtractor:
@@ -44,8 +45,16 @@ class OuraExtractor:
         # Direct conversion from raw API data to ActivityRecord objects
         for activity_item in raw_data["data"]:
             try:
-                # Parse date from API response
-                activity_date = datetime.strptime(activity_item["day"], "%Y-%m-%d").date()
+                # Extract date and preserve raw timestamp for transformer
+                day_str = activity_item.get("day")
+                timestamp_str = activity_item.get("timestamp")
+                
+                if not day_str:
+                    print(f"No day field found in Oura activity data, skipping record")
+                    continue
+                
+                # Use simple date parsing in extractor - let transformer handle timezone logic
+                activity_date = datetime.strptime(day_str, "%Y-%m-%d").date()
                 
                 # Filter by date range
                 if not (start_date.date() <= activity_date <= end_date.date()):
@@ -53,6 +62,7 @@ class OuraExtractor:
                 
                 # Create ActivityRecord with raw data (no transformation)
                 record = ActivityRecord(
+                    timestamp=timestamp_str,  # Preserve for transformer
                     date=activity_date,
                     source=DataSource.OURA,
                     steps=activity_item.get("steps", 0),

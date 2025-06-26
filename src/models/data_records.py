@@ -47,8 +47,9 @@ class WorkoutRecord:
 @dataclass
 class RecoveryRecord:
     """Structured recovery/readiness record."""
-    date: date
-    source: DataSource
+    timestamp: Optional[str] = None  # Raw timestamp from API for timezone handling
+    date: Optional[date] = None
+    source: Optional[DataSource] = None
     
     # Core recovery metrics
     recovery_score: Optional[int] = None
@@ -86,8 +87,9 @@ class RecoveryRecord:
 @dataclass
 class SleepRecord:
     """Structured sleep data record."""
-    date: date
-    source: DataSource
+    timestamp: Optional[str] = None  # Raw timestamp from API for timezone handling
+    date: Optional[date] = None
+    source: Optional[DataSource] = None
     
     # Sleep duration
     total_sleep_minutes: Optional[int] = None
@@ -219,8 +221,9 @@ class NutritionRecord:
 @dataclass
 class ActivityRecord:
     """Structured general activity record (steps, calories, etc.)."""
-    date: date
-    source: DataSource
+    timestamp: Optional[str] = None  # Raw timestamp from API for timezone handling
+    date: Optional[date] = None
+    source: Optional[DataSource] = None
     
     # Core activity metrics
     steps: Optional[int] = None

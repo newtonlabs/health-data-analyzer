@@ -24,14 +24,6 @@ class NutritionTransformer(RecordListTransformer[NutritionRecord]):
         """Initialize the Nutrition transformer."""
         super().__init__()
         
-        # Validation thresholds for reasonable nutrition values
-        self.min_calories = 0
-        self.max_calories = 10000  # Maximum reasonable daily calories
-        self.min_macros = 0.0
-        self.max_protein = 500.0  # Maximum reasonable daily protein
-        self.max_carbs = 1000.0   # Maximum reasonable daily carbs
-        self.max_fat = 500.0      # Maximum reasonable daily fat
-    
     def transform_record(self, record: NutritionRecord) -> Optional[NutritionRecord]:
         """Transform a single nutrition record.
         
@@ -50,9 +42,9 @@ class NutritionTransformer(RecordListTransformer[NutritionRecord]):
             date=record.date,
             source=record.source,
             calories=self._normalize_calories(record.calories),
-            protein=self._normalize_macronutrient(record.protein, self.max_protein),
-            carbs=self._normalize_macronutrient(record.carbs, self.max_carbs),
-            fat=self._normalize_macronutrient(record.fat, self.max_fat),
+            protein=self._normalize_macronutrient(record.protein, 500.0),
+            carbs=self._normalize_macronutrient(record.carbs, 1000.0),
+            fat=self._normalize_macronutrient(record.fat, 500.0),
             alcohol=self._normalize_optional_nutrient(record.alcohol),
             fiber=self._normalize_optional_nutrient(record.fiber),
             sugar=self._normalize_optional_nutrient(record.sugar),
@@ -114,11 +106,6 @@ class NutritionTransformer(RecordListTransformer[NutritionRecord]):
         if record.calories is None or record.calories < 0:
             return False
         
-        # Basic sanity checks for macronutrients
-        if record.calories > self.max_calories:
-            self.logger.warning(f"Calories {record.calories} exceeds maximum {self.max_calories}")
-            return False
-        
         return True
     
     def filter_record(self, record: NutritionRecord) -> bool:
@@ -150,10 +137,6 @@ class NutritionTransformer(RecordListTransformer[NutritionRecord]):
         if normalized_calories < 0:
             self.logger.warning(f"Negative calories value: {normalized_calories}")
             return 0
-        
-        if normalized_calories > self.max_calories:
-            self.logger.warning(f"Calories {normalized_calories} exceeds maximum {self.max_calories}")
-            return self.max_calories
         
         return normalized_calories
     

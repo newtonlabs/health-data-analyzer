@@ -215,6 +215,7 @@ class WhoopExtractor(BaseExtractor):
         
         # Create recovery record
         recovery = RecoveryRecord(
+            timestamp=self.safe_get(recovery_data, 'created_at', None, str),  # Preserve raw timestamp
             date=record_date,
             source=DataSource.WHOOP,
             recovery_score=recovery_score,
@@ -301,6 +302,7 @@ class WhoopExtractor(BaseExtractor):
         
         # Create sleep record
         sleep_record = SleepRecord(
+            timestamp=self.safe_get(sleep_data, 'created_at', None, str),  # Preserve raw timestamp
             date=record_date,
             source=DataSource.WHOOP,
             total_sleep_minutes=total_sleep_minutes,
