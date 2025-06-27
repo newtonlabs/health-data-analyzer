@@ -8,6 +8,7 @@ for structured data representation.
 from .data_records import (
     WorkoutRecord,
     RecoveryRecord,
+    ResilienceRecord,
     SleepRecord,
     WeightRecord,
     NutritionRecord,
@@ -46,6 +47,7 @@ __all__ = [
     # Data records
     'WorkoutRecord',
     'RecoveryRecord', 
+    'ResilienceRecord',
     'SleepRecord',
     'WeightRecord',
     'NutritionRecord',

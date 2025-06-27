@@ -25,6 +25,7 @@ from src.processing.transformers.weight_transformer import WeightTransformer
 from src.processing.transformers.exercise_transformer import ExerciseTransformer
 from src.processing.transformers.recovery_transformer import RecoveryTransformer
 from src.processing.transformers.sleep_transformer import SleepTransformer
+from src.processing.transformers.resilience_transformer import ResilienceTransformer
 from src.processing.transformers.nutrition_transformer import NutritionTransformer
 from src.utils.pipeline_persistence import PipelinePersistence
 from src.utils.logging_utils import HealthLogger
@@ -59,6 +60,7 @@ class CleanHealthPipeline:
         self.exercise_transformer = ExerciseTransformer()
         self.recovery_transformer = RecoveryTransformer()
         self.sleep_transformer = SleepTransformer()
+        self.resilience_transformer = ResilienceTransformer()
         self.nutrition_transformer = NutritionTransformer()
     
     def process_whoop_data(self, days: int = 2) -> Dict[str, str]:
@@ -207,56 +209,115 @@ class CleanHealthPipeline:
         file_paths = {}
         
         try:
-            # STAGE 1: API Service → Raw JSON
+            # STAGE 1: API Service → Raw JSON for all Oura data types
             self.logger.info("📡 Stage 1: Fetching raw data from Oura API...")
-            raw_data = self.oura_service.get_activity_data(start_date.date(), end_date.date())
             
-            if not raw_data:
-                self.logger.warning("No raw data retrieved from Oura API")
+            # Fetch activity data (full pipeline)
+            activity_data = self.oura_service.get_activity_data(start_date.date(), end_date.date())
+            
+            # Fetch resilience data (API stage only)
+            resilience_data = self.oura_service.get_resilience_data(start_date.date(), end_date.date())
+            
+            # Fetch workout data (API stage only)  
+            workout_data = self.oura_service.get_workouts_data(start_date.date(), end_date.date())
+            
+            # Save all raw data
+            if activity_data:
+                activity_raw_file = self.persistence.save_raw_data("oura_activity", activity_data, timestamp)
+                file_paths["01_raw_activity"] = activity_raw_file
+                self.logger.info(f"✅ Activity raw data saved: {activity_raw_file}")
+            
+            if resilience_data:
+                resilience_raw_file = self.persistence.save_raw_data("oura_resilience", resilience_data, timestamp)
+                file_paths["01_raw_resilience"] = resilience_raw_file
+                self.logger.info(f"✅ Resilience raw data saved: {resilience_raw_file}")
+                self.logger.info(f"📊 Resilience records: {len(resilience_data.get('data', []))}")
+            
+            if workout_data:
+                workout_raw_file = self.persistence.save_raw_data("oura_workouts", workout_data, timestamp)
+                file_paths["01_raw_workouts"] = workout_raw_file
+                self.logger.info(f"✅ Workout raw data saved: {workout_raw_file}")
+                self.logger.info(f"📊 Workout records: {len(workout_data.get('data', []))}")
+            
+            # Continue with full pipeline only for activity data
+            if not activity_data:
+                self.logger.warning("No activity data retrieved from Oura API")
                 return file_paths
             
-            # Save raw data
-            raw_file = self.persistence.save_raw_data("oura", raw_data, timestamp)
-            file_paths["01_raw"] = raw_file
-            self.logger.info(f"✅ Stage 1 complete: {raw_file}")
+            # STAGE 2: Extractor → Raw Data Models (Activity + Resilience)
+            self.logger.info("🔄 Stage 2: Extracting data models...")
             
-            # STAGE 2: Extractor → Raw Data Models
-            self.logger.info("🔄 Stage 2: Extracting raw data models...")
+            # Extract activity data
+            extracted_activities = self.oura_extractor.extract_activity_data(activity_data, start_date, end_date)
             
-            extracted_data = self.oura_extractor.extract_activity_data(raw_data, start_date, end_date)
+            # Extract resilience data if available
+            extracted_resilience = []
+            if resilience_data:
+                extracted_resilience = self.oura_extractor.extract_resilience_data(resilience_data, start_date, end_date)
             
-            if not extracted_data:
-                self.logger.warning("No activity records extracted")
+            if not extracted_activities and not extracted_resilience:
+                self.logger.warning("No records extracted from any data type")
                 return file_paths
             
             # Save extracted data
-            extracted_file = self.persistence.save_extracted_data(
-                "oura", "activities", extracted_data, timestamp
-            )
-            file_paths["02_extracted"] = extracted_file
-            self.logger.info(f"✅ Stage 2 complete: {extracted_file}")
+            if extracted_activities:
+                activities_extracted_file = self.persistence.save_extracted_data(
+                    "oura", "activities", extracted_activities, timestamp
+                )
+                file_paths["02_extracted_activities"] = activities_extracted_file
+                self.logger.info(f"✅ Activities extracted: {activities_extracted_file}")
             
-            # STAGE 3: Transformer → Clean Data Models
+            if extracted_resilience:
+                resilience_extracted_file = self.persistence.save_extracted_data(
+                    "oura", "resilience", extracted_resilience, timestamp
+                )
+                file_paths["02_extracted_resilience"] = resilience_extracted_file
+                self.logger.info(f"✅ Resilience extracted: {resilience_extracted_file}")
+            
+            # STAGE 3: Transformer → Clean Data Models (Activity + Resilience)
             self.logger.info("🧹 Stage 3: Transforming and cleaning data...")
             
-            transformed_activities = self.activity_transformer.transform(extracted_data)
+            # Transform activity data
+            transformed_activities = []
+            if extracted_activities:
+                transformed_activities = self.activity_transformer.transform(extracted_activities)
             
-            if not transformed_activities:
-                self.logger.warning("No activity records after transformation")
+            # Transform resilience data
+            transformed_resilience = []
+            if extracted_resilience:
+                transformed_resilience = self.resilience_transformer.transform(extracted_resilience)
+            
+            if not transformed_activities and not transformed_resilience:
+                self.logger.warning("No records after transformation")
                 return file_paths
             
             # Save transformed data
-            transformed_file = self.persistence.save_transformed_data(
-                "oura", "activities", transformed_activities, timestamp
-            )
-            file_paths["03_transformed"] = transformed_file
-            self.logger.info(f"✅ Stage 3 complete: {transformed_file}")
+            if transformed_activities:
+                activities_transformed_file = self.persistence.save_transformed_data(
+                    "oura", "activities", transformed_activities, timestamp
+                )
+                file_paths["03_transformed_activities"] = activities_transformed_file
+                self.logger.info(f"✅ Activities transformed: {activities_transformed_file}")
+            
+            if transformed_resilience:
+                resilience_transformed_file = self.persistence.save_transformed_data(
+                    "oura", "resilience", transformed_resilience, timestamp
+                )
+                file_paths["03_transformed_resilience"] = resilience_transformed_file
+                self.logger.info(f"✅ Resilience transformed: {resilience_transformed_file}")
             
             # Pipeline summary
             self.logger.info("🎉 Clean pipeline completed successfully!")
-            self.logger.info(f"   Raw records: {len(raw_data.get('data', []))}")
-            self.logger.info(f"   Extracted records: {len(extracted_data)}")
-            self.logger.info(f"   Transformed records: {len(transformed_activities)}")
+            if activity_data:
+                self.logger.info(f"   Activity raw records: {len(activity_data.get('data', []))}")
+                self.logger.info(f"   Activity extracted records: {len(extracted_activities)}")
+                self.logger.info(f"   Activity transformed records: {len(transformed_activities)}")
+            if resilience_data:
+                self.logger.info(f"   Resilience raw records: {len(resilience_data.get('data', []))}")
+                self.logger.info(f"   Resilience extracted records: {len(extracted_resilience)}")
+                self.logger.info(f"   Resilience transformed records: {len(transformed_resilience)}")
+            if workout_data:
+                self.logger.info(f"   Workout raw records: {len(workout_data.get('data', []))} (API stage only)")
             
             return file_paths
             

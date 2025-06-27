@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
-from src.models.data_records import ActivityRecord
+from src.models.data_records import ActivityRecord, ResilienceRecord
 from src.models.enums import DataSource
 from src.utils.date_utils import DateUtils
 
@@ -77,8 +77,11 @@ class OuraExtractor:
         raw_data: Dict[str, Any], 
         start_date: datetime, 
         end_date: datetime
-    ) -> pd.DataFrame:
-        """Extract resilience data from Oura API response.
+    ) -> List[ResilienceRecord]:
+        """Extract resilience records from Oura API response.
+        
+        This is pure extraction - converts raw API data to basic ResilienceRecord models
+        without any transformation, cleaning, or persistence.
         
         Args:
             raw_data: Raw response from Oura API containing resilience data
@@ -86,21 +89,46 @@ class OuraExtractor:
             end_date: End date for filtering data
             
         Returns:
-            DataFrame with processed resilience data
+            List of raw ResilienceRecord objects
         """
-        if not raw_data or "resilience" not in raw_data:
+        if not raw_data or "data" not in raw_data:
             print("No resilience data found in Oura response")
-            return pd.DataFrame()
+            return []
         
-        # Process the raw data 
-        processed_data = pd.DataFrame(raw_data["resilience"])
+        resilience_records = []
         
-        if processed_data.empty:
-            print("No resilience data after processing")
-            return pd.DataFrame()
+        # Direct conversion from raw API data to ResilienceRecord objects
+        for resilience_item in raw_data["data"]:
+            try:
+                # Extract date field
+                day_str = resilience_item.get("day")
+                
+                if not day_str:
+                    print(f"No day field found in Oura resilience data, skipping record")
+                    continue
+                
+                # Extract contributors data
+                contributors = resilience_item.get("contributors", {})
+                
+                # Create ResilienceRecord with raw data (no transformation or filtering)
+                # API already filters by date range, so no need to filter again
+                record = ResilienceRecord(
+                    timestamp=day_str,  # Use day as timestamp, will be processed in transformer
+                    date=None,  # Will be calculated in transformer
+                    source=DataSource.OURA,
+                    sleep_recovery=contributors.get("sleep_recovery"),
+                    daytime_recovery=contributors.get("daytime_recovery"),
+                    stress=contributors.get("stress"),
+                    level=resilience_item.get("level")
+                )
+                resilience_records.append(record)
+                
+            except Exception as e:
+                print(f"Error creating ResilienceRecord from Oura data: {e}")
+                continue
         
-        print(f"Extracted {len(processed_data)} resilience records from Oura")
-        return processed_data
+        print(f"Extracted {len(resilience_records)} raw resilience records from Oura")
+        return resilience_records
     
     def extract_all_data(
         self, 
@@ -126,9 +154,9 @@ class OuraExtractor:
             extracted_data["activity_records"] = activity_records
         
         # Extract resilience data
-        resilience_data = self.extract_resilience_data(raw_data, start_date, end_date)
-        if not resilience_data.empty:
-            extracted_data["resilience_data"] = resilience_data
+        resilience_records = self.extract_resilience_data(raw_data, start_date, end_date)
+        if resilience_records:
+            extracted_data["resilience_records"] = resilience_records
         
         print(f"Extracted Oura data with {len(extracted_data)} data types")
         return extracted_data
@@ -142,7 +170,7 @@ class OuraExtractor:
             raw_data: Raw API response data from Oura
             
         Returns:
-            Dictionary with keys like 'activity_records', 'resilience_data', etc.
+            Dictionary with keys like 'activity_records', 'resilience_records', etc.
             and values as lists of structured records or processed DataFrames
         """
         print("Starting Oura data extraction")
