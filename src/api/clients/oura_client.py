@@ -2,8 +2,8 @@
 
 import json
 import os
-from datetime import datetime, timedelta, date
-from typing import Any, Union
+from datetime import datetime, timedelta
+from typing import Any
 
 import requests
 
@@ -177,62 +177,56 @@ class OuraClient(APIClient):
         return super()._get_access_token()
 
     def get_activity_data(
-        self, start_date: Union[date, datetime], end_date: Union[date, datetime]
+        self, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
         """Get activity data for a date range.
 
         Args:
-            start_date: Start date for data collection (date or datetime)
-            end_date: End date for data collection (date or datetime)
+            start_date: Start date for data collection
+            end_date: End date for data collection
 
         Returns:
             Dictionary containing activity data
         """
-        # Convert to datetime if needed, then add one day to end_date to ensure we get the full day
-        start_dt = start_date if isinstance(start_date, datetime) else datetime.combine(start_date, datetime.min.time())
-        end_dt = end_date if isinstance(end_date, datetime) else datetime.combine(end_date, datetime.max.time())
-        api_end_date = end_dt + timedelta(days=1)
+        # Add one day to end_date to ensure we get the full day
+        api_end_date = end_date + timedelta(days=1)
         
         return self._make_request(
             endpoint="usercollection/daily_activity",
             params={
-                "start_date": start_dt.strftime("%Y-%m-%d"),
+                "start_date": start_date.strftime("%Y-%m-%d"),
                 "end_date": api_end_date.strftime("%Y-%m-%d"),
             },
         )
 
     def get_resilience_data(
-        self, start_date: Union[date, datetime], end_date: Union[date, datetime]
+        self, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
         """Get resilience data for a date range.
 
         Args:
-            start_date: Start date for data collection (date or datetime)
-            end_date: End date for data collection (date or datetime)
+            start_date: Start date for data collection
+            end_date: End date for data collection
 
         Returns:
             Dictionary containing resilience data
         """
-        # Convert to datetime if needed
-        start_dt = start_date if isinstance(start_date, datetime) else datetime.combine(start_date, datetime.min.time())
-        end_dt = end_date if isinstance(end_date, datetime) else datetime.combine(end_date, datetime.max.time())
-        
         return self._make_request(
             endpoint="usercollection/daily_resilience",
             params={
-                "start_date": start_dt.strftime("%Y-%m-%d"),
-                "end_date": end_dt.strftime("%Y-%m-%d"),
+                "start_date": start_date.strftime("%Y-%m-%d"),
+                "end_date": end_date.strftime("%Y-%m-%d"),
             },
         )
 
     def get_workouts(
-        self, start: Union[date, datetime] = None, end: Union[date, datetime] = None, limit: int = None
+        self, start: datetime = None, end: datetime = None, limit: int = None
     ) -> dict[str, Any]:
         """Get workouts collection.
 
         Args:
-            start: Optional start time for workouts (date or datetime)
-            end: Optional end time for workouts (date or datetime)
+            start: Optional start time for workouts
+            end: Optional end time for workouts
             limit: Optional limit on number of workouts to return
 
         Returns:
@@ -240,13 +234,9 @@ class OuraClient(APIClient):
         """
         params = {}
         if start:
-            # Convert to datetime if needed
-            start_dt = start if isinstance(start, datetime) else datetime.combine(start, datetime.min.time())
-            params["start_date"] = start_dt.strftime("%Y-%m-%d")
+            params["start_date"] = start.strftime("%Y-%m-%d")
         if end:
-            # Convert to datetime if needed
-            end_dt = end if isinstance(end, datetime) else datetime.combine(end, datetime.max.time())
-            params["end_date"] = end_dt.strftime("%Y-%m-%d")
+            params["end_date"] = end.strftime("%Y-%m-%d")
         if limit:
             params["limit"] = limit
 

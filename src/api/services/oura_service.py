@@ -1,7 +1,7 @@
 """Oura API service for clean separation of concerns."""
 
 from datetime import date, datetime, time
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 from src.api.services.base_service import BaseAPIService
 from src.api.clients.oura_client import OuraClient
@@ -37,17 +37,7 @@ class OuraService(BaseAPIService):
         )
         super().__init__(self.oura_client)
 
-    def is_authenticated(self) -> bool:
-        """Check if the service is authenticated.
-        
-        Returns:
-            True if authenticated, False otherwise
-        """
-        return self.oura_client.is_authenticated()
-
-    def get_activity_data(
-        self, start_date: Optional[date] = None, end_date: Optional[date] = None
-    ) -> Dict[str, Any]:
+    def get_activity_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
         """Get activity data for a date range.
 
         Args:
@@ -57,11 +47,12 @@ class OuraService(BaseAPIService):
         Returns:
             Raw API response containing activity data
         """
-        return self.oura_client.get_activity_data(start_date, end_date)
+        # Convert date to datetime for client
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        return self.oura_client.get_activity_data(start_dt, end_dt)
 
-    def get_resilience_data(
-        self, start_date: Optional[date] = None, end_date: Optional[date] = None
-    ) -> Dict[str, Any]:
+    def get_resilience_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
         """Get resilience data for a date range.
 
         Args:
@@ -71,11 +62,12 @@ class OuraService(BaseAPIService):
         Returns:
             Raw API response containing resilience data
         """
-        return self.oura_client.get_resilience_data(start_date, end_date)
+        # Convert date to datetime for client
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        return self.oura_client.get_resilience_data(start_dt, end_dt)
 
-    def get_workouts_data(
-        self, start_date: Optional[date] = None, end_date: Optional[date] = None
-    ) -> Dict[str, Any]:
+    def get_workouts_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
         """Get workouts data for a date range.
 
         Args:
@@ -83,6 +75,9 @@ class OuraService(BaseAPIService):
             end_date: End date for data collection
 
         Returns:
-            Raw API response containing workout data
+            Raw API response containing workouts data
         """
-        return self.oura_client.get_workouts(start_date, end_date)
+        # Convert date to datetime for client
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        return self.oura_client.get_workouts(start_dt, end_dt)
