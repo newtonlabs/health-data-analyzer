@@ -12,5 +12,6 @@
 [] Autoamte cronometer with a HAR file and playwright
 [] Figure out if tokens can stay longged in longer, this used to work
 [] dry out the oura client
+[] move enums from extractors to one place
 
 

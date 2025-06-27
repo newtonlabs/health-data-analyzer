@@ -244,18 +244,21 @@ class TokenManager:
         return tokens.get("refresh_token") if tokens else None
 
     def is_token_expired(self) -> bool:
-        """Check if the current token is expired.
+        """Check if the current token is expired and requires full re-authentication.
+        
+        This method checks the sliding window (90-day) expiration for refresh tokens.
+        Access token expiration is handled separately by the refresh mechanism.
 
         Returns:
-            True if token is expired or will expire soon based on refresh buffer
+            True if refresh token is expired and full re-authentication is required
         """
-        if not self.token_expiry:
-            return True  # No expiry info, assume expired or never set
+        if not self.tokens:
+            return True  # No tokens, need authentication
             
         current_time = datetime.now()
         
         # Check if refresh token is past our sliding window validity period
-        # Only check if the last refresh was more than 90 days ago
+        # This is the primary check for whether we need full re-authentication
         if "last_refresh_time" in self.tokens:
             try:
                 last_refresh = datetime.fromisoformat(self.tokens["last_refresh_time"])
@@ -266,11 +269,54 @@ class TokenManager:
                         f"[TokenManager] Refresh token expired: {days_since_refresh} days since last refresh (limit: {self.validity_days} days)"
                     )
                     return True
+                else:
+                    self.logger.debug(
+                        f"[TokenManager] Refresh token valid: {days_since_refresh} days since last refresh (limit: {self.validity_days} days)"
+                    )
+                    return False  # Sliding window is valid, no re-auth needed
             except (ValueError, TypeError) as e:
                 self.logger.warning(f"[TokenManager] Error parsing last_refresh_time: {e}")
+                return True  # If we can't parse, assume expired
         
-        # For access tokens, use a 1-hour buffer before expiry
-        # This helps prevent unnecessary token refreshes
+        # If no last_refresh_time, check if we have created_at
+        if "created_at" in self.tokens:
+            try:
+                created_at = datetime.fromisoformat(self.tokens["created_at"])
+                days_since_creation = (current_time - created_at).days
+                
+                if days_since_creation > self.validity_days:
+                    self.logger.debug(
+                        f"[TokenManager] Token expired: {days_since_creation} days since creation (limit: {self.validity_days} days)"
+                    )
+                    return True
+                else:
+                    self.logger.debug(
+                        f"[TokenManager] Token valid: {days_since_creation} days since creation (limit: {self.validity_days} days)"
+                    )
+                    return False
+            except (ValueError, TypeError) as e:
+                self.logger.warning(f"[TokenManager] Error parsing created_at: {e}")
+                return True
+        
+        # Fallback: if no timestamp info, assume expired
+        self.logger.debug("[TokenManager] No timestamp information found, assuming expired")
+        return True
+
+    def is_access_token_expired(self) -> bool:
+        """Check if the access token is expired and needs refresh.
+        
+        This is separate from is_token_expired() which checks the sliding window.
+        This method is used to determine when to refresh the access token.
+
+        Returns:
+            True if access token is expired or will expire soon
+        """
+        if not self.token_expiry:
+            return True  # No expiry info, assume expired
+            
+        current_time = datetime.now()
+        
+        # Use a 1-hour buffer before expiry to prevent race conditions
         buffer = timedelta(hours=1)
         is_expiring_soon = current_time + buffer >= self.token_expiry
 

@@ -307,8 +307,8 @@ class APIClient:
 
         This method tries to:
         1. Use an existing token if available and not expired
-        2. Refresh the token if needed
-        3. Authenticate if necessary
+        2. Refresh the token if needed (sliding window still valid)
+        3. Authenticate if necessary (sliding window expired)
 
         Returns:
             str: A valid access token
@@ -316,35 +316,30 @@ class APIClient:
         Raises:
             APIClientError: If unable to obtain a valid token
         """
-        # Check if current token is valid and not expired
-        if self.access_token and not self.token_manager.is_token_expired():
+        # First check if we need full re-authentication (sliding window expired)
+        if self.token_manager.is_token_expired():
+            self.logger.debug("Sliding window expired, full re-authentication required")
+            if self.authenticate():
+                if self.access_token:
+                    return self.access_token
+            raise APIClientError("Failed to obtain a valid access token - sliding window expired")
+        
+        # Sliding window is valid, check if access token needs refresh
+        if self.access_token and not self.token_manager.is_access_token_expired():
             return self.access_token
 
-        # Token is expired or missing, try to refresh
+        # Access token is expired but sliding window is valid, try to refresh
         if self.refresh_token and self.refresh_access_token():
             return self.access_token
 
-        # If refresh failed, try full authentication
+        # If refresh failed but sliding window is still valid, try full authentication
+        # This handles cases where refresh token might be invalid but sliding window is OK
         if self.authenticate():
             if self.access_token:
                 return self.access_token
 
         # If we still don't have a token, raise an error
         raise APIClientError("Failed to obtain a valid access token")
-
-    def refresh_access_token(self) -> bool:
-        """Refresh the access token using the refresh token.
-
-        This is a base implementation that subclasses should override
-        with their specific token refresh logic.
-
-        Returns:
-            bool: True if refresh was successful
-
-        Raises:
-            APIClientError: If refresh fails
-        """
-        raise APIClientError("refresh_access_token not implemented")
 
     def get_extended_expiration_seconds(self, original_expires_in: int = 3600) -> tuple[int, int]:
         """
@@ -551,3 +546,17 @@ class APIClient:
             bool: True if authentication was successful, False otherwise
         """
         pass
+
+    def refresh_access_token(self) -> bool:
+        """Refresh the access token using the refresh token.
+
+        This is a base implementation that subclasses should override
+        with their specific token refresh logic.
+
+        Returns:
+            bool: True if refresh was successful
+
+        Raises:
+            APIClientError: If refresh fails
+        """
+        raise APIClientError("refresh_access_token not implemented")

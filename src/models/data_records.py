@@ -10,7 +10,6 @@ from typing import Optional, Dict, Any, List
 
 from .enums import DataSource, SportType, RecoveryLevel, SleepStage
 
-
 @dataclass
 class WorkoutRecord:
     """Structured workout/exercise record."""

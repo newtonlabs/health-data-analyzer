@@ -244,7 +244,7 @@ class CleanHealthPipeline:
                 self.logger.warning("No activity data retrieved from Oura API")
                 return file_paths
             
-            # STAGE 2: Extractor → Raw Data Models (Activity + Resilience)
+            # STAGE 2: Extractor → Raw Data Models (Activity + Resilience + Workouts)
             self.logger.info("🔄 Stage 2: Extracting data models...")
             
             # Extract activity data
@@ -255,7 +255,12 @@ class CleanHealthPipeline:
             if resilience_data:
                 extracted_resilience = self.oura_extractor.extract_resilience_data(resilience_data, start_date, end_date)
             
-            if not extracted_activities and not extracted_resilience:
+            # Extract workout data if available
+            extracted_workouts = []
+            if workout_data:
+                extracted_workouts = self.oura_extractor.extract_workout_data(workout_data, start_date, end_date)
+            
+            if not extracted_activities and not extracted_resilience and not extracted_workouts:
                 self.logger.warning("No records extracted from any data type")
                 return file_paths
             
@@ -274,7 +279,14 @@ class CleanHealthPipeline:
                 file_paths["02_extracted_resilience"] = resilience_extracted_file
                 self.logger.info(f"✅ Resilience extracted: {resilience_extracted_file}")
             
-            # STAGE 3: Transformer → Clean Data Models (Activity + Resilience)
+            if extracted_workouts:
+                workouts_extracted_file = self.persistence.save_extracted_data(
+                    "oura", "workouts", extracted_workouts, timestamp
+                )
+                file_paths["02_extracted_workouts"] = workouts_extracted_file
+                self.logger.info(f"✅ Workouts extracted: {workouts_extracted_file}")
+            
+            # STAGE 3: Transformer → Clean Data Models (Activity + Resilience + Workouts)
             self.logger.info("🧹 Stage 3: Transforming and cleaning data...")
             
             # Transform activity data
@@ -287,7 +299,12 @@ class CleanHealthPipeline:
             if extracted_resilience:
                 transformed_resilience = self.resilience_transformer.transform(extracted_resilience)
             
-            if not transformed_activities and not transformed_resilience:
+            # Transform workout data
+            transformed_workouts = []
+            if extracted_workouts:
+                transformed_workouts = self.workout_transformer.transform(extracted_workouts)
+            
+            if not transformed_activities and not transformed_resilience and not transformed_workouts:
                 self.logger.warning("No records after transformation")
                 return file_paths
             
@@ -306,6 +323,13 @@ class CleanHealthPipeline:
                 file_paths["03_transformed_resilience"] = resilience_transformed_file
                 self.logger.info(f"✅ Resilience transformed: {resilience_transformed_file}")
             
+            if transformed_workouts:
+                workouts_transformed_file = self.persistence.save_transformed_data(
+                    "oura", "workouts", transformed_workouts, timestamp
+                )
+                file_paths["03_transformed_workouts"] = workouts_transformed_file
+                self.logger.info(f"✅ Workouts transformed: {workouts_transformed_file}")
+            
             # Pipeline summary
             self.logger.info("🎉 Clean pipeline completed successfully!")
             if activity_data:
@@ -317,7 +341,9 @@ class CleanHealthPipeline:
                 self.logger.info(f"   Resilience extracted records: {len(extracted_resilience)}")
                 self.logger.info(f"   Resilience transformed records: {len(transformed_resilience)}")
             if workout_data:
-                self.logger.info(f"   Workout raw records: {len(workout_data.get('data', []))} (API stage only)")
+                self.logger.info(f"   Workout raw records: {len(workout_data.get('data', []))}")
+                self.logger.info(f"   Workout extracted records: {len(extracted_workouts)}")
+                self.logger.info(f"   Workout transformed records: {len(transformed_workouts)}")
             
             return file_paths
             
