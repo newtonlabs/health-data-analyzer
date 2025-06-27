@@ -5,18 +5,12 @@ defining the common interface and shared functionality for converting
 raw API responses into structured data records.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional, Union
 
-from src.models.raw_data import (
-    WorkoutRecord,
-    RecoveryRecord,
-    SleepRecord,
-    WeightRecord,
-    NutritionRecord,
-    ActivityRecord
-)
+# Note: Specific model imports removed since BaseExtractor now uses generic Dict[str, List]
+# Individual extractors import the specific models they need
 from src.models.enums import DataSource
 from src.utils.logging_utils import HealthLogger
 from src.utils.date_utils import DateUtils
@@ -40,87 +34,29 @@ class BaseExtractor(ABC):
         self.logger = HealthLogger(self.__class__.__name__)
         # Note: DataExporter removed - pipeline now uses PipelinePersistence
     
+    @abstractmethod
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
-        """Extract all data types from raw API response.
+        """Extract structured data from raw API response.
         
         This is the main entry point for data extraction. Implementations
-        should call specific extract methods and return a dictionary
-        containing lists of structured records.
+        should process the raw API data and return a dictionary containing
+        lists of structured records organized by data type.
         
         Args:
             raw_data: Raw API response data
             
         Returns:
-            Dictionary with keys like 'workouts', 'recovery', etc.
-            and values as lists of structured records
-        """
-        raise NotImplementedError("Subclasses must implement extract_data method")
-    
-    def extract_workouts(self, raw_data: Dict[str, Any]) -> List[WorkoutRecord]:
-        """Extract workout records from raw data.
-        
-        Args:
-            raw_data: Raw API response containing workout data
+            Dictionary with data type keys (e.g., 'workouts', 'recovery') 
+            and values as lists of structured record objects
             
-        Returns:
-            List of WorkoutRecord instances
+        Example:
+            {
+                'workouts': [WorkoutRecord(...), ...],
+                'recovery': [RecoveryRecord(...), ...],
+                'sleep': [SleepRecord(...), ...]
+            }
         """
-        return []  # Default implementation returns empty list
-    
-    def extract_recovery(self, raw_data: Dict[str, Any]) -> List[RecoveryRecord]:
-        """Extract recovery records from raw data.
-        
-        Args:
-            raw_data: Raw API response containing recovery data
-            
-        Returns:
-            List of RecoveryRecord instances
-        """
-        return []  # Default implementation returns empty list
-    
-    def extract_sleep(self, raw_data: Dict[str, Any]) -> List[SleepRecord]:
-        """Extract sleep records from raw data.
-        
-        Args:
-            raw_data: Raw API response containing sleep data
-            
-        Returns:
-            List of SleepRecord instances
-        """
-        return []  # Default implementation returns empty list
-    
-    def extract_weight(self, raw_data: Dict[str, Any]) -> List[WeightRecord]:
-        """Extract weight records from raw data.
-        
-        Args:
-            raw_data: Raw API response containing weight data
-            
-        Returns:
-            List of WeightRecord instances
-        """
-        return []  # Default implementation returns empty list
-    
-    def extract_nutrition(self, raw_data: Dict[str, Any]) -> List[NutritionRecord]:
-        """Extract nutrition records from raw data.
-        
-        Args:
-            raw_data: Raw API response containing nutrition data
-            
-        Returns:
-            List of NutritionRecord instances
-        """
-        return []  # Default implementation returns empty list
-    
-    def extract_activity(self, raw_data: Dict[str, Any]) -> List[ActivityRecord]:
-        """Extract activity records from raw data.
-        
-        Args:
-            raw_data: Raw API response containing activity data
-            
-        Returns:
-            List of ActivityRecord instances
-        """
-        return []  # Default implementation returns empty list
+        pass
     
     # Utility methods for common extraction tasks
     

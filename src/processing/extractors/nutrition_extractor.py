@@ -3,12 +3,12 @@
 from datetime import datetime, date
 from typing import Dict, Any, List
 
+from .base_extractor import BaseExtractor
 from src.models.raw_data import NutritionRecord
 from src.models.enums import DataSource
-from src.utils.logging_utils import HealthLogger
 
 
-class NutritionExtractor:
+class NutritionExtractor(BaseExtractor):
     """Extractor for nutrition data from CSV files.
     
     This extractor handles the conversion of CSV-based nutrition data into
@@ -17,14 +17,9 @@ class NutritionExtractor:
     
     def __init__(self):
         """Initialize the nutrition extractor."""
-        self.logger = HealthLogger(self.__class__.__name__)
+        super().__init__(DataSource.NUTRITION_FILE)
     
-    def extract_data(
-        self, 
-        raw_data: Dict[str, Any], 
-        start_date: datetime = None, 
-        end_date: datetime = None
-    ) -> List[NutritionRecord]:
+    def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract nutrition records from CSV data.
         
         This is pure extraction - converts raw CSV data to basic NutritionRecord models
@@ -32,15 +27,13 @@ class NutritionExtractor:
         
         Args:
             raw_data: Raw nutrition data from CSV service
-            start_date: Optional start date filter (unused - filtering done by service)
-            end_date: Optional end date filter (unused - filtering done by service)
             
         Returns:
-            List of NutritionRecord objects with raw data
+            Dictionary containing nutrition records
         """
         if not raw_data or "data" not in raw_data:
             self.logger.warning("No nutrition data found in response")
-            return []
+            return {}
         
         nutrition_records = []
         
@@ -53,12 +46,6 @@ class NutritionExtractor:
                     continue
                 
                 record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
-                
-                # Filter by date range
-                if start_date and record_date < start_date.date():
-                    continue
-                if end_date and record_date > end_date.date():
-                    continue
                 
                 # Create NutritionRecord (pure extraction - no cleaning)
                 nutrition_record = NutritionRecord(
@@ -110,4 +97,10 @@ class NutritionExtractor:
                 continue
         
         self.logger.info(f"Extracted {len(nutrition_records)} raw nutrition records")
-        return nutrition_records
+        
+        # Return dictionary format like other extractors
+        extracted_data = {}
+        if nutrition_records:
+            extracted_data['nutrition_records'] = nutrition_records
+        
+        return extracted_data

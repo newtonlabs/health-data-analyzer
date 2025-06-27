@@ -37,47 +37,38 @@ class OuraService(BaseAPIService):
         )
         super().__init__(self.oura_client)
 
-    def get_activity_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
+    def get_activity_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Get activity data for a date range.
 
         Args:
-            start_date: Start date for data collection
-            end_date: End date for data collection
+            start_date: Start datetime for data collection
+            end_date: End datetime for data collection
 
         Returns:
             Raw API response containing activity data
         """
-        # Convert date to datetime for client
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        return self.oura_client.get_activity_data(start_dt, end_dt)
+        return self.oura_client.get_activity_data(start_date, end_date)
 
-    def get_resilience_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
+    def get_resilience_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Get resilience data for a date range.
 
         Args:
-            start_date: Start date for data collection
-            end_date: End date for data collection
+            start_date: Start datetime for data collection
+            end_date: End datetime for data collection
 
         Returns:
             Raw API response containing resilience data
         """
-        # Convert date to datetime for client
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        return self.oura_client.get_resilience_data(start_dt, end_dt)
+        return self.oura_client.get_resilience_data(start_date, end_date)
 
-    def get_workouts_data(self, start_date: date, end_date: date) -> Dict[str, Any]:
+    def get_workouts_data(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Get workouts data for a date range.
 
         Args:
-            start_date: Start date for data collection
-            end_date: End date for data collection
+            start_date: Start datetime for data collection
+            end_date: End datetime for data collection
 
         Returns:
             Raw API response containing workouts data
         """
-        # Convert date to datetime for client
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        return self.oura_client.get_workouts(start_dt, end_dt)
+        return self.oura_client.get_workouts(start_date, end_date)

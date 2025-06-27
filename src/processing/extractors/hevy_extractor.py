@@ -3,12 +3,17 @@
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
+from .base_extractor import BaseExtractor
 from src.models.raw_data import WorkoutRecord, ExerciseRecord
 from src.models.enums import DataSource, SportType
 
 
-class HevyExtractor:
+class HevyExtractor(BaseExtractor):
     """Extractor for processing Hevy workout data."""
+    
+    def __init__(self):
+        """Initialize the Hevy extractor."""
+        super().__init__(DataSource.HEVY)
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Hevy API response.

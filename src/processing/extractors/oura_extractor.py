@@ -5,17 +5,18 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
+from .base_extractor import BaseExtractor
 from src.models.raw_data import ActivityRecord, ResilienceRecord, WorkoutRecord
 from src.models.enums import DataSource, SportType
 from src.utils.date_utils import DateUtils
 
 
-class OuraExtractor:
+class OuraExtractor(BaseExtractor):
     """Extractor for processing Oura Ring health data."""
     
     def __init__(self):
         """Initialize the Oura extractor."""
-        self.source = DataSource.OURA
+        super().__init__(DataSource.OURA)
     
     def extract_activity_data(self, raw_data: Dict[str, Any]) -> List[ActivityRecord]:
         """Extract activity records from Oura API response.

@@ -32,7 +32,7 @@ from typing import List, Dict
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.pipeline.clean_pipeline import CleanHealthPipeline
+from src.pipeline.orchestrator import HealthDataOrchestrator
 
 class HealthDataPipelineTest:
     """Comprehensive end-to-end test for the health data pipeline."""
@@ -559,37 +559,51 @@ def main():
             print(f"   {status} {service.title()}")
         print()
     
-    # Data extraction phase
+    # Pipeline execution phase
     if not args.skip_extraction:
-        print("📊 DATA EXTRACTION PHASE")
+        print("🚀 PIPELINE EXECUTION PHASE")
         print("=" * 30)
         
-        if args.full_pipeline:
-            # Test complete 4-stage pipeline
-            extraction_results = test_4stage_pipeline(args.days)
-            results['extraction_success'] = len([s for s in extraction_results['services_processed'].values() if 'error' not in s])
-            results['extraction_total'] = len(extraction_results['services_processed'])
-            results['aggregation_success'] = 1 if extraction_results['stages_completed'] == 4 else 0
+        # Always test the new 4-stage orchestrator pipeline
+        pipeline_results = test_4stage_pipeline(args.days)
+        
+        if 'error' in pipeline_results:
+            print(f"❌ Pipeline failed: {pipeline_results['error']}")
+            results['extraction_success'] = 0
+            results['extraction_total'] = 5  # Expected 5 services
+            results['aggregation_success'] = 0
             results['aggregation_total'] = 1
         else:
-            # Test traditional 3-stage pipeline
-            test_instance = HealthDataPipelineTest(days=args.days, force_auth=args.force_auth)
-            auth_results = test_instance.authenticate_all_services()
-            extraction_results = test_instance.extract_all_data(auth_results)
-            results['extraction_success'] = sum(1 for success in extraction_results.values() if success)
-            results['extraction_total'] = len(extraction_results)
+            # Count successful services
+            successful_services = 0
+            total_services = len(pipeline_results['services_processed'])
+            
+            for service, data in pipeline_results['services_processed'].items():
+                stages_completed = len([k for k, v in data.items() if v])
+                if stages_completed == 3:  # All 3 stages (raw, extracted, transformed)
+                    successful_services += 1
+            
+            results['extraction_success'] = successful_services
+            results['extraction_total'] = total_services
+            results['aggregation_success'] = 1 if pipeline_results['success'] else 0
+            results['aggregation_total'] = 1
+            
+            # Show detailed results
+            print(f"\n📊 Pipeline Results:")
+            print(f"   ✅ Success: {pipeline_results['success']}")
+            print(f"   ⏱️ Duration: {pipeline_results['duration']:.2f} seconds")
+            print(f"   📋 Stages: {pipeline_results['stages_completed']}/{pipeline_results['total_stages']}")
+            print(f"   🔧 Services: {successful_services}/{total_services} fully processed")
+            
+            if pipeline_results['file_paths']:
+                print(f"   📁 Files Generated: {len(pipeline_results['file_paths'])}")
         
-        print(f"\n📊 Extraction Summary: {results['extraction_success']}/{results['extraction_total']} services")
-        if args.full_pipeline:
-            for service, service_results in extraction_results['services_processed'].items():
-                if 'error' in service_results:
-                    print(f"   ❌ {service.title()}")
-                else:
-                    print(f"   ✅ {service.title()}")
-        else:
-            for service, success in extraction_results.items():
-                status = "✅" if success else "❌"
-                print(f"   {status} {service.title()}")
+        print(f"\n📊 Service Processing Summary:")
+        if 'services_processed' in pipeline_results:
+            for service, service_data in pipeline_results['services_processed'].items():
+                stages_completed = len([k for k, v in service_data.items() if v])
+                status = "✅" if stages_completed == 3 else "⚠️" if stages_completed > 0 else "❌"
+                print(f"   {status} {service.upper()}: {stages_completed}/3 stages completed")
         print()
     
     # Test OneDrive operations
@@ -617,8 +631,8 @@ def main():
         print("❌ No CSV files found")
     print()
     
-    # Aggregated file validation (if 4-stage pipeline was run)
-    if args.full_pipeline and not args.skip_aggregation:
+    # Aggregated file validation (always run for new pipeline)
+    if not args.skip_aggregation:
         print("📊 AGGREGATED FILE VALIDATION")
         print("=" * 35)
         agg_files = validate_aggregated_files()
@@ -639,12 +653,11 @@ def main():
     if not args.skip_auth:
         print(f"🔐 Authentication: {results['auth_success']}/{results['auth_total']} services")
     if not args.skip_extraction:
-        print(f"📊 Data Extraction: {results['extraction_success']}/{results['extraction_total']} services")
-    if args.full_pipeline and not args.skip_aggregation:
-        print(f"🔄 Aggregation: {results['aggregation_success']}/{results['aggregation_total']} pipeline")
+        print(f"🚀 Pipeline Execution: {results['extraction_success']}/{results['extraction_total']} services")
+    if not args.skip_aggregation:
+        print(f"📊 Aggregation: {results['aggregation_success']}/{results['aggregation_total']} pipeline")
     print(f"📁 CSV Generation: {'✅ Success' if results['csv_files'] > 0 else '❌ Failed'}")
-    if args.full_pipeline:
-        print(f"📊 Aggregated Files: {'✅ Success' if results['aggregated_files'] > 0 else '❌ Failed'}")
+    print(f"📊 Aggregated Files: {'✅ Success' if results['aggregated_files'] > 0 else '❌ Failed'}")
     print()
     
     # Overall success determination
@@ -667,11 +680,25 @@ def main():
 
 def test_4stage_pipeline(days: int) -> Dict:
     """Test the complete 4-stage pipeline including aggregations."""
-    pipeline = CleanHealthPipeline()
+    orchestrator = HealthDataOrchestrator()
     
     try:
-        results = pipeline.run_full_pipeline(days=days)
-        return results
+        print(f"🚀 Testing {days}-day pipeline with all 5 services...")
+        result = orchestrator.run_pipeline(
+            days=days,
+            services=['whoop', 'oura', 'withings', 'hevy', 'nutrition'],
+            enable_csv=True,
+            debug_mode=False
+        )
+        
+        return {
+            'success': result.success,
+            'stages_completed': result.stages_completed,
+            'total_stages': result.total_stages,
+            'services_processed': result.services_processed,
+            'file_paths': result.file_paths,
+            'duration': result.total_duration
+        }
     except Exception as e:
         print(f"❌ 4-stage pipeline failed: {e}")
         return {'error': str(e), 'stages_completed': 0, 'services_processed': {}}

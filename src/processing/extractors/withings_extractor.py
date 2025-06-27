@@ -5,16 +5,17 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
+from .base_extractor import BaseExtractor
 from src.models.raw_data import WeightRecord
 from src.models.enums import DataSource
 
 
-class WithingsExtractor:
+class WithingsExtractor(BaseExtractor):
     """Extractor for processing Withings health data."""
     
     def __init__(self):
         """Initialize the Withings extractor."""
-        self.source = DataSource.WITHINGS
+        super().__init__(DataSource.WITHINGS)
     
     def extract_weight_data(
         self, 
