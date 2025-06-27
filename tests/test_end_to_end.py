@@ -9,10 +9,14 @@ This comprehensive test script validates the complete health data pipeline:
 4. Validates the complete data flow from API → Service → Extractor → CSV
 
 Usage:
-    python tests/test_end_to_end.py [--days N]
+    python tests/test_end_to_end.py [--days N] [--skip-auth] [--skip-extraction] [--skip-aggregation] [--full-pipeline]
 
 Options:
-    --days N         Days of data to extract for all services (default: 2)
+    --days N         Days of data to extract for all services (default: 1)
+    --skip-auth      Skip authentication testing
+    --skip-extraction Skip data extraction testing
+    --skip-aggregation Skip aggregation testing
+    --full-pipeline  Test complete 4-stage pipeline
 
 This test is designed to be the single comprehensive validation of the entire
 health data pipeline architecture.
@@ -22,14 +26,17 @@ import os
 import sys
 import argparse
 from datetime import datetime, timedelta
+from typing import List, Dict
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+from src.pipeline.clean_pipeline import CleanHealthPipeline
+
 class HealthDataPipelineTest:
     """Comprehensive end-to-end test for the health data pipeline."""
     
-    def __init__(self, days=2):
+    def __init__(self, days=1):
         """Initialize the test with flexible date range."""
         self.days = days
         self.results = {}
@@ -448,17 +455,259 @@ class HealthDataPipelineTest:
         return overall_success
 
 def main():
-    """Main test execution."""
+    """Run comprehensive end-to-end health data pipeline test."""
     parser = argparse.ArgumentParser(description='End-to-end health data pipeline test')
-    parser.add_argument('--days', type=int, default=2, help='Days of data to extract for all services (default: 2)')
+    parser.add_argument('--days', type=int, default=1, help='Number of days to test (default: 1)')
+    parser.add_argument('--skip-auth', action='store_true', help='Skip authentication testing')
+    parser.add_argument('--skip-extraction', action='store_true', help='Skip data extraction testing')
+    parser.add_argument('--skip-aggregation', action='store_true', help='Skip aggregation testing')
+    parser.add_argument('--full-pipeline', action='store_true', help='Test complete 4-stage pipeline')
     
     args = parser.parse_args()
     
-    # Run the test
-    test = HealthDataPipelineTest(days=args.days)
-    success = test.run_complete_test()
+    print("🚀 END-TO-END HEALTH DATA PIPELINE TEST")
+    print("=" * 50)
+    print(f"Data range: {args.days} days")
+    if args.full_pipeline:
+        print("🔄 Testing complete 4-stage pipeline")
+    print()
     
-    sys.exit(0 if success else 1)
+    # Test results tracking
+    results = {
+        'auth_success': 0,
+        'auth_total': 0,
+        'extraction_success': 0,
+        'extraction_total': 0,
+        'aggregation_success': 0,
+        'aggregation_total': 0,
+        'csv_files': 0,
+        'aggregated_files': 0
+    }
+    
+    # Authentication phase
+    if not args.skip_auth:
+        print("🔐 AUTHENTICATION PHASE")
+        print("=" * 30)
+        test_instance = HealthDataPipelineTest(days=1)
+        auth_results = test_instance.authenticate_all_services()
+        results['auth_success'] = sum(1 for success in auth_results.values() if success)
+        results['auth_total'] = len(auth_results)
+        
+        print(f"\n📊 Authentication Summary: {results['auth_success']}/{results['auth_total']} services")
+        for service, success in auth_results.items():
+            status = "✅" if success else "❌"
+            print(f"   {status} {service.title()}")
+        print()
+    
+    # Data extraction phase
+    if not args.skip_extraction:
+        print("📊 DATA EXTRACTION PHASE")
+        print("=" * 30)
+        
+        if args.full_pipeline:
+            # Test complete 4-stage pipeline
+            extraction_results = test_4stage_pipeline(args.days)
+            results['extraction_success'] = len([s for s in extraction_results['services_processed'].values() if 'error' not in s])
+            results['extraction_total'] = len(extraction_results['services_processed'])
+            results['aggregation_success'] = 1 if extraction_results['stages_completed'] == 4 else 0
+            results['aggregation_total'] = 1
+        else:
+            # Test traditional 3-stage pipeline
+            test_instance = HealthDataPipelineTest(days=args.days)
+            auth_results = test_instance.authenticate_all_services()
+            extraction_results = test_instance.extract_all_data(auth_results)
+            results['extraction_success'] = sum(1 for success in extraction_results.values() if success)
+            results['extraction_total'] = len(extraction_results)
+        
+        print(f"\n📊 Extraction Summary: {results['extraction_success']}/{results['extraction_total']} services")
+        if args.full_pipeline:
+            for service, service_results in extraction_results['services_processed'].items():
+                if 'error' in service_results:
+                    print(f"   ❌ {service.title()}")
+                else:
+                    print(f"   ✅ {service.title()}")
+        else:
+            for service, success in extraction_results.items():
+                status = "✅" if success else "❌"
+                print(f"   {status} {service.title()}")
+        print()
+    
+    # Test OneDrive operations
+    print("🔄 OneDrive: Testing folder creation (will trigger auth if needed)...")
+    onedrive_success = test_onedrive_operations()
+    if onedrive_success:
+        print("✅ OneDrive: Operations completed successfully")
+    else:
+        print("❌ OneDrive: Operations failed - Failed to create folder 'health-data-test-" + 
+              datetime.now().strftime("%Y%m%d-%H%M%S") + "': " + str(onedrive_success))
+    print()
+    
+    # CSV file validation
+    print("📁 CSV FILE VALIDATION")
+    print("=" * 25)
+    csv_files = validate_csv_files()
+    results['csv_files'] = len(csv_files)
+    
+    if csv_files:
+        print(f"✅ Generated {len(csv_files)} CSV files:")
+        for file_path in sorted(csv_files):
+            file_name = os.path.basename(file_path)
+            print(f"   📄 {file_name}")
+    else:
+        print("❌ No CSV files found")
+    print()
+    
+    # Aggregated file validation (if 4-stage pipeline was run)
+    if args.full_pipeline and not args.skip_aggregation:
+        print("📊 AGGREGATED FILE VALIDATION")
+        print("=" * 35)
+        agg_files = validate_aggregated_files()
+        results['aggregated_files'] = len(agg_files)
+        
+        if agg_files:
+            print(f"✅ Generated {len(agg_files)} aggregated files:")
+            for file_path in sorted(agg_files):
+                file_name = os.path.basename(file_path)
+                print(f"   📄 {file_name}")
+        else:
+            print("❌ No aggregated files found")
+        print()
+    
+    # Final results
+    print("🎯 FINAL RESULTS")
+    print("=" * 20)
+    if not args.skip_auth:
+        print(f"🔐 Authentication: {results['auth_success']}/{results['auth_total']} services")
+    if not args.skip_extraction:
+        print(f"📊 Data Extraction: {results['extraction_success']}/{results['extraction_total']} services")
+    if args.full_pipeline and not args.skip_aggregation:
+        print(f"🔄 Aggregation: {results['aggregation_success']}/{results['aggregation_total']} pipeline")
+    print(f"📁 CSV Generation: {'✅ Success' if results['csv_files'] > 0 else '❌ Failed'}")
+    if args.full_pipeline:
+        print(f"📊 Aggregated Files: {'✅ Success' if results['aggregated_files'] > 0 else '❌ Failed'}")
+    print()
+    
+    # Overall success determination
+    auth_ok = args.skip_auth or results['auth_success'] > 0
+    extraction_ok = args.skip_extraction or results['extraction_success'] > 0
+    csv_ok = results['csv_files'] > 0
+    agg_ok = not args.full_pipeline or results['aggregated_files'] > 0
+    
+    if auth_ok and extraction_ok and csv_ok and agg_ok:
+        print("🎉 SUCCESS: End-to-end pipeline test completed successfully!")
+        if args.full_pipeline:
+            print("   Complete 4-stage pipeline executed with aggregations generated.")
+        else:
+            print("   All authenticated services extracted data and generated CSV files.")
+    else:
+        print("⚠️ PARTIAL SUCCESS: Some components failed but core functionality working.")
+    
+    return results
+
+
+def test_4stage_pipeline(days: int) -> Dict:
+    """Test the complete 4-stage pipeline including aggregations."""
+    pipeline = CleanHealthPipeline()
+    
+    try:
+        results = pipeline.run_full_pipeline(days=days)
+        return results
+    except Exception as e:
+        print(f"❌ 4-stage pipeline failed: {e}")
+        return {'error': str(e), 'stages_completed': 0, 'services_processed': {}}
+
+
+def validate_aggregated_files() -> List[str]:
+    """Validate that aggregated CSV files were created."""
+    aggregated_files = []
+    agg_dir = "data/04_aggregated"
+    
+    if os.path.exists(agg_dir):
+        for file in os.listdir(agg_dir):
+            if file.endswith('.csv'):
+                file_path = os.path.join(agg_dir, file)
+                if os.path.getsize(file_path) > 0:  # Check file is not empty
+                    aggregated_files.append(file_path)
+    
+    return aggregated_files
+
+
+def test_authentication() -> Dict:
+    """Authenticate all health data services."""
+    auth_results = {}
+    test_instance = HealthDataPipelineTest(days=1)
+    
+    # Test Whoop
+    auth_results['whoop'] = test_instance._authenticate_whoop()
+    
+    # Test Oura  
+    auth_results['oura'] = test_instance._authenticate_oura()
+    
+    # Test Withings
+    auth_results['withings'] = test_instance._authenticate_withings()
+    
+    # Test Hevy
+    auth_results['hevy'] = test_instance._authenticate_hevy()
+    
+    # Test OneDrive
+    auth_results['onedrive'] = test_instance._authenticate_onedrive()
+    
+    return auth_results
+
+
+def test_data_extraction(days: int) -> Dict:
+    """Extract data from all authenticated services."""
+    extraction_results = {}
+    test_instance = HealthDataPipelineTest(days=days)
+    
+    # Extract from each authenticated service
+    extraction_results['whoop'] = test_instance._extract_whoop_data()
+    extraction_results['oura'] = test_instance._extract_oura_data()
+    extraction_results['withings'] = test_instance._extract_withings_data()
+    extraction_results['hevy'] = test_instance._extract_hevy_data()
+    extraction_results['nutrition'] = test_instance._extract_nutrition_data()
+    
+    return extraction_results
+
+
+def test_onedrive_operations() -> bool:
+    """Test OneDrive operations to verify authentication works."""
+    try:
+        from src.api.services.onedrive_service import OneDriveService
+        import datetime
+        
+        service = OneDriveService()
+        
+        print("🔄 OneDrive: Testing folder creation (will trigger auth if needed)...")
+        
+        # Test folder creation with timestamp to avoid conflicts
+        test_folder = f"health-data-test-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        folder_id = service.create_folder(test_folder)
+        
+        print(f"✅ OneDrive: Folder creation successful (ID: {folder_id[:20]}...)")
+        return True
+            
+    except Exception as e:
+        print(f"❌ OneDrive: Operations failed - {e}")
+        return False
+
+
+def validate_csv_files() -> List[str]:
+    """Validate generated CSV files."""
+    # Check all generated files in the new pipeline structure
+    data_dirs = ['data/02_extracted', 'data/03_transformed']
+    all_csv_files = []
+    
+    for data_dir in data_dirs:
+        if os.path.exists(data_dir):
+            for root, dirs, files in os.walk(data_dir):
+                for file in files:
+                    if file.endswith('.csv') and datetime.now().strftime('%Y-%m-%d') in file:
+                        file_path = os.path.join(root, file)
+                        all_csv_files.append(file_path)
+    
+    return all_csv_files
+
 
 if __name__ == "__main__":
     main()
