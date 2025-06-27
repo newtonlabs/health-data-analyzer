@@ -3,7 +3,7 @@
 from datetime import datetime, date
 from typing import Dict, Any, List
 
-from src.models.data_records import NutritionRecord
+from src.models.raw_data import NutritionRecord
 from src.models.enums import DataSource
 from src.utils.logging_utils import HealthLogger
 

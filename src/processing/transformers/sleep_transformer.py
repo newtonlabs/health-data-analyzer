@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import date, datetime
 
 from src.processing.transformers.base_transformer import RecordListTransformer
-from src.models.data_records import SleepRecord
+from src.models.raw_data import SleepRecord
 from src.models.enums import DataSource
 
 

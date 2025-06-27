@@ -1,79 +1,48 @@
-"""Data models for health data records and collections.
+"""Health data models for structured data representation.
 
-This module contains type-safe data models used throughout the pipeline
-for structured data representation.
+This module provides both raw data models (direct API representations)
+and aggregation models (purpose-built for analysis and reporting).
 """
 
-# Import all data record types
-from .data_records import (
-    WorkoutRecord,
+# Raw data models (from APIs)
+from .raw_data import (
+    ActivityRecord,
+    ExerciseRecord,
+    NutritionRecord,
     RecoveryRecord,
     ResilienceRecord,
     SleepRecord,
     WeightRecord,
-    NutritionRecord,
-    ActivityRecord
+    WorkoutRecord,
 )
 
-# Import collection types
-from .collections import (
-    RawDataCollection,
-    ProcessedDataCollection,
-    AggregatedMetrics,
-    PipelineResult
+# Aggregation models (for analysis)
+from .aggregations import (
+    MacrosAndActivityRecord,
+    RecoveryMetricsRecord,
+    TrainingMetricsRecord,
 )
 
-# Import enums
-from .enums import (
-    DataSource,
-    SportType,
-    WorkoutIntensity,
-    RecoveryLevel,
-    SleepStage
-)
-
-# Import user-configurable constants
-from src.config import (
-    UserConfig,
-    default_config,
-    STRENGTH_ACTIVITIES,
-    CALORIC_TARGETS,
-    RECOVERY_THRESHOLDS,
-    WHOOP_SPORT_MAPPINGS,
-    WITHINGS_MEASUREMENT_TYPES
-)
+# Enums
+from .enums import DataSource, SportType, RecoveryLevel, SleepStage
 
 __all__ = [
-    # Data records
-    'WorkoutRecord',
-    'RecoveryRecord', 
-    'ResilienceRecord',
-    'SleepRecord',
-    'WeightRecord',
-    'NutritionRecord',
-    'ActivityRecord',
-    
-    # Collections
-    'RawDataCollection',
-    'ProcessedDataCollection',
-    'AggregatedMetrics',
-    'PipelineResult',
-    
+    # Raw data models
+    "ActivityRecord",
+    "ExerciseRecord",
+    "NutritionRecord", 
+    "RecoveryRecord",
+    "ResilienceRecord",
+    "SleepRecord",
+    "WeightRecord",
+    "WorkoutRecord",
+    # Aggregation models
+    "MacrosAndActivityRecord",
+    "RecoveryMetricsRecord",
+    "TrainingMetricsRecord",
     # Enums
-    'DataSource',
-    'SportType',
-    'WorkoutIntensity',
-    'RecoveryLevel',
-    'SleepStage',
-    
-    # Configuration
-    'UserConfig',
-    'default_config',
-    
-    # Constants
-    'STRENGTH_ACTIVITIES',
-    'CALORIC_TARGETS',
-    'RECOVERY_THRESHOLDS',
-    'WHOOP_SPORT_MAPPINGS',
-    'WITHINGS_MEASUREMENT_TYPES'
+    "DataSource",
+    "SportType", 
+    "RecoveryLevel",
+    "SleepStage",
 ]

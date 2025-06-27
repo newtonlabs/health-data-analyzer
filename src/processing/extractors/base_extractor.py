@@ -9,7 +9,7 @@ from abc import ABC
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional, Union
 
-from src.models.data_records import (
+from src.models.raw_data import (
     WorkoutRecord,
     RecoveryRecord,
     SleepRecord,

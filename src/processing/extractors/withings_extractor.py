@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
-from src.models.data_records import WeightRecord
+from src.models.raw_data import WeightRecord
 from src.models.enums import DataSource
 
 

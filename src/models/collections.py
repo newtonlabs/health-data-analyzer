@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date
 
-from .data_records import (
+from .raw_data import (
     WorkoutRecord,
     RecoveryRecord,
     SleepRecord,

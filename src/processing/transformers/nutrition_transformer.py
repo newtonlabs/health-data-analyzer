@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import date
 
 from src.processing.transformers.base_transformer import RecordListTransformer
-from src.models.data_records import NutritionRecord
+from src.models.raw_data import NutritionRecord
 from src.models.enums import DataSource
 
 

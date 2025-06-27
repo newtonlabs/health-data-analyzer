@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
-from src.models.data_records import ActivityRecord, ResilienceRecord, WorkoutRecord
+from src.models.raw_data import ActivityRecord, ResilienceRecord, WorkoutRecord
 from src.models.enums import DataSource, SportType
 from src.utils.date_utils import DateUtils
 

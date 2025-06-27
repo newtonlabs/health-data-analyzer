@@ -13,5 +13,6 @@
 [] Figure out if tokens can stay longged in longer, this used to work
 [] dry out the oura client
 [] move enums from extractors to one place
+[] Have transformers update the dates based on timezone
 
 

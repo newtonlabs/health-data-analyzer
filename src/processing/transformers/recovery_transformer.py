@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import date
 
 from src.processing.transformers.base_transformer import RecordListTransformer
-from src.models.data_records import RecoveryRecord
+from src.models.raw_data import RecoveryRecord
 from src.models.enums import DataSource
 
 

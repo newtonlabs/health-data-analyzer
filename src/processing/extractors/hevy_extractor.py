@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
-from src.models.data_records import WorkoutRecord, ExerciseRecord
+from src.models.raw_data import WorkoutRecord, ExerciseRecord
 from src.models.enums import DataSource, SportType
 
 
