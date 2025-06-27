@@ -85,7 +85,4 @@ class OuraService(BaseAPIService):
         Returns:
             Raw API response containing workout data
         """
-        # Convert dates to datetime for the client method
-        start_dt = datetime.combine(start_date, datetime.min.time()) if start_date else None
-        end_dt = datetime.combine(end_date, datetime.max.time()) if end_date else None
-        return self.oura_client.get_workouts(start_dt, end_dt)
+        return self.oura_client.get_workouts(start_date, end_date)

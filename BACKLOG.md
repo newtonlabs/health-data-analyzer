@@ -11,5 +11,6 @@
 [] Move the markdown writer to use fileutils
 [] Autoamte cronometer with a HAR file and playwright
 [] Figure out if tokens can stay longged in longer, this used to work
+[] dry out the oura client
 
 

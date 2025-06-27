@@ -33,22 +33,6 @@ class OneDriveService(BaseAPIService):
         )
         super().__init__(self.onedrive_client)
 
-    def is_authenticated(self) -> bool:
-        """Check if the service is authenticated.
-        
-        Returns:
-            True if authenticated, False otherwise
-        """
-        return self.onedrive_client.is_authenticated()
-
-    def authenticate(self) -> bool:
-        """Authenticate with OneDrive.
-        
-        Returns:
-            True if authentication successful, False otherwise
-        """
-        return self.onedrive_client.authenticate()
-
     def create_folder(self, folder_path: str) -> str:
         """Create a folder in OneDrive.
 

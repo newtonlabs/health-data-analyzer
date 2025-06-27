@@ -15,45 +15,6 @@ from src.utils.date_utils import DateFormat, DateUtils
 from src.utils.progress_indicators import ProgressIndicator
 
 
-class WithingsCallbackHandler(OAuthCallbackHandler):
-    """Handle OAuth callback from Withings."""
-
-    def do_GET(self):
-        """Handle OAuth callback from Withings."""
-        try:
-            parsed_url = urlparse(self.path)
-            query_components = parse_qs(parsed_url.query)
-
-            if "code" in query_components and "state" in query_components:
-                code = query_components["code"][0]
-                state = query_components["state"][0]
-
-                # Pass the code and state to the WithingsClient instance
-                self.server.withings_client.get_token(code, state)
-                self.server.authenticated = True
-                self.send_response(200)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(
-                    b"<html><body><h1>Authentication successful! You can close this window.</h1></body></html>"
-                )
-            else:
-                self.send_response(400)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-                self.wfile.write(
-                    b"<html><body><h1>Authentication failed. No code received.</h1></body></html>"
-                )
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write(f"<html><body><h1>Error: {e}</h1></body></html>".encode())
-        finally:
-            # Signal the server to stop after handling the request
-            self.server.should_stop = True
-
-
 class WithingsClient(APIClient):
     """Client for interacting with the Withings API.
 
@@ -116,7 +77,7 @@ class WithingsClient(APIClient):
             APIClientError: If the API call fails
         """
         # Ensure we're authenticated
-        if not self.is_authenticated():
+        if not self.is_authenticated:
             self.authenticate()
 
         # Use dynamic date range from pipeline
@@ -176,8 +137,7 @@ class WithingsClient(APIClient):
 
         # Start a local server to receive the callback
         server_address = ("localhost", 8080)
-        httpd = HTTPServer(server_address, WithingsCallbackHandler)
-        httpd.withings_client = self
+        httpd = HTTPServer(server_address, OAuthCallbackHandler)
         httpd.authenticated = False
         httpd.should_stop = False
 
@@ -186,6 +146,11 @@ class WithingsClient(APIClient):
             while not httpd.should_stop:
                 httpd.handle_request()
 
+            # Handle token exchange after callback if we got the code
+            if hasattr(httpd, 'auth_code') and hasattr(httpd, 'auth_state'):
+                self.get_token(httpd.auth_code, httpd.auth_state)
+                httpd.authenticated = True
+            
             return httpd.authenticated
         finally:
             httpd.server_close()
