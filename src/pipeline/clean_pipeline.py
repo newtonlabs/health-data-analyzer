@@ -4,10 +4,12 @@ This module implements the clean pipeline architecture:
 1. API Service    → Raw JSON response     → data/01_raw/
 2. Extractor      → Raw Data Models       → data/02_extracted/  
 3. Transformer    → Clean Data Models     → data/03_transformed/
+4. Aggregator     → Daily Aggregations    → data/04_aggregated/
 """
 
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
+from dateutil import parser
 
 from src.api.services.whoop_service import WhoopService
 from src.api.services.oura_service import OuraService
@@ -29,15 +31,17 @@ from src.processing.transformers.resilience_transformer import ResilienceTransfo
 from src.processing.transformers.nutrition_transformer import NutritionTransformer
 from src.utils.pipeline_persistence import PipelinePersistence
 from src.utils.logging_utils import HealthLogger
+from src.pipeline.aggregation_pipeline import AggregationPipeline
 
 
 class CleanHealthPipeline:
-    """Clean 3-stage health data pipeline."""
+    """Clean 4-stage health data pipeline."""
     
     def __init__(self):
         """Initialize the clean pipeline."""
         self.logger = HealthLogger(self.__class__.__name__)
         self.persistence = PipelinePersistence()
+        self.aggregation_pipeline = AggregationPipeline()
         
         # Initialize services
         self.whoop_service = WhoopService()
@@ -623,3 +627,90 @@ class CleanHealthPipeline:
                 summary[f"{stage}_size_bytes"] = size_bytes
         
         return summary
+
+    def run_full_pipeline(self, days: int = 7) -> dict:
+        """Run the complete 4-stage health data pipeline.
+        
+        Stages:
+        1. Raw data fetch (APIs)
+        2. Data extraction (API → structured records)
+        3. Data transformation (cleaning, date calculation)
+        4. Data aggregation (daily summaries)
+        
+        Args:
+            days: Number of days to process
+            
+        Returns:
+            Dictionary with pipeline results
+        """
+        self.logger.info(f"🚀 Starting complete 4-stage pipeline for {days} days")
+        
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days-1)
+        
+        results = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'days_processed': days,
+            'stages_completed': 0,
+            'services_processed': {},
+            'aggregations_created': 0
+        }
+        
+        try:
+            # Stage 1-3: Existing pipeline
+            self.logger.info("📊 Running stages 1-3: Raw → Extract → Transform")
+            
+            # Process each service
+            services = ['whoop', 'oura', 'withings', 'hevy', 'nutrition']
+            for service in services:
+                try:
+                    if service == 'whoop':
+                        service_results = self.process_whoop_data(days)
+                    elif service == 'oura':
+                        service_results = self.process_oura_data(days)
+                    elif service == 'withings':
+                        service_results = self.process_withings_data(days)
+                    elif service == 'hevy':
+                        service_results = self.process_hevy_data(days)
+                    elif service == 'nutrition':
+                        service_results = self.process_nutrition_data(days)
+                    
+                    results['services_processed'][service] = service_results
+                    self.logger.info(f"✅ {service.title()}: Stages 1-3 completed")
+                    
+                except Exception as e:
+                    self.logger.error(f"❌ {service.title()}: Pipeline failed - {e}")
+                    results['services_processed'][service] = {'error': str(e)}
+            
+            results['stages_completed'] = 3
+            
+            # Stage 4: Aggregations
+            self.logger.info("🔄 Running stage 4: Daily aggregations")
+            
+            current_date = start_date
+            total_aggregations = 0
+            
+            while current_date <= end_date:
+                try:
+                    daily_results = self.aggregation_pipeline.run_daily_aggregations(current_date)
+                    total_aggregations += len(daily_results)
+                    self.logger.info(f"✅ {current_date}: {len(daily_results)} aggregations created")
+                except Exception as e:
+                    self.logger.error(f"❌ {current_date}: Aggregation failed - {e}")
+                
+                current_date += timedelta(days=1)
+            
+            results['aggregations_created'] = total_aggregations
+            results['stages_completed'] = 4
+            
+            self.logger.info(f"🎉 Complete 4-stage pipeline finished!")
+            self.logger.info(f"📊 Services processed: {len(results['services_processed'])}")
+            self.logger.info(f"📊 Aggregations created: {total_aggregations}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Pipeline failed: {e}")
+            results['error'] = str(e)
+        
+        return results
