@@ -40,16 +40,14 @@ class ExerciseTransformer(RecordListTransformer[ExerciseRecord]):
         # Create a cleaned copy of the record
         cleaned_record = ExerciseRecord(
             timestamp=record.timestamp,
+            date=record.timestamp.date(),  # Calculate date from timestamp
             source=record.source,
             workout_id=record.workout_id,
             exercise_name=self._normalize_exercise_name(record.exercise_name),
             set_number=record.set_number,
             set_type=record.set_type,
             weight_kg=self._normalize_weight(record.weight_kg),
-            reps=self._normalize_reps(record.reps),
-            distance_meters=self._normalize_distance(record.distance_meters),
-            duration_seconds=self._normalize_duration(record.duration_seconds),
-            rpe=self._normalize_rpe(record.rpe)
+            reps=self._normalize_reps(record.reps)
         )
         
         self.logger.debug(f"Transformed exercise record: {cleaned_record.exercise_name}")
@@ -76,11 +74,8 @@ class ExerciseTransformer(RecordListTransformer[ExerciseRecord]):
         if not record.exercise_name or not record.workout_id:
             return False
         
-        # Must have either weight/reps or distance/duration
-        has_strength_data = record.weight_kg is not None and record.reps is not None
-        has_cardio_data = record.distance_meters is not None or record.duration_seconds is not None
-        
-        if not (has_strength_data or has_cardio_data):
+        # Must have reps, and optionally weight (for bodyweight vs weighted exercises)
+        if record.reps is None:
             return False
         
         return True
@@ -141,52 +136,3 @@ class ExerciseTransformer(RecordListTransformer[ExerciseRecord]):
         
         # Ensure it's an integer
         return int(reps)
-    
-    def _normalize_distance(self, distance: Optional[float]) -> Optional[float]:
-        """Normalize distance in meters.
-        
-        Args:
-            distance: Raw distance in meters
-            
-        Returns:
-            Normalized distance, rounded to 2 decimal places
-        """
-        if distance is None:
-            return None
-        
-        # Round to 2 decimal places
-        return round(distance, 2)
-    
-    def _normalize_duration(self, duration: Optional[int]) -> Optional[int]:
-        """Normalize duration in seconds.
-        
-        Args:
-            duration: Raw duration in seconds
-            
-        Returns:
-            Normalized duration as integer
-        """
-        if duration is None:
-            return None
-        
-        # Ensure it's an integer
-        return int(duration)
-    
-    def _normalize_rpe(self, rpe: Optional[int]) -> Optional[int]:
-        """Normalize RPE (Rate of Perceived Exertion).
-        
-        Args:
-            rpe: Raw RPE value (1-10 scale)
-            
-        Returns:
-            Normalized RPE as integer
-        """
-        if rpe is None:
-            return None
-        
-        # Ensure it's an integer and within valid range
-        normalized_rpe = int(rpe)
-        if normalized_rpe < 1 or normalized_rpe > 10:
-            self.logger.warning(f"RPE value {normalized_rpe} outside valid range (1-10)")
-        
-        return normalized_rpe

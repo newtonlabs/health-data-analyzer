@@ -84,6 +84,7 @@ class WithingsExtractor:
                     if weight_kg is not None:
                         record = WeightRecord(
                             timestamp=timestamp,
+                            date=None,  # Will be calculated in transformer
                             source=DataSource.WITHINGS,
                             weight_kg=weight_kg,
                             body_fat_percentage=body_fat_percentage,

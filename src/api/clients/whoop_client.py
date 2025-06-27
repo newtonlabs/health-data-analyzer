@@ -284,4 +284,3 @@ class WhoopClient(APIClient):
             self.logger.debug(f"Whoop token refresh error details: {traceback.format_exc()}")
             return False
 
-    # Using base class is_authenticated method instead of custom implementation

@@ -8,13 +8,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, date
 from typing import Optional, Dict, Any, List
 
-from .enums import DataSource, SportType, WorkoutIntensity, RecoveryLevel, SleepStage
+from .enums import DataSource, SportType, RecoveryLevel, SleepStage
 
 
 @dataclass
 class WorkoutRecord:
     """Structured workout/exercise record."""
     timestamp: datetime
+    date: date  # Date extracted from timestamp for easier filtering
     source: DataSource
     sport: SportType
     duration_minutes: int
@@ -24,10 +25,16 @@ class WorkoutRecord:
     calories: Optional[int] = None
     average_heart_rate: Optional[int] = None
     max_heart_rate: Optional[int] = None
-    intensity: Optional[WorkoutIntensity] = None
+    
+    # Heart rate zone durations (minutes in each zone)
+    zone_0_minutes: Optional[float] = None  # Below Zone 1
+    zone_1_minutes: Optional[float] = None  # 50-60% max HR
+    zone_2_minutes: Optional[float] = None  # 60-70% max HR
+    zone_3_minutes: Optional[float] = None  # 70-80% max HR
+    zone_4_minutes: Optional[float] = None  # 80-90% max HR
+    zone_5_minutes: Optional[float] = None  # 90-100% max HR
     
     # Hevy-specific fields
-    exercise_count: Optional[int] = None
     set_count: Optional[int] = None
     volume_kg: Optional[float] = None
     
@@ -40,48 +47,28 @@ class WorkoutRecord:
                 self.sport = SportType(self.sport)
             except ValueError:
                 self.sport = SportType.UNKNOWN
-        if isinstance(self.intensity, str):
-            self.intensity = WorkoutIntensity(self.intensity)
 
 
 @dataclass
 class RecoveryRecord:
-    """Structured recovery/readiness record."""
+    """Structured recovery data record."""
     timestamp: Optional[str] = None  # Raw timestamp from API for timezone handling
     date: Optional[date] = None
     source: Optional[DataSource] = None
     
-    # Core recovery metrics
+    # Recovery metrics
     recovery_score: Optional[int] = None
-    recovery_level: Optional[RecoveryLevel] = None
     
     # Heart rate variability
     hrv_rmssd: Optional[float] = None
-    hrv_score: Optional[int] = None
     
     # Heart rate metrics
     resting_hr: Optional[int] = None
-    hr_variability: Optional[float] = None
-    
-    # Sleep-related recovery metrics
-    sleep_performance: Optional[float] = None
-    sleep_consistency: Optional[float] = None
     
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):
             self.source = DataSource(self.source)
-        if isinstance(self.recovery_level, str):
-            self.recovery_level = RecoveryLevel(self.recovery_level)
-        
-        # Auto-calculate recovery level if not provided
-        if self.recovery_level is None and self.recovery_score is not None:
-            if self.recovery_score >= 70:
-                self.recovery_level = RecoveryLevel.HIGH
-            elif self.recovery_score >= 50:
-                self.recovery_level = RecoveryLevel.MODERATE
-            else:
-                self.recovery_level = RecoveryLevel.LOW
 
 
 @dataclass
@@ -94,7 +81,6 @@ class SleepRecord:
     # Sleep duration
     total_sleep_minutes: Optional[int] = None
     time_in_bed_minutes: Optional[int] = None
-    sleep_efficiency: Optional[float] = None  # Percentage
     
     # Sleep stages (in minutes)
     light_sleep_minutes: Optional[int] = None
@@ -105,7 +91,6 @@ class SleepRecord:
     # Sleep quality metrics
     sleep_score: Optional[int] = None
     sleep_need_minutes: Optional[int] = None
-    sleep_debt_minutes: Optional[int] = None
     
     # Sleep timing
     bedtime: Optional[datetime] = None
@@ -121,6 +106,7 @@ class SleepRecord:
 class WeightRecord:
     """Structured weight measurement record."""
     timestamp: datetime
+    date: date  # Date extracted from timestamp for easier filtering
     source: DataSource
     weight_kg: float
     
@@ -237,6 +223,7 @@ class ActivityRecord:
 class ExerciseRecord:
     """Structured exercise record with sets and reps."""
     timestamp: datetime
+    date: date  # Date extracted from timestamp for easier filtering
     source: DataSource
     workout_id: str
     exercise_name: str
@@ -246,9 +233,6 @@ class ExerciseRecord:
     set_type: str  # normal, warmup, failure, etc.
     weight_kg: Optional[float] = None
     reps: Optional[int] = None
-    distance_meters: Optional[float] = None
-    duration_seconds: Optional[int] = None
-    rpe: Optional[int] = None  # Rate of Perceived Exertion
     
     def __post_init__(self):
         """Validate and normalize data after initialization."""

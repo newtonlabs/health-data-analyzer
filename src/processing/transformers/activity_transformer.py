@@ -40,7 +40,7 @@ class ActivityTransformer(RecordListTransformer[ActivityRecord]):
             self.logger.warning(f"Invalid activity record filtered out: {record.date}")
             return None
         
-        # Handle timezone conversion if timestamp is available
+        # Handle timezone conversion and date calculation
         final_date = record.date
         if record.timestamp:
             try:
@@ -54,6 +54,10 @@ class ActivityTransformer(RecordListTransformer[ActivityRecord]):
                     self.logger.warning(f"Failed to parse timestamp: {record.timestamp}")
             except Exception as e:
                 self.logger.warning(f"Error parsing timestamp {record.timestamp}: {e}")
+        elif record.date is None:
+            # If no timestamp and no date, we can't process this record
+            self.logger.warning("No timestamp or date available for activity record")
+            return None
         
         # Create a cleaned copy of the record
         cleaned_record = ActivityRecord(
@@ -77,8 +81,8 @@ class ActivityTransformer(RecordListTransformer[ActivityRecord]):
         Returns:
             True if record is valid, False otherwise
         """
-        # Only check essential fields - no value validation needed for activity data
-        if not record.date:
+        # Check if we have either date or timestamp (needed for date calculation)
+        if not record.date and not record.timestamp:
             return False
         
         # Check source

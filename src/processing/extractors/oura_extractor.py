@@ -53,17 +53,11 @@ class OuraExtractor:
                     print(f"No day field found in Oura activity data, skipping record")
                     continue
                 
-                # Use simple date parsing in extractor - let transformer handle timezone logic
-                activity_date = datetime.strptime(day_str, "%Y-%m-%d").date()
-                
-                # Filter by date range
-                if not (start_date.date() <= activity_date <= end_date.date()):
-                    continue
-                
-                # Create ActivityRecord with raw data (no transformation)
+                # Create ActivityRecord with raw data (no transformation or filtering)
+                # API already filters by date range, so no need to filter again
                 record = ActivityRecord(
                     timestamp=timestamp_str,  # Preserve for transformer
-                    date=activity_date,
+                    date=None,  # Will be calculated in transformer
                     source=DataSource.OURA,
                     steps=activity_item.get("steps", 0),
                     active_calories=activity_item.get("active_calories", 0),

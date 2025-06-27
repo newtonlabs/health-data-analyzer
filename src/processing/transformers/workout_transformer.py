@@ -48,14 +48,22 @@ class WorkoutTransformer(RecordListTransformer[WorkoutRecord]):
         # Create a cleaned copy of the record
         cleaned_record = WorkoutRecord(
             timestamp=record.timestamp,
+            date=record.timestamp.date(),  # Calculate date from timestamp
             source=record.source,
             sport=record.sport,
             duration_minutes=self._normalize_duration(record.duration_minutes),
             calories=self._normalize_calories(record.calories),
             strain_score=self._normalize_strain(record.strain_score),
-            average_heart_rate=record.average_heart_rate,
-            max_heart_rate=record.max_heart_rate,
-            intensity=record.intensity
+            average_heart_rate=self._normalize_heart_rate(record.average_heart_rate),
+            max_heart_rate=self._normalize_heart_rate(record.max_heart_rate),
+            zone_0_minutes=self._normalize_zone_duration(record.zone_0_minutes),
+            zone_1_minutes=self._normalize_zone_duration(record.zone_1_minutes),
+            zone_2_minutes=self._normalize_zone_duration(record.zone_2_minutes),
+            zone_3_minutes=self._normalize_zone_duration(record.zone_3_minutes),
+            zone_4_minutes=self._normalize_zone_duration(record.zone_4_minutes),
+            zone_5_minutes=self._normalize_zone_duration(record.zone_5_minutes),
+            set_count=record.set_count,
+            volume_kg=record.volume_kg
         )
         
         self.logger.debug(f"Transformed workout record: {cleaned_record.timestamp}")
@@ -72,10 +80,6 @@ class WorkoutTransformer(RecordListTransformer[WorkoutRecord]):
         """
         # Check required fields
         if not record.timestamp:
-            return False
-        
-        # Check source
-        if record.source != DataSource.WHOOP:
             return False
         
         # Validate duration
@@ -155,3 +159,33 @@ class WorkoutTransformer(RecordListTransformer[WorkoutRecord]):
         # Round to 2 decimal places and clamp to valid range
         normalized = round(strain, 2)
         return max(self.min_strain, min(self.max_strain, normalized))
+    
+    def _normalize_heart_rate(self, heart_rate: Optional[int]) -> Optional[int]:
+        """Normalize heart rate.
+        
+        Args:
+            heart_rate: Raw heart rate value
+            
+        Returns:
+            Normalized heart rate as integer
+        """
+        if heart_rate is None:
+            return None
+        
+        # Ensure it's an integer
+        return int(round(heart_rate))
+    
+    def _normalize_zone_duration(self, duration: Optional[float]) -> Optional[float]:
+        """Normalize heart rate zone duration.
+        
+        Args:
+            duration: Raw duration in minutes
+            
+        Returns:
+            Normalized duration, rounded to 1 decimal place
+        """
+        if duration is None:
+            return None
+        
+        # Round to 1 decimal place
+        return round(duration, 1)

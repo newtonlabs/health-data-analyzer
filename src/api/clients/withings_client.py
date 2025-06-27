@@ -342,7 +342,6 @@ class WithingsClient(APIClient):
             return True
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Failed to refresh Withings access token: {str(e)}")
-            # Add more detailed error information
             import traceback
             self.logger.debug(f"Withings token refresh error details: {traceback.format_exc()}")
             return False

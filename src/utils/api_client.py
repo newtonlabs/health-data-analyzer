@@ -208,15 +208,19 @@ class APIClient:
         return bool(self.access_token)
 
     def handle_authentication(self) -> bool:
-        """Handle authentication with token refresh and sliding window approach.
+        """Handle authentication with proactive token refresh and sliding window approach.
 
         This method tries to authenticate in the following order:
         1. Use existing tokens if valid
-        2. Try to refresh tokens if possible
-        3. Return False to let subclasses handle full authentication
+        2. Proactively refresh tokens if they expire within 2 hours
+        3. Try to refresh tokens if expired or expiring soon (1 hour buffer)
+        4. Return False to let subclasses handle full authentication
 
         With the sliding window approach, each successful refresh extends
         the token validity period by another 90 days.
+
+        The 2-hour proactive refresh prevents authentication interruptions,
+        especially for services with short-lived initial tokens.
 
         Returns:
             bool: True if authentication was successful with existing tokens, False otherwise
@@ -226,8 +230,19 @@ class APIClient:
             try:
                 self.logger.debug("Found saved authentication tokens")
                 
-                # Check if we need to refresh the access token
-                if self.token_manager.is_token_expired():
+                # Check for proactive refresh (2-hour buffer)
+                if self._should_refresh_proactively():
+                    self.logger.debug("Proactively refreshing token (expires within 2 hours)")
+                    if self.refresh_access_token():
+                        self.logger.debug("Successfully refreshed access token proactively")
+                        return True
+                    else:
+                        self.logger.warning(
+                            "Proactive token refresh failed, clearing tokens and starting new authentication..."
+                        )
+                        self.token_manager.clear_tokens()
+                # Check if we need to refresh the access token (1-hour buffer)
+                elif self.token_manager.is_token_expired():
                     self.logger.debug("Access token expired or expiring soon, refreshing...")
                     if self.refresh_access_token():
                         self.logger.debug("Successfully refreshed access token")
@@ -248,6 +263,44 @@ class APIClient:
 
         # Return False to let subclasses handle full authentication
         return False
+    
+    def _should_refresh_proactively(self) -> bool:
+        """Check if token should be refreshed proactively (expires within 2 hours).
+        
+        This is more aggressive than the standard 1-hour buffer to prevent
+        authentication interruptions, especially for services with short-lived tokens.
+        
+        Returns:
+            bool: True if token should be refreshed proactively
+        """
+        try:
+            tokens = self.token_manager.get_tokens()
+            if not tokens or 'timestamp' not in tokens or 'expires_in' not in tokens:
+                return False
+            
+            from datetime import datetime
+            current_time = datetime.now()
+            token_timestamp = tokens['timestamp']
+            expires_in = tokens['expires_in']
+            
+            # Calculate expiry time
+            expiry_timestamp = token_timestamp + expires_in
+            expiry_time = datetime.fromtimestamp(expiry_timestamp)
+            time_until_expiry = expiry_time - current_time
+            
+            # Refresh if expires within 2 hours (7200 seconds)
+            should_refresh = time_until_expiry.total_seconds() <= 7200
+            
+            if should_refresh:
+                self.logger.debug(
+                    f"Token expires in {time_until_expiry} - triggering proactive refresh"
+                )
+            
+            return should_refresh
+            
+        except Exception as e:
+            self.logger.warning(f"Error checking proactive refresh: {e}")
+            return False
 
     def _get_access_token(self) -> str:
         """Get a valid access token for API requests.

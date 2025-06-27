@@ -43,6 +43,7 @@ class WeightTransformer(RecordListTransformer[WeightRecord]):
         # Create a cleaned copy of the record
         cleaned_record = WeightRecord(
             timestamp=record.timestamp,
+            date=record.timestamp.date(),  # Calculate date from timestamp
             source=record.source,
             weight_kg=self._normalize_weight(record.weight_kg),
             body_fat_percentage=self._normalize_percentage(record.body_fat_percentage),

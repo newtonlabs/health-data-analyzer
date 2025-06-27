@@ -55,13 +55,11 @@ class HevyExtractor:
                     end = datetime.fromisoformat(workout["end_time"].replace('Z', '+00:00'))
                     duration_minutes = int((end - start).total_seconds() / 60)
                 
-                # Count exercises and sets
-                exercise_count = 0
+                # Count sets and calculate volume
                 set_count = 0
                 total_volume = 0.0
                 
                 for exercise in workout.get("exercises", []):
-                    exercise_count += 1
                     for set_data in exercise.get("sets", []):
                         set_count += 1
                         # Calculate volume (weight * reps)
@@ -72,10 +70,10 @@ class HevyExtractor:
                 # Create WorkoutRecord
                 record = WorkoutRecord(
                     timestamp=workout_date,
+                    date=None,  # Will be calculated in transformer
                     source=DataSource.HEVY,
                     sport=SportType.STRENGTH_TRAINING,  # Hevy is primarily strength training
                     duration_minutes=duration_minutes,
-                    exercise_count=exercise_count,
                     set_count=set_count,
                     volume_kg=total_volume
                 )
@@ -134,16 +132,14 @@ class HevyExtractor:
                         # Create ExerciseRecord for each set
                         record = ExerciseRecord(
                             timestamp=workout_date,
+                            date=None,  # Will be calculated in transformer
                             source=DataSource.HEVY,
                             workout_id=workout_id,
                             exercise_name=exercise_name,
                             set_number=set_index + 1,
                             set_type=set_data.get("type", "normal"),
                             weight_kg=set_data.get("weight_kg"),
-                            reps=set_data.get("reps"),
-                            distance_meters=set_data.get("distance_meters"),
-                            duration_seconds=set_data.get("duration_seconds"),
-                            rpe=set_data.get("rpe")
+                            reps=set_data.get("reps")
                         )
                         exercise_records.append(record)
                         

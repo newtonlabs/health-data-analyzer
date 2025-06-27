@@ -34,23 +34,37 @@ class SleepTransformer(RecordListTransformer[SleepRecord]):
             Cleaned and normalized sleep record, or None if invalid
         """
         if not self.validate_record(record):
-            self.logger.warning(f"Invalid sleep record filtered out: {record.date}")
+            self.logger.warning(f"Invalid sleep record filtered out: {record.timestamp}")
             return None
+        
+        # Calculate date from timestamp if needed
+        final_date = record.date
+        if record.timestamp and record.date is None:
+            try:
+                from src.utils.date_utils import DateUtils
+                # Parse timestamp with timezone conversion
+                sleep_datetime = DateUtils.parse_timestamp(record.timestamp, to_local=True)
+                if sleep_datetime:
+                    final_date = sleep_datetime.date()
+                    self.logger.debug(f"Converted timestamp {record.timestamp} to date {final_date}")
+                else:
+                    self.logger.warning(f"Failed to parse timestamp: {record.timestamp}")
+            except Exception as e:
+                self.logger.warning(f"Error parsing timestamp {record.timestamp}: {e}")
         
         # Create a cleaned copy of the record
         cleaned_record = SleepRecord(
-            date=record.date,
+            timestamp=record.timestamp,  # Preserve timestamp
+            date=final_date,
             source=record.source,
             total_sleep_minutes=self._normalize_minutes(record.total_sleep_minutes),
             time_in_bed_minutes=self._normalize_minutes(record.time_in_bed_minutes),
-            sleep_efficiency=self._normalize_percentage(record.sleep_efficiency),
             light_sleep_minutes=self._normalize_minutes(record.light_sleep_minutes),
             deep_sleep_minutes=self._normalize_minutes(record.deep_sleep_minutes),
             rem_sleep_minutes=self._normalize_minutes(record.rem_sleep_minutes),
             awake_minutes=self._normalize_minutes(record.awake_minutes),
             sleep_score=self._normalize_score(record.sleep_score),
             sleep_need_minutes=self._normalize_minutes(record.sleep_need_minutes),
-            sleep_debt_minutes=self._normalize_minutes(record.sleep_debt_minutes),
             bedtime=record.bedtime,  # Keep original datetime
             wake_time=record.wake_time  # Keep original datetime
         )
@@ -68,7 +82,7 @@ class SleepTransformer(RecordListTransformer[SleepRecord]):
             True if record is valid, False otherwise
         """
         # Only check essential fields
-        if not record.date:
+        if not record.date and not record.timestamp:
             return False
         
         # Check source

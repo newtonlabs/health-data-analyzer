@@ -122,14 +122,36 @@ class WhoopExtractor(BaseExtractor):
         # Convert kilojoules to calories (1 kJ = 0.239 calories)
         calories = int(kilojoules * 0.239) if kilojoules else None
         
+        # Extract heart rate data
+        average_heart_rate = self.safe_get(score_data, 'average_heart_rate', None, (int, float))
+        max_heart_rate = self.safe_get(score_data, 'max_heart_rate', None, (int, float))
+        
+        # Extract heart rate zone durations (convert from seconds to minutes)
+        zone_duration = self.safe_get(score_data, 'zone_duration', {}, dict)
+        zone_0_minutes = self.safe_get(zone_duration, 'zone_zero_milli', 0, int) / 60000.0 if zone_duration else None
+        zone_1_minutes = self.safe_get(zone_duration, 'zone_one_milli', 0, int) / 60000.0 if zone_duration else None
+        zone_2_minutes = self.safe_get(zone_duration, 'zone_two_milli', 0, int) / 60000.0 if zone_duration else None
+        zone_3_minutes = self.safe_get(zone_duration, 'zone_three_milli', 0, int) / 60000.0 if zone_duration else None
+        zone_4_minutes = self.safe_get(zone_duration, 'zone_four_milli', 0, int) / 60000.0 if zone_duration else None
+        zone_5_minutes = self.safe_get(zone_duration, 'zone_five_milli', 0, int) / 60000.0 if zone_duration else None
+        
         # Create workout record
         workout = WorkoutRecord(
             timestamp=start_time,
+            date=None,  # Will be calculated in transformer
             source=DataSource.WHOOP,
             sport=SportType(sport_info['sport_type']),
             duration_minutes=duration_minutes,
             strain_score=strain_score,
-            calories=calories
+            calories=calories,
+            average_heart_rate=int(average_heart_rate) if average_heart_rate else None,
+            max_heart_rate=int(max_heart_rate) if max_heart_rate else None,
+            zone_0_minutes=zone_0_minutes,
+            zone_1_minutes=zone_1_minutes,
+            zone_2_minutes=zone_2_minutes,
+            zone_3_minutes=zone_3_minutes,
+            zone_4_minutes=zone_4_minutes,
+            zone_5_minutes=zone_5_minutes
         )
         
         return workout
@@ -207,19 +229,12 @@ class WhoopExtractor(BaseExtractor):
         if hrv_rmssd:
             hrv_rmssd = hrv_rmssd / 1000.0 if hrv_rmssd > 100 else hrv_rmssd
         
-        # Determine recovery level using configuration
-        recovery_level = None
-        if recovery_score:
-            level_str = self.config.get_recovery_level(recovery_score)
-            recovery_level = RecoveryLevel(level_str)
-        
         # Create recovery record
         recovery = RecoveryRecord(
             timestamp=self.safe_get(recovery_data, 'created_at', None, str),  # Preserve raw timestamp
-            date=record_date,
+            date=None,  # Will be calculated in transformer
             source=DataSource.WHOOP,
-            recovery_score=recovery_score,
-            recovery_level=recovery_level,
+            recovery_score=recovery_score,  # Map directly from API
             hrv_rmssd=hrv_rmssd,
             resting_hr=resting_hr
         )
@@ -265,36 +280,52 @@ class WhoopExtractor(BaseExtractor):
             self.logger.warning("Invalid start time in sleep data")
             return None
         
-        record_date = start_time.date()
-        
         # Extract score data
         score_data = self.safe_get(sleep_data, 'score', {}, dict)
         sleep_score = self.safe_get(score_data, 'sleep_performance_percentage', None, (int, float))
         
-        # Extract duration data (convert from milliseconds to minutes)
-        total_sleep_ms = self.safe_get(sleep_data, 'total_sleep_time_milli', None, int)
-        total_sleep_minutes = total_sleep_ms // 60000 if total_sleep_ms else None
+        # Extract sleep stages from nested stage_summary (convert from milliseconds to minutes)
+        stage_summary = self.safe_get(score_data, 'stage_summary', {}, dict)
         
-        time_in_bed_ms = self.safe_get(sleep_data, 'time_in_bed_milli', None, int)
-        time_in_bed_minutes = time_in_bed_ms // 60000 if time_in_bed_ms else None
-        
-        # Calculate sleep efficiency
-        sleep_efficiency = None
-        if total_sleep_minutes and time_in_bed_minutes and time_in_bed_minutes > 0:
-            sleep_efficiency = (total_sleep_minutes / time_in_bed_minutes) * 100
-        
-        # Extract sleep stages (convert from milliseconds to minutes)
-        light_sleep_ms = self.safe_get(sleep_data, 'light_sleep_time_milli', None, int)
+        light_sleep_ms = self.safe_get(stage_summary, 'total_light_sleep_time_milli', None, int)
         light_sleep_minutes = light_sleep_ms // 60000 if light_sleep_ms else None
         
-        deep_sleep_ms = self.safe_get(sleep_data, 'slow_wave_sleep_time_milli', None, int)
+        deep_sleep_ms = self.safe_get(stage_summary, 'total_slow_wave_sleep_time_milli', None, int)
         deep_sleep_minutes = deep_sleep_ms // 60000 if deep_sleep_ms else None
         
-        rem_sleep_ms = self.safe_get(sleep_data, 'rem_sleep_time_milli', None, int)
+        rem_sleep_ms = self.safe_get(stage_summary, 'total_rem_sleep_time_milli', None, int)
         rem_sleep_minutes = rem_sleep_ms // 60000 if rem_sleep_ms else None
         
-        wake_time_ms = self.safe_get(sleep_data, 'wake_time_milli', None, int)
-        awake_minutes = wake_time_ms // 60000 if wake_time_ms else None
+        # Calculate total sleep time from sleep stages
+        total_sleep_minutes = None
+        if light_sleep_minutes is not None and deep_sleep_minutes is not None and rem_sleep_minutes is not None:
+            total_sleep_minutes = light_sleep_minutes + deep_sleep_minutes + rem_sleep_minutes
+        
+        # Extract time in bed from stage_summary (convert from milliseconds to minutes)
+        time_in_bed_ms = self.safe_get(stage_summary, 'total_in_bed_time_milli', None, int)
+        time_in_bed_minutes = time_in_bed_ms // 60000 if time_in_bed_ms else None
+        
+        # Extract awake time from stage_summary (convert from milliseconds to minutes)
+        awake_time_ms = self.safe_get(stage_summary, 'total_awake_time_milli', None, int)
+        awake_minutes = awake_time_ms // 60000 if awake_time_ms else None
+        
+        # Calculate sleep need from nested sleep_needed components (convert from milliseconds to minutes)
+        sleep_needed = self.safe_get(score_data, 'sleep_needed', {}, dict)
+        sleep_need_minutes = None
+        
+        baseline_ms = self.safe_get(sleep_needed, 'baseline_milli', None, int)
+        need_from_debt_ms = self.safe_get(sleep_needed, 'need_from_sleep_debt_milli', None, int)
+        need_from_strain_ms = self.safe_get(sleep_needed, 'need_from_recent_strain_milli', None, int)
+        need_from_nap_ms = self.safe_get(sleep_needed, 'need_from_recent_nap_milli', None, int)
+        
+        if baseline_ms is not None:
+            sleep_need_minutes = baseline_ms // 60000
+            if need_from_debt_ms:
+                sleep_need_minutes += need_from_debt_ms // 60000
+            if need_from_strain_ms:
+                sleep_need_minutes += need_from_strain_ms // 60000
+            if need_from_nap_ms:
+                sleep_need_minutes += need_from_nap_ms // 60000
         
         # Parse bedtime and wake time
         bedtime = self.parse_timestamp(sleep_data.get('start'))
@@ -303,16 +334,16 @@ class WhoopExtractor(BaseExtractor):
         # Create sleep record
         sleep_record = SleepRecord(
             timestamp=self.safe_get(sleep_data, 'created_at', None, str),  # Preserve raw timestamp
-            date=record_date,
+            date=None,  # Will be calculated in transformer
             source=DataSource.WHOOP,
             total_sleep_minutes=total_sleep_minutes,
             time_in_bed_minutes=time_in_bed_minutes,
-            sleep_efficiency=sleep_efficiency,
             light_sleep_minutes=light_sleep_minutes,
             deep_sleep_minutes=deep_sleep_minutes,
             rem_sleep_minutes=rem_sleep_minutes,
             awake_minutes=awake_minutes,
             sleep_score=int(sleep_score) if sleep_score else None,
+            sleep_need_minutes=sleep_need_minutes,
             bedtime=bedtime,
             wake_time=wake_time
         )
