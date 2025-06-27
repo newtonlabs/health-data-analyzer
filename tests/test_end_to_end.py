@@ -9,7 +9,7 @@ This comprehensive test script validates the complete health data pipeline:
 4. Validates the complete data flow from API → Service → Extractor → CSV
 
 Usage:
-    python tests/test_end_to_end.py [--days N] [--skip-auth] [--skip-extraction] [--skip-aggregation] [--full-pipeline]
+    python tests/test_end_to_end.py [--days N] [--skip-auth] [--skip-extraction] [--skip-aggregation] [--full-pipeline] [--force-auth]
 
 Options:
     --days N         Days of data to extract for all services (default: 1)
@@ -17,6 +17,7 @@ Options:
     --skip-extraction Skip data extraction testing
     --skip-aggregation Skip aggregation testing
     --full-pipeline  Test complete 4-stage pipeline
+    --force-auth     Force fresh authentication even if tokens exist
 
 This test is designed to be the single comprehensive validation of the entire
 health data pipeline architecture.
@@ -36,9 +37,15 @@ from src.pipeline.clean_pipeline import CleanHealthPipeline
 class HealthDataPipelineTest:
     """Comprehensive end-to-end test for the health data pipeline."""
     
-    def __init__(self, days=1):
-        """Initialize the test with flexible date range."""
+    def __init__(self, days=1, force_auth=False):
+        """Initialize the test with flexible date range.
+        
+        Args:
+            days: Number of days of data to extract
+            force_auth: If True, force fresh authentication even if tokens exist
+        """
         self.days = days
+        self.force_auth = force_auth
         self.results = {}
         self.csv_files = []
         
@@ -81,7 +88,23 @@ class HealthDataPipelineTest:
             from src.api.services.whoop_service import WhoopService
             service = WhoopService()
             
-            if service.is_authenticated:
+            # Force fresh authentication if requested
+            if self.force_auth:
+                print("🔄 Whoop: Forcing fresh authentication...")
+                # Clear existing tokens to force fresh auth
+                service.whoop_client.token_manager.clear_tokens()
+                service.whoop_client.access_token = None
+                service.whoop_client.refresh_token = None
+                
+                # Attempt authentication
+                auth_result = service.whoop_client.authenticate()
+                if auth_result:
+                    print("✅ Whoop: Fresh authentication successful")
+                    return True
+                else:
+                    print("❌ Whoop: Fresh authentication failed")
+                    return False
+            elif service.is_authenticated:
                 print("✅ Whoop: Authenticated")
                 return True
             else:
@@ -96,6 +119,10 @@ class HealthDataPipelineTest:
         try:
             from src.api.services.oura_service import OuraService
             service = OuraService()
+            
+            # Oura uses Personal Access Token (PAT) - no need for force re-authentication
+            if self.force_auth:
+                print("🔄 Oura: Personal Access Token (no re-auth needed)")
             
             if service.is_authenticated:
                 print("✅ Oura: Authenticated")
@@ -113,12 +140,26 @@ class HealthDataPipelineTest:
             from src.api.clients.withings_client import WithingsClient
             client = WithingsClient()
             
-            if client.is_authenticated:
+            # Force fresh authentication if requested or if not authenticated
+            if self.force_auth or not client.is_authenticated:
+                if self.force_auth:
+                    print("🔄 Withings: Forcing fresh authentication...")
+                    # Clear existing tokens to force fresh auth
+                    client.token_manager.clear_tokens()
+                    client.access_token = None
+                    client.refresh_token = None
+                
+                # Attempt authentication
+                auth_result = client.authenticate()
+                if auth_result:
+                    print("✅ Withings: Fresh authentication successful")
+                    return True
+                else:
+                    print("❌ Withings: Fresh authentication failed")
+                    return False
+            else:
                 print("✅ Withings: Authenticated")
                 return True
-            else:
-                print("❌ Withings: Not authenticated (will attempt during data extraction)")
-                return True  # Allow data extraction to trigger automatic auth
         except Exception as e:
             print(f"❌ Withings: Error - {e}")
             return False
@@ -128,6 +169,10 @@ class HealthDataPipelineTest:
         try:
             from src.api.services.hevy_service import HevyService
             service = HevyService()
+            
+            # Hevy uses API key - no need for force re-authentication
+            if self.force_auth:
+                print("🔄 Hevy: API key authentication (no re-auth needed)")
             
             if service.is_authenticated:
                 print("✅ Hevy: Authenticated")
@@ -142,15 +187,29 @@ class HealthDataPipelineTest:
     def _authenticate_onedrive(self):
         """Authenticate OneDrive service."""
         try:
-            from src.api.services.onedrive_service import OneDriveService
-            service = OneDriveService()
+            from src.api.clients.onedrive_client import OneDriveClient
+            client = OneDriveClient()
             
-            if service.is_authenticated:
+            # Force fresh authentication if requested or if not authenticated
+            if self.force_auth or not client.is_authenticated:
+                if self.force_auth:
+                    print("🔄 OneDrive: Forcing fresh authentication...")
+                    # Clear existing tokens to force fresh auth
+                    client.token_manager.clear_tokens()
+                    client.access_token = None
+                    client.refresh_token = None
+                
+                # Attempt authentication
+                auth_result = client.authenticate()
+                if auth_result:
+                    print("✅ OneDrive: Fresh authentication successful")
+                    return True
+                else:
+                    print("❌ OneDrive: Fresh authentication failed")
+                    return False
+            else:
                 print("✅ OneDrive: Authenticated")
                 return True
-            else:
-                print("❌ OneDrive: Not authenticated (will attempt during upload operations)")
-                return True  # Allow operations to trigger automatic auth
         except Exception as e:
             print(f"❌ OneDrive: Error - {e}")
             return False
@@ -462,6 +521,7 @@ def main():
     parser.add_argument('--skip-extraction', action='store_true', help='Skip data extraction testing')
     parser.add_argument('--skip-aggregation', action='store_true', help='Skip aggregation testing')
     parser.add_argument('--full-pipeline', action='store_true', help='Test complete 4-stage pipeline')
+    parser.add_argument('--force-auth', action='store_true', help='Force fresh authentication even if tokens exist')
     
     args = parser.parse_args()
     
@@ -488,7 +548,7 @@ def main():
     if not args.skip_auth:
         print("🔐 AUTHENTICATION PHASE")
         print("=" * 30)
-        test_instance = HealthDataPipelineTest(days=1)
+        test_instance = HealthDataPipelineTest(days=1, force_auth=args.force_auth)
         auth_results = test_instance.authenticate_all_services()
         results['auth_success'] = sum(1 for success in auth_results.values() if success)
         results['auth_total'] = len(auth_results)
@@ -513,7 +573,7 @@ def main():
             results['aggregation_total'] = 1
         else:
             # Test traditional 3-stage pipeline
-            test_instance = HealthDataPipelineTest(days=args.days)
+            test_instance = HealthDataPipelineTest(days=args.days, force_auth=args.force_auth)
             auth_results = test_instance.authenticate_all_services()
             extraction_results = test_instance.extract_all_data(auth_results)
             results['extraction_success'] = sum(1 for success in extraction_results.values() if success)
@@ -632,10 +692,10 @@ def validate_aggregated_files() -> List[str]:
     return aggregated_files
 
 
-def test_authentication() -> Dict:
+def test_authentication(force_auth: bool = False) -> Dict:
     """Authenticate all health data services."""
     auth_results = {}
-    test_instance = HealthDataPipelineTest(days=1)
+    test_instance = HealthDataPipelineTest(days=1, force_auth=force_auth)
     
     # Test Whoop
     auth_results['whoop'] = test_instance._authenticate_whoop()
@@ -655,10 +715,10 @@ def test_authentication() -> Dict:
     return auth_results
 
 
-def test_data_extraction(days: int) -> Dict:
+def test_data_extraction(days: int, force_auth: bool = False) -> Dict:
     """Extract data from all authenticated services."""
     extraction_results = {}
-    test_instance = HealthDataPipelineTest(days=days)
+    test_instance = HealthDataPipelineTest(days=days, force_auth=force_auth)
     
     # Extract from each authenticated service
     extraction_results['whoop'] = test_instance._extract_whoop_data()

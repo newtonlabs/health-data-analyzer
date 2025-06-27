@@ -17,21 +17,14 @@ class OuraExtractor:
         """Initialize the Oura extractor."""
         self.source = DataSource.OURA
     
-    def extract_activity_data(
-        self, 
-        raw_data: Dict[str, Any], 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> List[ActivityRecord]:
+    def extract_activity_data(self, raw_data: Dict[str, Any]) -> List[ActivityRecord]:
         """Extract activity records from Oura API response.
         
         This is pure extraction - converts raw API data to basic ActivityRecord models
-        without any transformation, cleaning, or persistence.
+        without any transformation, cleaning, or date filtering.
         
         Args:
             raw_data: Raw response from Oura API containing activity data
-            start_date: Start date for filtering data
-            end_date: End date for filtering data
             
         Returns:
             List of raw ActivityRecord objects
@@ -72,12 +65,7 @@ class OuraExtractor:
         print(f"Extracted {len(activity_records)} raw activity records from Oura")
         return activity_records
     
-    def extract_resilience_data(
-        self, 
-        raw_data: Dict[str, Any], 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> List[ResilienceRecord]:
+    def extract_resilience_data(self, raw_data: Dict[str, Any]) -> List[ResilienceRecord]:
         """Extract resilience records from Oura API response.
         
         This is pure extraction - converts raw API data to basic ResilienceRecord models
@@ -130,12 +118,7 @@ class OuraExtractor:
         print(f"Extracted {len(resilience_records)} raw resilience records from Oura")
         return resilience_records
     
-    def extract_workout_data(
-        self, 
-        raw_data: Dict[str, Any], 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> List[WorkoutRecord]:
+    def extract_workout_data(self, raw_data: Dict[str, Any]) -> List[WorkoutRecord]:
         """Extract workout records from Oura API response.
         
         This is pure extraction - converts raw API data to basic WorkoutRecord models
@@ -273,13 +256,25 @@ class OuraExtractor:
         """
         print("Starting Oura data extraction")
         
-        # Use a reasonable date range if not provided in raw_data
-        # In practice, the calling code should provide proper date filtering
-        from datetime import datetime, timedelta
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=30)  # Default to last 30 days
+        extracted_data = {}
         
-        # Leverage the existing extract_all_data method
-        extracted_data = self.extract_all_data(raw_data, start_date, end_date)
+        # Extract activity data if available (pure conversion, no filtering)
+        if "activities" in raw_data:
+            activity_records = self.extract_activity_data(raw_data["activities"])
+            if activity_records:
+                extracted_data["activity_records"] = activity_records
         
+        # Extract resilience data if available (pure conversion, no filtering)
+        if "resilience" in raw_data:
+            resilience_records = self.extract_resilience_data(raw_data["resilience"])
+            if resilience_records:
+                extracted_data["resilience_records"] = resilience_records
+        
+        # Extract workout data if available (pure conversion, no filtering)
+        if "workouts" in raw_data:
+            workout_records = self.extract_workout_data(raw_data["workouts"])
+            if workout_records:
+                extracted_data["workout_records"] = workout_records
+        
+        print(f"Extracted Oura data with {len(extracted_data)} data types")
         return extracted_data

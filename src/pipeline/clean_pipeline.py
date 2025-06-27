@@ -38,7 +38,7 @@ class CleanHealthPipeline:
     """Clean 4-stage health data pipeline."""
     
     def __init__(self):
-        """Initialize the clean pipeline."""
+        """Initialize the clean health pipeline."""
         self.logger = HealthLogger(self.__class__.__name__)
         self.persistence = PipelinePersistence()
         self.aggregation_pipeline = AggregationPipeline()
@@ -66,6 +66,18 @@ class CleanHealthPipeline:
         self.sleep_transformer = SleepTransformer()
         self.resilience_transformer = ResilienceTransformer()
         self.nutrition_transformer = NutritionTransformer()
+        
+        # Debug flag to control CSV file writing
+        self.debug_csv = True  # Set to False to disable CSV writing for performance
+    
+    def set_debug_csv(self, enabled: bool):
+        """Enable or disable CSV file writing for debugging.
+        
+        Args:
+            enabled: True to write CSV files, False for in-memory only
+        """
+        self.debug_csv = enabled
+        self.logger.info(f"📄 Debug CSV writing: {'enabled' if enabled else 'disabled'}")
     
     def process_whoop_data(self, days: int = 2) -> Dict[str, str]:
         """Process Whoop data through the complete 3-stage pipeline.
@@ -252,17 +264,17 @@ class CleanHealthPipeline:
             self.logger.info("🔄 Stage 2: Extracting data models...")
             
             # Extract activity data
-            extracted_activities = self.oura_extractor.extract_activity_data(activity_data, start_date, end_date)
+            extracted_activities = self.oura_extractor.extract_activity_data(activity_data)
             
             # Extract resilience data if available
             extracted_resilience = []
             if resilience_data:
-                extracted_resilience = self.oura_extractor.extract_resilience_data(resilience_data, start_date, end_date)
+                extracted_resilience = self.oura_extractor.extract_resilience_data(resilience_data)
             
             # Extract workout data if available
             extracted_workouts = []
             if workout_data:
-                extracted_workouts = self.oura_extractor.extract_workout_data(workout_data, start_date, end_date)
+                extracted_workouts = self.oura_extractor.extract_workout_data(workout_data)
             
             if not extracted_activities and not extracted_resilience and not extracted_workouts:
                 self.logger.warning("No records extracted from any data type")
@@ -390,15 +402,16 @@ class CleanHealthPipeline:
             # STAGE 2: Extractor → Raw Data Models
             self.logger.info("🔄 Stage 2: Extracting raw data models...")
             
-            extracted_data = self.withings_extractor.extract_weight_data(raw_data, start_date, end_date)
+            extracted_data = self.withings_extractor.extract_data(raw_data)
             
             if not extracted_data:
                 self.logger.warning("No weight records extracted")
                 return file_paths
             
             # Save extracted data
+            weight_records = extracted_data.get('weight_records', [])
             extracted_file = self.persistence.save_extracted_data(
-                "withings", "weights", extracted_data, timestamp
+                "withings", "weights", weight_records, timestamp
             )
             file_paths["02_extracted"] = extracted_file
             self.logger.info(f"✅ Stage 2 complete: {extracted_file}")
@@ -406,15 +419,19 @@ class CleanHealthPipeline:
             # STAGE 3: Transformer → Clean Data Models
             self.logger.info("🧹 Stage 3: Transforming and cleaning data...")
             
-            transformed_weights = self.weight_transformer.transform(extracted_data)
+            transformed_data = {}
+            if extracted_data and 'weight_records' in extracted_data:
+                # Handle the correct data structure from Withings extractor
+                weight_records = extracted_data['weight_records']
+                transformed_data['weight_records'] = self.weight_transformer.transform(weight_records)
             
-            if not transformed_weights:
+            if not transformed_data:
                 self.logger.warning("No weight records after transformation")
                 return file_paths
             
             # Save transformed data
             transformed_file = self.persistence.save_transformed_data(
-                "withings", "weights", transformed_weights, timestamp
+                "withings", "weights", transformed_data['weight_records'], timestamp
             )
             file_paths["03_transformed"] = transformed_file
             self.logger.info(f"✅ Stage 3 complete: {transformed_file}")
@@ -422,8 +439,8 @@ class CleanHealthPipeline:
             # Pipeline summary
             self.logger.info("🎉 Clean pipeline completed successfully!")
             self.logger.info(f"   Raw records: {len(raw_data.get('body', {}).get('measuregrps', []))}")
-            self.logger.info(f"   Extracted records: {len(extracted_data)}")
-            self.logger.info(f"   Transformed records: {len(transformed_weights)}")
+            self.logger.info(f"   Extracted records: {len(extracted_data.get('weight_records', []))}")
+            self.logger.info(f"   Transformed records: {len(transformed_data.get('weight_records', []))}")
             
             return file_paths
             
@@ -452,22 +469,26 @@ class CleanHealthPipeline:
         try:
             # STAGE 1: API Service → Raw JSON
             self.logger.info("📡 Stage 1: Fetching raw data from Hevy API...")
-            raw_data = self.hevy_service.get_workouts_data(page_size=10)  # Use default page size
+            # Get raw data using correct method signature (Hevy doesn't use date filtering)
+            workouts_raw = self.hevy_service.get_workouts_data()  # Use default page_size=10
             
-            if not raw_data:
+            if not workouts_raw:
                 self.logger.warning("No raw data retrieved from Hevy API")
                 return file_paths
             
             # Save raw data
-            raw_file = self.persistence.save_raw_data("hevy", raw_data, timestamp)
+            raw_file = self.persistence.save_raw_data("hevy", workouts_raw, timestamp)
             file_paths["01_raw"] = raw_file
             self.logger.info(f"✅ Stage 1 complete: {raw_file}")
             
             # STAGE 2: Extractor → Raw Data Models
             self.logger.info("🔄 Stage 2: Extracting raw data models...")
             
-            extracted_workouts = self.hevy_extractor.extract_workouts(raw_data, end_date)
-            extracted_exercises = self.hevy_extractor.extract_exercises(raw_data, end_date)
+            # Use unified extract_data method
+            extracted_data = self.hevy_extractor.extract_data(workouts_raw)
+            
+            extracted_workouts = extracted_data.get('workout_records', [])
+            extracted_exercises = extracted_data.get('exercise_records', [])
             
             if not extracted_workouts:
                 self.logger.warning("No workout records extracted")
@@ -515,7 +536,7 @@ class CleanHealthPipeline:
             
             # Pipeline summary
             self.logger.info("🎉 Clean pipeline completed successfully!")
-            self.logger.info(f"   Raw records: {len(raw_data.get('workouts', []))}")
+            self.logger.info(f"   Raw records: {len(workouts_raw.get('workouts', []))}")
             self.logger.info(f"   Extracted workout records: {len(extracted_workouts)}")
             self.logger.info(f"   Extracted exercise records: {len(extracted_exercises)}")
             self.logger.info(f"   Transformed workout records: {len(transformed_workouts)}")
@@ -564,7 +585,7 @@ class CleanHealthPipeline:
             
             # STAGE 2: Extractor → Raw Data Models
             self.logger.info("🔄 Stage 2: Extracting raw data models...")
-            extracted_data = self.nutrition_extractor.extract_nutrition(raw_data, start_date, end_date)
+            extracted_data = self.nutrition_extractor.extract_data(raw_data, start_date, end_date)
             
             if not extracted_data:
                 self.logger.warning("No nutrition records extracted")
@@ -641,7 +662,7 @@ class CleanHealthPipeline:
             days: Number of days to process
             
         Returns:
-            Dictionary with pipeline results
+            Dictionary with pipeline results including data objects
         """
         self.logger.info(f"🚀 Starting complete 4-stage pipeline for {days} days")
         
@@ -655,29 +676,35 @@ class CleanHealthPipeline:
             'days_processed': days,
             'stages_completed': 0,
             'services_processed': {},
-            'aggregations_created': 0
+            'aggregations_created': 0,
+            'transformed_data': {}  # Store transformed data in memory
         }
         
         try:
-            # Stage 1-3: Existing pipeline
+            # Stage 1-3: Process each service and collect transformed data
             self.logger.info("📊 Running stages 1-3: Raw → Extract → Transform")
             
-            # Process each service
+            # Process each service and collect transformed data
             services = ['whoop', 'oura', 'withings', 'hevy', 'nutrition']
             for service in services:
                 try:
                     if service == 'whoop':
-                        service_results = self.process_whoop_data(days)
+                        service_results, transformed_data = self._process_whoop_with_data(days)
                     elif service == 'oura':
-                        service_results = self.process_oura_data(days)
+                        service_results, transformed_data = self._process_oura_with_data(days)
                     elif service == 'withings':
-                        service_results = self.process_withings_data(days)
+                        service_results, transformed_data = self._process_withings_with_data(days)
                     elif service == 'hevy':
-                        service_results = self.process_hevy_data(days)
+                        service_results, transformed_data = self._process_hevy_with_data(days)
                     elif service == 'nutrition':
-                        service_results = self.process_nutrition_data(days)
+                        service_results, transformed_data = self._process_nutrition_with_data(days)
                     
                     results['services_processed'][service] = service_results
+                    
+                    # Store transformed data for aggregation
+                    if transformed_data:
+                        results['transformed_data'][service] = transformed_data
+                    
                     self.logger.info(f"✅ {service.title()}: Stages 1-3 completed")
                     
                 except Exception as e:
@@ -686,31 +713,207 @@ class CleanHealthPipeline:
             
             results['stages_completed'] = 3
             
-            # Stage 4: Aggregations
-            self.logger.info("🔄 Running stage 4: Daily aggregations")
+            # Stage 4: Aggregations using in-memory data
+            self.logger.info("🔄 Stage 4: Creating daily aggregations from transformed data...")
             
-            current_date = start_date
-            total_aggregations = 0
+            # Calculate date range for aggregations
+            end_date = datetime.now().date()
+            start_date = end_date - timedelta(days=days-1)  # Include the full range
             
-            while current_date <= end_date:
-                try:
-                    daily_results = self.aggregation_pipeline.run_daily_aggregations(current_date)
-                    total_aggregations += len(daily_results)
-                    self.logger.info(f"✅ {current_date}: {len(daily_results)} aggregations created")
-                except Exception as e:
-                    self.logger.error(f"❌ {current_date}: Aggregation failed - {e}")
-                
-                current_date += timedelta(days=1)
+            daily_results = self.aggregation_pipeline.run_daily_aggregations_with_data(
+                start_date, end_date, results['transformed_data']
+            )
             
-            results['aggregations_created'] = total_aggregations
-            results['stages_completed'] = 4
+            results['aggregation_results'] = daily_results
+            results['aggregations_created'] = daily_results.get('total_days', 0)
+            
+            self.logger.info(f"✅ Stage 4 complete: {daily_results.get('total_days', 0)} days aggregated")
             
             self.logger.info(f"🎉 Complete 4-stage pipeline finished!")
             self.logger.info(f"📊 Services processed: {len(results['services_processed'])}")
-            self.logger.info(f"📊 Aggregations created: {total_aggregations}")
+            self.logger.info(f"📊 Aggregations created: {daily_results.get('total_days', 0)}")
             
         except Exception as e:
             self.logger.error(f"❌ Pipeline failed: {e}")
             results['error'] = str(e)
         
         return results
+
+    def _process_nutrition_with_data(self, days: int = 2) -> tuple:
+        """Process nutrition data and return both file paths and transformed data objects."""
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get raw nutrition data from CSV
+        try:
+            nutrition_raw = self.nutrition_service.get_nutrition_data(start_date, end_date)
+            
+            # Extract data
+            extracted_data = self.nutrition_extractor.extract_data(nutrition_raw, start_date, end_date)
+            
+            # Transform data
+            transformed_data = {}
+            if extracted_data:
+                transformed_data['nutrition_records'] = self.nutrition_transformer.transform(extracted_data)
+                self.logger.info(f"✅ Processed {len(transformed_data['nutrition_records'])} nutrition records")
+            else:
+                transformed_data['nutrition_records'] = []
+                self.logger.info("⚠️ No nutrition data found for date range")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Nutrition processing failed: {e}")
+            transformed_data = {'nutrition_records': []}
+        
+        # Conditionally run the file-based pipeline for CSV generation (debugging)
+        file_results = {}
+        if self.debug_csv:
+            file_results = self.process_nutrition_data(days)
+            self.logger.debug("📄 CSV files written for debugging")
+        else:
+            self.logger.debug("📄 CSV writing disabled - in-memory processing only")
+        
+        return file_results, transformed_data
+    
+    def _process_whoop_with_data(self, days: int = 2) -> tuple:
+        """Process Whoop data and return both file paths and transformed data objects."""
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get raw data
+        workouts_raw = self.whoop_service.get_workouts_data(start_date, end_date)
+        recovery_raw = self.whoop_service.get_recovery_data(start_date, end_date)
+        sleep_raw = self.whoop_service.get_sleep_data(start_date, end_date)
+        
+        combined_raw = {
+            "workouts": workouts_raw,
+            "recovery": recovery_raw,
+            "sleep": sleep_raw
+        }
+        
+        # Extract data
+        extracted_data = self.whoop_extractor.extract_data(combined_raw)
+        
+        # Transform data
+        transformed_data = {}
+        
+        if extracted_data.get('workouts'):
+            transformed_data['workout_records'] = self.workout_transformer.transform(extracted_data['workouts'])
+        
+        if extracted_data.get('recovery'):
+            transformed_data['recovery_records'] = self.recovery_transformer.transform(extracted_data['recovery'])
+            
+        if extracted_data.get('sleep'):
+            transformed_data['sleep_records'] = self.sleep_transformer.transform(extracted_data['sleep'])
+        
+        # Conditionally run the file-based pipeline for CSV generation (debugging)
+        file_results = {}
+        if self.debug_csv:
+            file_results = self.process_whoop_data(days)
+            self.logger.debug("📄 CSV files written for debugging")
+        else:
+            self.logger.debug("📄 CSV writing disabled - in-memory processing only")
+        
+        return file_results, transformed_data
+    
+    def _process_oura_with_data(self, days: int = 2) -> tuple:
+        """Process Oura data and return both file paths and transformed data objects."""
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get raw data using correct method names
+        activities_raw = self.oura_service.get_activity_data(start_date, end_date)
+        workouts_raw = self.oura_service.get_workouts_data(start_date, end_date)  # Fixed method name
+        
+        combined_raw = {
+            "activities": activities_raw,
+            "workouts": workouts_raw
+        }
+        
+        # Extract data
+        extracted_data = self.oura_extractor.extract_data(combined_raw)
+        
+        # Transform data
+        transformed_data = {}
+        
+        if extracted_data.get('activity_records'):  # Fixed key name
+            transformed_data['activity_records'] = self.activity_transformer.transform(extracted_data['activity_records'])
+        
+        if extracted_data.get('workout_records'):  # Fixed key name
+            transformed_data['workout_records'] = self.workout_transformer.transform(extracted_data['workout_records'])
+            
+        if extracted_data.get('resilience_records'):  # Fixed key name
+            transformed_data['resilience_records'] = self.resilience_transformer.transform(extracted_data['resilience_records'])
+        
+        # Conditionally run the file-based pipeline for CSV generation (debugging)
+        file_results = {}
+        if self.debug_csv:
+            file_results = self.process_oura_data(days)
+            self.logger.debug("📄 CSV files written for debugging")
+        else:
+            self.logger.debug("📄 CSV writing disabled - in-memory processing only")
+        
+        return file_results, transformed_data
+    
+    def _process_withings_with_data(self, days: int = 2) -> tuple:
+        """Process Withings data and return both file paths and transformed data objects."""
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get raw data
+        weights_raw = self.withings_service.get_weight_data(start_date, end_date)
+        
+        # Extract data
+        extracted_data = self.withings_extractor.extract_data(weights_raw)
+        
+        # Transform data
+        transformed_data = {}
+        
+        if extracted_data and 'weight_records' in extracted_data:
+            # Handle the correct data structure from Withings extractor
+            weight_records = extracted_data['weight_records']
+            transformed_data['weight_records'] = self.weight_transformer.transform(weight_records)
+        
+        # Conditionally run the file-based pipeline for CSV generation (debugging)
+        file_results = {}
+        if self.debug_csv:
+            file_results = self.process_withings_data(days)
+            self.logger.debug("📄 CSV files written for debugging")
+        else:
+            self.logger.debug("📄 CSV writing disabled - in-memory processing only")
+        
+        return file_results, transformed_data
+    
+    def _process_hevy_with_data(self, days: int = 2) -> tuple:
+        """Process Hevy data and return both file paths and transformed data objects."""
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get raw data using correct method signature (Hevy doesn't use date filtering)
+        workouts_raw = self.hevy_service.get_workouts_data()  # Use default page_size=10
+        
+        # Extract data
+        extracted_data = self.hevy_extractor.extract_data(workouts_raw)
+        
+        # Transform data
+        transformed_data = {}
+        
+        if extracted_data.get('workouts'):
+            transformed_data['workout_records'] = self.workout_transformer.transform(extracted_data['workouts'])
+            
+        if extracted_data.get('exercises'):
+            transformed_data['exercise_records'] = self.exercise_transformer.transform(extracted_data['exercises'])
+        
+        # Conditionally run the file-based pipeline for CSV generation (debugging)
+        file_results = {}
+        if self.debug_csv:
+            file_results = self.process_hevy_data(days)
+            self.logger.debug("📄 CSV files written for debugging")
+        else:
+            self.logger.debug("📄 CSV writing disabled - in-memory processing only")
+        
+        return file_results, transformed_data

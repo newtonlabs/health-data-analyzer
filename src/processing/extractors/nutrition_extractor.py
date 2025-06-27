@@ -19,24 +19,24 @@ class NutritionExtractor:
         """Initialize the nutrition extractor."""
         self.logger = HealthLogger(self.__class__.__name__)
     
-    def extract_nutrition(
+    def extract_data(
         self, 
         raw_data: Dict[str, Any], 
-        start_date: datetime, 
-        end_date: datetime
+        start_date: datetime = None, 
+        end_date: datetime = None
     ) -> List[NutritionRecord]:
         """Extract nutrition records from CSV data.
         
         This is pure extraction - converts raw CSV data to basic NutritionRecord models
-        without any transformation, cleaning, or persistence.
+        without any business logic or date calculations.
         
         Args:
-            raw_data: Raw data from nutrition service (CSV converted to dict format)
-            start_date: Start date for filtering records
-            end_date: End date for filtering records
+            raw_data: Raw nutrition data from CSV service
+            start_date: Optional start date filter (unused - filtering done by service)
+            end_date: Optional end date filter (unused - filtering done by service)
             
         Returns:
-            List of raw NutritionRecord objects
+            List of NutritionRecord objects with raw data
         """
         if not raw_data or "data" not in raw_data:
             self.logger.warning("No nutrition data found in response")
@@ -55,7 +55,9 @@ class NutritionExtractor:
                 record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
                 
                 # Filter by date range
-                if record_date < start_date.date() or record_date > end_date.date():
+                if start_date and record_date < start_date.date():
+                    continue
+                if end_date and record_date > end_date.date():
                     continue
                 
                 # Create NutritionRecord (pure extraction - no cleaning)
