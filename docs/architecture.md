@@ -55,8 +55,6 @@ self.register_transformer('nutrition', NutritionTransformer(), ['nutrition'])
 self.register_aggregator('macros', MacrosActivityAggregator(), ['nutrition', 'activity', 'weight'])
 self.register_aggregator('recovery', RecoveryAggregator(), ['recovery', 'sleep', 'resilience'])
 self.register_aggregator('training', TrainingAggregator(), ['workouts'])
-self.register_aggregator('recovery', RecoveryAggregator(), ['recovery', 'sleep', 'resilience'])
-self.register_aggregator('training', TrainingAggregator(), ['workouts'])
 ```
 
 ### 2. Pipeline Orchestrator
@@ -199,38 +197,41 @@ CSV Files (Final Output)
 
 The pipeline follows a **two-stage approach** for handling timestamps and dates:
 
-#### Stage 2: Extractors (Raw Data Preservation)
-- **Purpose**: Pure API data extraction
-- **Timestamp Handling**: Preserve raw API timestamps as strings
-- **Date Field**: Set to `None` (no business logic)
+#### Stage 2: Extractors (API-Specific Date Logic)
+- **Purpose**: API data extraction with service-specific date handling
+- **Timestamp Handling**: Parse and normalize timestamps based on API format
+- **Date Field**: Calculate date using API-specific business rules (e.g., Whoop 4 AM cutoff)
+- **Why at Extractor Level**: Each API has unique timestamp formats and business rules that need immediate handling
 - **Example**:
 ```python
-# Extractor preserves raw timestamp
+# Extractor applies API-specific date logic
 record = WeightRecord(
-    timestamp="2025-06-28T05:33:12",  # Raw API timestamp
-    date=None,  # No date calculation in extractor
+    timestamp="2025-06-28T05:33:12",  # Parsed API timestamp
+    date=self._calculate_date_from_timestamp(timestamp),  # API-specific date logic
     source=DataSource.WITHINGS,
     weight_kg=83.9
 )
 ```
 
-#### Stage 3: Transformers (Business Logic Application)
-- **Purpose**: Data cleaning and timezone conversion
-- **Timestamp Handling**: Parse and convert to appropriate timezone
-- **Date Field**: Calculate `date = timestamp.date()` with business rules
+#### Stage 3: Transformers (Data Cleaning & Validation)
+- **Purpose**: Data cleaning, validation, and normalization
+- **Timestamp Handling**: Validate and clean already-parsed timestamps
+- **Date Field**: Validate date consistency and apply any final adjustments
 - **Example**:
 ```python
-# Transformer applies business logic
+# Transformer focuses on data cleaning
 def transform(self, records):
     for record in records:
-        # Parse timestamp with timezone handling
-        parsed_dt = DateUtils.parse_timestamp(record.timestamp, to_local=True)
+        # Validate timestamp format
+        if not self._is_valid_timestamp(record.timestamp):
+            continue
+            
+        # Apply data cleaning (e.g., round weight to 1 decimal)
+        record.weight_kg = round(record.weight_kg, 1)
         
-        # Apply business rules (e.g., Whoop 4 AM cutoff)
-        normalized_dt = DateUtils.normalize_recovery_date(parsed_dt)
-        
-        # Set final date
-        record.date = normalized_dt.date()
+        # Validate date consistency
+        if not record.date:
+            record.date = record.timestamp.date()
 ```
 
 ### Timezone Examples by Service
@@ -238,31 +239,39 @@ def transform(self, records):
 #### 1. Oura Activity Data
 ```python
 # API Response: "2025-06-19T04:00:00-04:00"
-# Extractor: Preserves timezone-aware string
-# Transformer: Converts to local date (2025-06-19)
+# Extractor: Parses timezone-aware string, calculates date (2025-06-19)
+# Transformer: Validates date consistency, cleans activity data
 ```
 
 #### 2. Whoop Recovery Data
 ```python
 # API Response: "2025-06-26T09:35:13.513Z" (UTC)
-# Extractor: Preserves UTC timestamp
-# Transformer: Applies 4 AM cutoff rule for recovery date
-# Result: Recovery for 2025-06-26 (not 2025-06-25)
+# Extractor: Applies 4 AM cutoff rule, calculates recovery date (2025-06-26)
+# Transformer: Validates recovery metrics, cleans HRV/RHR data
+# Result: Recovery properly attributed to 2025-06-26 (not 2025-06-25)
 ```
 
 #### 3. Withings Weight Data
 ```python
 # API Response: Unix timestamp 1719562392
-# Extractor: Converts to datetime, preserves timezone
-# Transformer: Rounds weight to 1 decimal place, calculates date
+# Extractor: Converts to datetime, calculates date from timestamp
+# Transformer: Rounds weight to 1 decimal place, validates body composition data
+```
+
+#### 4. Hevy Workout Data
+```python
+# API Response: "2025-06-27T14:30:00Z" (UTC)
+# Extractor: Parses UTC timestamp, calculates local workout date
+# Transformer: Validates exercise data, normalizes workout metrics
 ```
 
 ### Benefits of This Approach
-- **Single Responsibility**: Extractors focus on API conversion, transformers handle business logic
-- **Timezone Accuracy**: Sophisticated timezone handling in transformers
-- **Testability**: Clear separation between raw extraction and processed transformation
-- **Maintainability**: All date/timezone logic centralized in transformers
-- **Performance**: No redundant processing or double filtering
+- **API-Specific Logic**: Extractors handle unique API requirements and timestamp formats immediately
+- **Timezone Accuracy**: Sophisticated timezone handling at extraction level prevents data loss
+- **Clean Separation**: Extractors handle API complexity, transformers focus on data quality
+- **Testability**: Clear separation between API-specific extraction and generic data cleaning
+- **Maintainability**: API-specific logic contained in extractors, business rules in transformers
+- **Performance**: Single-pass processing with no redundant timestamp parsing
 
 ## Recent Improvements (June 2025)
 
@@ -752,59 +761,12 @@ def main():
 - In-memory processing with optional file persistence
 - Configurable processing parameters
 
-## Performance Considerations
-
-### Current Performance Metrics
-- **5 Services**: ~3.5 seconds for 7-day processing
-- **Memory Usage**: Efficient in-memory processing
-- **File Generation**: 27 files across all stages
-- **Success Rate**: 100% with proper error handling
-
-### Optimization Opportunities
-1. **Parallel Processing**: Services can be called concurrently
-2. **Caching**: Implement response caching for repeated requests
-3. **Batch Processing**: Process multiple date ranges efficiently
-4. **Database Integration**: Replace CSV files with database storage
-
-## Troubleshooting Guide
-
-### Common Issues
-1. **Authentication Failures**: Check API credentials and token expiration
-2. **Rate Limiting**: Implement exponential backoff and retry logic
-3. **Data Format Changes**: Monitor API documentation for breaking changes
-4. **Memory Issues**: Process data in smaller batches for large date ranges
-
 ### Debugging Tools
 - Comprehensive logging throughout the pipeline
 - Stage-by-stage result validation
 - CSV file inspection for data quality
 - End-to-end test suite for regression testing
 
-## Future Enhancements
-
-### Planned Features
-1. **Real-time Processing**: Stream processing capabilities
-2. **Advanced Analytics**: Machine learning integration
-3. **Web Dashboard**: Real-time data visualization
-4. **Mobile App**: Cross-platform mobile application
-5. **Cloud Deployment**: Containerized deployment options
-
-### Architecture Evolution
-- Microservices architecture for horizontal scaling
-- Event-driven processing with message queues
-- GraphQL API for flexible data querying
-- Multi-tenant support for enterprise deployment
-
 ---
-
-## Documentation Status
-
-*This architecture documentation reflects the current state after comprehensive improvements completed through June 2025. The pipeline now features:*
-
-- **🎉 Complete Data Flow**: All 5 services (Whoop, Oura, Withings, Hevy, Nutrition) working perfectly
-- **🚀 Excellent Performance**: 3.79 seconds for multi-service processing
-- **🔧 Clean Architecture**: Registry-based component management with zero technical debt
-- **🎯 Production Ready**: Robust authentication, error handling, and data validation
-- **📊 Rich Data**: Weight, resilience, and all health metrics flowing to aggregated reports
 
 *Last Updated: June 28, 2025 - Pipeline Status: ✅ All Systems Operational*
