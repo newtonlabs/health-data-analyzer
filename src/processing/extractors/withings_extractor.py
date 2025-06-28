@@ -138,21 +138,28 @@ class WithingsExtractor(BaseExtractor):
             raw_data: Raw API response data from Withings
             
         Returns:
-            Dictionary with keys like 'weight_records', etc.
+            Dictionary with keys like 'weight', etc.
             and values as lists of structured records
         """
         print("Starting Withings data extraction")
         
-        # Use a reasonable date range if not provided in raw_data
-        # In practice, the calling code should provide proper date filtering
+        extracted_data = {}
+        
+        # Use a wide date range since API already filtered the data
         from datetime import datetime, timedelta
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=30)  # Default to last 30 days
+        start_date = end_date - timedelta(days=365)  # Wide range to include all API data
         
-        # Leverage the existing extract_all_data method
-        extracted_data = self.extract_all_data(raw_data, start_date, end_date)
+        # Extract weight data using existing method
+        weight_records = self.extract_weight_data(raw_data, start_date, end_date)
+        if weight_records:
+            extracted_data["weight"] = weight_records
         
+        print(f"Extracted {len(weight_records)} raw weight records from Withings")
+        print(f"Extracted Withings data with {len(extracted_data)} data types")
         return extracted_data
+    
+
     
     def _calculate_date_from_timestamp(self, timestamp: datetime) -> Optional[date]:
         """Calculate date from datetime timestamp.

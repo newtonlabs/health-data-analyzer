@@ -43,7 +43,7 @@ class WeightTransformer(RecordListTransformer[WeightRecord]):
         # Create a cleaned copy of the record
         cleaned_record = WeightRecord(
             timestamp=record.timestamp,
-            date=record.timestamp.date(),  # Calculate date from timestamp
+            date=record.date,  # Date is now calculated in extractor
             source=record.source,
             weight_kg=self._normalize_weight(record.weight_kg),
             body_fat_percentage=self._normalize_percentage(record.body_fat_percentage),
@@ -103,8 +103,8 @@ class WeightTransformer(RecordListTransformer[WeightRecord]):
         if weight is None:
             return None
         
-        # Round to 3 decimal places for precision
-        return round(weight, 3)
+        # Round to 1 decimal place for precision
+        return round(weight, 1)
     
     def _normalize_mass(self, mass: Optional[float]) -> Optional[float]:
         """Normalize mass values (muscle, bone).
@@ -118,8 +118,8 @@ class WeightTransformer(RecordListTransformer[WeightRecord]):
         if mass is None:
             return None
         
-        # Round to 2 decimal places
-        return round(mass, 2)
+        # Round to 1 decimal place
+        return round(mass, 1)
     
     def _normalize_percentage(self, percentage: Optional[float]) -> Optional[float]:
         """Normalize percentage values (body fat, water).
@@ -133,8 +133,8 @@ class WeightTransformer(RecordListTransformer[WeightRecord]):
         if percentage is None:
             return None
         
-        # Round to 2 decimal places and ensure reasonable range
-        normalized = round(percentage, 2)
+        # Round to 1 decimal place and ensure reasonable range
+        normalized = round(percentage, 1)
         
         # Basic sanity check (but don't reject - just log)
         if normalized < 0 or normalized > 100:

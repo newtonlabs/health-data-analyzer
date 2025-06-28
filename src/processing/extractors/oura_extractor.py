@@ -103,9 +103,9 @@ class OuraExtractor(BaseExtractor):
                 contributors = resilience_item.get("contributors", {})
                 
                 # Create ResilienceRecord with raw data (no transformation or filtering)
-                calculated_date = self._calculate_date_from_timestamp(timestamp_str)
+                calculated_date = self._calculate_date_from_timestamp(day_str)
                 record = ResilienceRecord(
-                    timestamp=timestamp_str,  # Preserve for transformer
+                    timestamp=day_str,  # Preserve for transformer
                     date=calculated_date,  # Calculate date in extractor
                     source=DataSource.OURA,
                     sleep_recovery=contributors.get("sleep_recovery"),
