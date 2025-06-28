@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Health Data Pipeline is a modular, scalable system for collecting, processing, and aggregating health data from multiple sources. The architecture follows a clean 4-stage pipeline design with consistent interfaces and separation of concerns.
+The Health Data Pipeline is a modular, scalable system for collecting, processing, and aggregating health data from multiple sources. The architecture follows a clean 4-stage pipeline design with **registry-based component management**, consistent interfaces, and complete separation of concerns.
 
 ## Architecture Diagram
 
@@ -10,15 +10,49 @@ The Health Data Pipeline is a modular, scalable system for collecting, processin
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   FETCH STAGE   │───▶│  EXTRACT STAGE  │───▶│ TRANSFORM STAGE │───▶│ AGGREGATE STAGE │
 │                 │    │                 │    │                 │    │                 │
-│ • Services      │    │ • Extractors    │    │ • Transformers  │    │ • Aggregators   │
-│ • API Calls     │    │ • Data Parsing  │    │ • Data Cleaning │    │ • Data Merging  │
-│ • Raw Data      │    │ • Creation      │    │ • Validation    │    │ • CSV Export    │
+│ • Services      │    │ • Extractors    │    │ • Registry      │    │ • Registry      │
+│ • API Calls     │    │ • Data Parsing  │    │ • Transformers  │    │ • Aggregators   │
+│ • Raw Data      │    │ • Clean Keys    │    │ • Data Cleaning │    │ • Data Merging  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                       ▲                       ▲
+                                                       │                       │
+                                              ┌─────────────────┐    ┌─────────────────┐
+                                              │ PROCESSOR       │    │ PROCESSOR       │
+                                              │ REGISTRY        │    │ REGISTRY        │
+                                              │                 │    │                 │
+                                              │ • Component     │    │ • Data          │
+                                              │   Lookup        │    │   Collection    │
+                                              │ • Capability    │    │ • Aggregator    │
+                                              │   Management    │    │   Orchestration │
+                                              └─────────────────┘    └─────────────────┘
 ```
 
 ## Core Components
 
-### 1. Pipeline Orchestrator
+### 1. Processor Registry (NEW)
+- **File**: `src/processing/registry.py`
+- **Class**: `ProcessorRegistry`
+- **Purpose**: Centralized component management and capability declaration system
+- **Key Features**:
+  - **Self-Describing Components**: Transformers and aggregators declare their own capabilities
+  - **Dynamic Component Lookup**: Pipeline stages use registry to find appropriate processors
+  - **Data Collection Orchestration**: Automatically collects required data for aggregators
+  - **Clean Key Management**: Single source of truth for data type naming
+  - **Extensible Architecture**: Easy addition of new transformers and aggregators
+
+#### Registry Configuration:
+```python
+# Transformer Registration (input types → output keys)
+self.register_transformer('workouts', WorkoutTransformer(), ['workouts'])
+self.register_transformer('activity', ActivityTransformer(), ['activity'])
+self.register_transformer('nutrition', NutritionTransformer(), ['nutrition'])
+
+# Aggregator Registration (required data types)
+self.register_aggregator('recovery', RecoveryAggregator(), ['recovery', 'sleep', 'resilience'])
+self.register_aggregator('training', TrainingAggregator(), ['workouts'])
+```
+
+### 2. Pipeline Orchestrator
 - **File**: `src/pipeline/orchestrator.py`
 - **Class**: `HealthDataOrchestrator`
 - **Purpose**: Main controller that coordinates all pipeline stages
@@ -28,7 +62,7 @@ The Health Data Pipeline is a modular, scalable system for collecting, processin
   - Provides comprehensive logging and metrics
   - Supports configurable CSV file generation
 
-### 2. Pipeline Stages
+### 3. Pipeline Stages
 
 #### Fetch Stage
 - **File**: `src/pipeline/stages/fetch_stage.py`
@@ -41,38 +75,93 @@ The Health Data Pipeline is a modular, scalable system for collecting, processin
 
 #### Extract Stage
 - **File**: `src/pipeline/stages/extract_stage.py`
-- **Purpose**: Parse raw API responses into structured records
+- **Purpose**: Parse raw API responses into structured records with clean key naming
 - **Components**:
-  - Data type-specific extractors
+  - Data type-specific extractors (Whoop, Oura, Hevy, Withings, Nutrition)
+  - **Clean Key Output**: All extractors output consistent keys (no `_records` suffix)
   - Consistent record creation patterns
   - Data validation and error handling
+- **Key Standardization**:
+  - `workouts`, `activity`, `weight`, `recovery`, `sleep`, `nutrition`, `resilience`
+  - No legacy `_records` suffix anywhere in the pipeline
 
-#### Transform Stage
+#### Transform Stage (Registry-Based)
 - **File**: `src/pipeline/stages/transform_stage.py`
-- **Purpose**: Clean, normalize, and validate extracted data
+- **Purpose**: Clean, normalize, and validate extracted data using registry lookup
+- **Registry Integration**:
+  - **Dynamic Transformer Lookup**: Uses `ProcessorRegistry` to find appropriate transformers
+  - **No Hardcoded Mapping**: Eliminates hardcoded transformer dictionaries
+  - **Self-Describing Components**: Transformers declare their input/output capabilities
 - **Components**:
-  - Record-specific transformers
-  - Data quality validation
+  - Registry-managed transformers for each data type
+  - Data quality validation and cleaning
+  - Timezone conversion and normalization
   - Outlier detection and filtering
 
-#### Aggregate Stage
+#### Aggregate Stage (Registry-Based)
 - **File**: `src/pipeline/stages/aggregate_stage.py`
-- **Purpose**: Combine and summarize data across sources
+- **Purpose**: Combine and summarize data across sources using registry orchestration
+- **Registry Integration**:
+  - **Automatic Data Collection**: Registry collects required data for each aggregator
+  - **Dynamic Aggregator Lookup**: Uses registry to find and execute aggregators
+  - **Capability-Based Processing**: Aggregators declare their data requirements
 - **Components**:
-  - Cross-service data aggregation
-  - Metric calculations
+  - Registry-managed aggregators (Recovery, Macros/Activity, Training)
+  - Cross-service data aggregation and analysis
+  - Metric calculations and daily summaries
   - Final CSV export generation
 
-### 3. Data Flow Architecture
+## Registry Architecture Benefits
+
+### 🎯 **Key Architectural Improvements**
+
+#### **1. Clean Separation of Concerns**
+- **Pipeline Stages**: Pure orchestration logic, no health data knowledge
+- **Processing Components**: Self-contained business logic with capability declarations
+- **Registry**: Centralized component management and data routing
+
+#### **2. Eliminated Key Mapping Confusion**
+- **Before**: Mixed keys like `workout_records`, `activity_records`, `nutrition_records`
+- **After**: Clean, consistent keys: `workouts`, `activity`, `nutrition`, `weight`
+- **Impact**: Zero key mapping bugs, predictable data flow
+
+#### **3. Self-Describing Components**
+```python
+# Components declare their own capabilities
+registry.register_transformer('workouts', WorkoutTransformer(), ['workouts'])
+registry.register_aggregator('recovery', RecoveryAggregator(), ['recovery', 'sleep', 'resilience'])
+```
+
+#### **4. Dynamic Component Discovery**
+- **Transform Stage**: `registry.find_transformer(data_type)` → automatic transformer lookup
+- **Aggregate Stage**: `registry.collect_data_for_aggregator()` → automatic data collection
+- **No Hardcoded Logic**: Pipeline stages work with any registered components
+
+#### **5. Extensibility**
+- **Adding New Data Source**: Register transformer, automatically works in pipeline
+- **Adding New Aggregation**: Register aggregator with requirements, automatically works
+- **Zero Pipeline Changes**: Stages remain unchanged regardless of new components
+
+### 🚀 **Performance & Maintainability**
+- **Code Reduction**: 110+ lines of hardcoded logic eliminated
+- **Bug Prevention**: Single source of truth prevents key mapping errors
+- **Easy Testing**: Components can be tested independently
+- **Clear Debugging**: Registry provides visibility into all component relationships
+
+### 4. Data Flow Architecture
 
 ```
 Raw API Data (JSON/XML)
     ↓
 Services (API Communication)
     ↓
-Extractors (Data Parsing)
+Extractors (Clean Key Output)
+    ↓
+Registry (Component Lookup)
     ↓
 Transformers (Data Cleaning)
+    ↓
+Registry (Data Collection)
     ↓
 Aggregators (Data Merging)
     ↓
@@ -95,9 +184,9 @@ CSV Files (Final Output)
 - **Weight**: Body composition measurements
 - **Nutrition**: Dietary intake and macros
 
-## Adding a New Service Integration
+## Adding a New Service Integration (Registry-Based)
 
-This section provides a step-by-step guide for adding a new service (e.g., Garmin) to the pipeline.
+This section provides a step-by-step guide for adding a new service (e.g., Garmin) to the pipeline using the registry architecture. The registry pattern makes adding new services significantly easier with automatic integration.
 
 ### Step 1: Create API Client
 
@@ -322,7 +411,29 @@ class GarminActivityTransformer(RecordListTransformer[GarminActivityRecord]):
         return int(calories) if calories else None
 ```
 
-### Step 7: Update Fetch Stage
+### Step 7: Register Components with Registry (KEY STEP)
+
+**File**: `src/processing/registry.py`
+
+Add the new Garmin components to the registry - this is the ONLY place you need to register them:
+
+```python
+def _register_all_components(self):
+    """Register all transformers and aggregators."""
+    # Existing registrations...
+    self.register_transformer('workouts', WorkoutTransformer(), ['workouts'])
+    self.register_transformer('activity', ActivityTransformer(), ['activity'])
+    # ... other existing transformers ...
+    
+    # Add Garmin transformer registration
+    self.register_transformer('garmin_activities', GarminActivityTransformer(), ['garmin_activities'])
+    
+    # Existing aggregator registrations...
+    self.register_aggregator('recovery', RecoveryAggregator(), ['recovery', 'sleep', 'resilience'])
+    # ... other existing aggregators ...
+```
+
+### Step 8: Update Fetch Stage
 
 **File**: `src/pipeline/stages/fetch_stage.py`
 
@@ -354,31 +465,42 @@ def _fetch_service_data(self, service_name: str, service_instance, start_date, e
     elif service_name == 'garmin':
         # Garmin service has multiple data types (expects datetime objects)
         return {
-            'activities': service_instance.get_activities_data(start_dt, end_dt),
-            'sleep': service_instance.get_sleep_data(start_dt, end_dt)
+            'garmin_activities': service_instance.get_activities_data(start_dt, end_dt),
+            'garmin_sleep': service_instance.get_sleep_data(start_dt, end_dt)
         }
 ```
 
-### Step 8: Update Extract Stage
+### 🎯 **That's It! Registry Magic**
 
-**File**: `src/pipeline/stages/extract_stage.py`
+Once you register the transformer in Step 7, the pipeline automatically:
+- ✅ **Transform Stage**: Finds and uses `GarminActivityTransformer` for `garmin_activities` data
+- ✅ **Aggregate Stage**: Can collect Garmin data for any aggregator that declares it needs it
+- ✅ **No Pipeline Changes**: Transform and Aggregate stages work automatically
+- ✅ **Extensible**: Add more Garmin data types by just registering more transformers
 
-Add Garmin extractor:
+## Registry Integration Summary
 
-```python
-from src.processing.extractors.garmin_extractor import GarminExtractor
+### 🚀 **Before Registry (Old Way)**
+- ❌ **5+ Files to Update**: Extract stage, transform stage, aggregate stage, plus hardcoded mappings
+- ❌ **Hardcoded Logic**: Pipeline stages contained health data-specific logic
+- ❌ **Key Mapping Bugs**: Inconsistent `_records` suffix caused recurring issues
+- ❌ **Maintenance Burden**: Adding new data types required changes across multiple files
 
-def __init__(self):
-    """Initialize the extract stage."""
-    super().__init__('extract')
-    
-    self.extractors = {
-        'whoop': WhoopExtractor(),
-        'oura': OuraExtractor(),
-        'withings': WithingsExtractor(),
-        'hevy': HevyExtractor(),
-        'nutrition': NutritionExtractor(),
-        'garmin': GarminExtractor()  # Add Garmin extractor
+### ✨ **After Registry (New Way)**
+- ✅ **1 File to Update**: Only register components in `ProcessorRegistry`
+- ✅ **Generic Stages**: Pipeline stages work with any registered components
+- ✅ **Clean Keys**: Consistent naming eliminates key mapping confusion
+- ✅ **Automatic Integration**: Transform and Aggregate stages automatically discover new components
+
+### 🎯 **Registry Benefits for New Services**
+1. **Minimal Code Changes**: Only need to register transformer/aggregator
+2. **Automatic Discovery**: Pipeline stages automatically find and use components
+3. **Self-Describing**: Components declare their own capabilities and requirements
+4. **Zero Pipeline Logic**: No health data knowledge in orchestration layers
+5. **Easy Testing**: Components can be tested independently
+6. **Clear Debugging**: Registry provides visibility into all component relationships
+
+**The registry pattern transforms service integration from a complex multi-file process into a simple one-line registration!**
     }
 ```
 
