@@ -1,25 +1,20 @@
 """Aggregate stage for creating daily health data summaries."""
 
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from .base_stage import PipelineStage, PipelineContext, StageResult
-from src.processing.aggregators import (
-    MacrosActivityAggregator, RecoveryAggregator, TrainingAggregator
-)
+from src.processing.registry import ProcessorRegistry
 from src.utils.pipeline_persistence import PipelinePersistence
-from datetime import datetime
 
 
 class AggregateStage(PipelineStage):
     """Stage 4: Create daily aggregated health data summaries."""
     
     def __init__(self):
-        """Initialize the aggregate stage."""
+        """Initialize the aggregate stage with processor registry."""
         super().__init__('aggregate')
         
-        # Initialize aggregators
-        self.macros_aggregator = MacrosActivityAggregator()
-        self.recovery_aggregator = RecoveryAggregator()
-        self.training_aggregator = TrainingAggregator()
+        # Initialize processor registry
+        self.registry = ProcessorRegistry()
         
         # Initialize persistence for CSV writing
         self.persistence = PipelinePersistence()
@@ -87,26 +82,48 @@ class AggregateStage(PipelineStage):
         current_date = context.start_date
         while current_date <= context.end_date:
             try:
-                # Create macros and activity aggregation
-                macros_activity = self._create_macros_activity_aggregation(
-                    current_date, context.transformed_data
-                )
-                if macros_activity:
-                    aggregated_data['macros_activity'].append(macros_activity)
-                
-                # Create recovery metrics aggregation
-                recovery_metrics = self._create_recovery_aggregation(
-                    current_date, context.transformed_data
-                )
-                if recovery_metrics:
-                    aggregated_data['recovery_metrics'].append(recovery_metrics)
-                
-                # Create training metrics aggregation
-                training_metrics = self._create_training_aggregation(
-                    current_date, context.transformed_data
-                )
-                if training_metrics:
-                    aggregated_data['training_metrics'].append(training_metrics)
+                # Process all registered aggregators
+                for aggregator_name in self.registry.get_all_aggregator_names():
+                    # Collect data required by this aggregator
+                    aggregator_data = self.registry.collect_data_for_aggregator(
+                        aggregator_name, context.transformed_data
+                    )
+                    
+                    # Get aggregator instance
+                    aggregator_info = self.registry.get_aggregator(aggregator_name)
+                    if not aggregator_info:
+                        continue
+                    
+                    aggregator = aggregator_info['instance']
+                    
+                    # Call appropriate aggregation method based on aggregator type
+                    if aggregator_name == 'macros':
+                        result = aggregator.aggregate_daily_data(
+                            current_date, 
+                            aggregator_data.get('nutrition', []),
+                            aggregator_data.get('activity', []),
+                            aggregator_data.get('weight', [])
+                        )
+                        if result:
+                            aggregated_data['macros_activity'].append(result)
+                    
+                    elif aggregator_name == 'recovery':
+                        result = aggregator.aggregate_daily_recovery(
+                            current_date,
+                            aggregator_data.get('recovery', []),
+                            aggregator_data.get('sleep', []),
+                            aggregator_data.get('resilience', [])
+                        )
+                        if result:
+                            aggregated_data['recovery_metrics'].append(result)
+                    
+                    elif aggregator_name == 'training':
+                        result = aggregator.aggregate_daily_training(
+                            current_date,
+                            aggregator_data.get('workouts', [])
+                        )
+                        if result:
+                            aggregated_data['training_metrics'].append(result)
                 
             except Exception as e:
                 self.logger.warning(f"Failed to create aggregations for {current_date}: {e}")
@@ -176,58 +193,4 @@ class AggregateStage(PipelineStage):
         
         return file_path
     
-    def _create_macros_activity_aggregation(self, target_date: date, transformed_data: dict):
-        """Create macros and activity aggregation for a specific date."""
-        # Collect data from all services
-        nutrition_records = []
-        activity_records = []
-        weight_records = []
-        
-        for service, service_data in transformed_data.items():
-            # Use simplified keys (no _records suffix)
-            if 'nutrition' in service_data:
-                nutrition_records.extend(service_data['nutrition'])
-            if 'activity' in service_data:
-                activity_records.extend(service_data['activity'])
-            if 'weight' in service_data:
-                weight_records.extend(service_data['weight'])
-        
-        return self.macros_aggregator.aggregate_daily_data(
-            target_date, nutrition_records, activity_records, weight_records
-        )
-    
-    def _create_recovery_aggregation(self, target_date: date, transformed_data: dict):
-        """Create recovery aggregation for a specific date."""
-        # Collect data from all services
-        recovery_records = []
-        sleep_records = []
-        resilience_records = []
-        
-        for service, service_data in transformed_data.items():
-            # Use simplified keys (no _records suffix)
-            if 'recovery' in service_data:
-                recovery_records.extend(service_data['recovery'])
-            if 'sleep' in service_data:
-                sleep_records.extend(service_data['sleep'])
-            if 'resilience' in service_data:
-                resilience_records.extend(service_data['resilience'])
-        
-        return self.recovery_aggregator.aggregate_daily_recovery(
-            target_date, recovery_records, sleep_records, resilience_records
-        )
-    
-    def _create_training_aggregation(self, target_date: date, transformed_data: dict):
-        """Create training aggregation for a specific date."""
-        # Collect workout data from all services
-        workout_records = []
-        
-        for service, service_data in transformed_data.items():
-            # Use simplified keys (no _records suffix)
-            if 'workouts' in service_data:  # Whoop workouts
-                workout_records.extend(service_data['workouts'])
-            if 'workout' in service_data:  # Hevy/Oura workouts (simplified from workout_records)
-                workout_records.extend(service_data['workout'])
-        
-        return self.training_aggregator.aggregate_daily_training(
-            target_date, workout_records
-        )
+

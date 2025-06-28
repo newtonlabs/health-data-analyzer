@@ -33,12 +33,12 @@ class HevyExtractor(BaseExtractor):
         # Extract workout data (pure conversion, no filtering)
         workout_records = self._extract_workouts(raw_data)
         if workout_records:
-            extracted_data["workout_records"] = workout_records
+            extracted_data["workouts"] = workout_records
         
         # Extract exercise data (pure conversion, no filtering)
         exercise_records = self._extract_exercises(raw_data)
         if exercise_records:
-            extracted_data["exercise_records"] = exercise_records
+            extracted_data["exercises"] = exercise_records
         
         print(f"Extracted Hevy data with {len(extracted_data)} data types")
         return extracted_data

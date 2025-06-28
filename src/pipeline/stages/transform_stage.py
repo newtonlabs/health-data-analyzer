@@ -1,14 +1,7 @@
 """Transform stage for cleaning and normalizing extracted data."""
 
 from .base_stage import PipelineStage, PipelineContext, StageResult
-from src.processing.transformers.workout_transformer import WorkoutTransformer
-from src.processing.transformers.activity_transformer import ActivityTransformer
-from src.processing.transformers.weight_transformer import WeightTransformer
-from src.processing.transformers.recovery_transformer import RecoveryTransformer
-from src.processing.transformers.sleep_transformer import SleepTransformer
-from src.processing.transformers.exercise_transformer import ExerciseTransformer
-from src.processing.transformers.nutrition_transformer import NutritionTransformer
-from src.processing.transformers.resilience_transformer import ResilienceTransformer
+from src.processing.registry import ProcessorRegistry
 from src.utils.pipeline_persistence import PipelinePersistence
 from datetime import datetime
 
@@ -17,20 +10,11 @@ class TransformStage(PipelineStage):
     """Stage 3: Transform and clean extracted data."""
     
     def __init__(self):
-        """Initialize the transform stage."""
+        """Initialize transform stage with processor registry."""
         super().__init__('transform')
         
-        # Initialize data-type-based transformers
-        self.transformers = {
-            'workout': WorkoutTransformer(),
-            'activity': ActivityTransformer(),
-            'weight': WeightTransformer(),
-            'recovery': RecoveryTransformer(),
-            'sleep': SleepTransformer(),
-            'exercise': ExerciseTransformer(),
-            'nutrition': NutritionTransformer(),
-            'resilience': ResilienceTransformer()
-        }
+        # Initialize processor registry
+        self.registry = ProcessorRegistry()
         
         # Initialize persistence for CSV writing
         self.persistence = PipelinePersistence()
@@ -61,26 +45,27 @@ class TransformStage(PipelineStage):
                 service_transformed_data = {}
                 service_records = 0
                 
-                # Transform each data type using appropriate transformer
+                # Transform each data type using registry
                 for data_type, records in extracted_data.items():
                     if not records:
                         continue
                     
-                    # Map data type to transformer
-                    transformer_key = self._get_transformer_key(data_type)
-                    if transformer_key not in self.transformers:
+                    # Find transformer for this data type
+                    transformer_info = self.registry.get_transformer_for_data_type(data_type)
+                    if not transformer_info:
                         self.logger.warning(f"No transformer for data type: {data_type}")
                         continue
                     
                     try:
-                        transformer = self.transformers[transformer_key]
+                        transformer = transformer_info['instance']
+                        output_key = transformer_info['output_key']
                         transformed_records = transformer.transform(records)
-                        # Store with simplified key (remove _records suffix for consistency)
-                        simplified_key = data_type.replace('_records', '')
-                        service_transformed_data[simplified_key] = transformed_records
+                        
+                        # Store with transformer's preferred output key
+                        service_transformed_data[output_key] = transformed_records
                         service_records += len(transformed_records)
                         
-                        self.logger.info(f"✅ Transformed {len(transformed_records)} {data_type} records using {transformer_key}Transformer")
+                        self.logger.info(f"✅ Transformed {len(transformed_records)} {data_type} records to {output_key}")
                         
                     except Exception as e:
                         self.logger.error(f"Failed to transform {data_type}: {e}")
@@ -183,33 +168,4 @@ class TransformStage(PipelineStage):
         
         return file_paths
     
-    def _get_transformer_key(self, data_type: str) -> str:
-        """Map data type to transformer key.
-        
-        Args:
-            data_type: Data type from extracted data (e.g., 'workout_records')
-            
-        Returns:
-            Transformer key (e.g., 'workout')
-        """
-        # Map data types to transformer keys
-        mapping = {
-            'workout_records': 'workout',
-            'workouts': 'workout',
-            'activity_records': 'activity',
-            'activities': 'activity',
-            'weight_records': 'weight',
-            'weights': 'weight',
-            'recovery_records': 'recovery',
-            'recovery': 'recovery',
-            'sleep_records': 'sleep',
-            'sleep': 'sleep',
-            'exercise_records': 'exercise',
-            'exercises': 'exercise',
-            'nutrition_records': 'nutrition',
-            'nutrition': 'nutrition',
-            'resilience_records': 'resilience',
-            'resilience': 'resilience'
-        }
-        
-        return mapping.get(data_type, data_type.replace('_records', ''))
+

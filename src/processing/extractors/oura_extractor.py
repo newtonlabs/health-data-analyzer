@@ -228,17 +228,17 @@ class OuraExtractor(BaseExtractor):
         # Extract activity data
         activity_records = self.extract_activity_data(raw_data, start_date, end_date)
         if activity_records:
-            extracted_data["activity_records"] = activity_records
+            extracted_data["activity"] = activity_records
         
         # Extract resilience data
         resilience_records = self.extract_resilience_data(raw_data, start_date, end_date)
         if resilience_records:
-            extracted_data["resilience_records"] = resilience_records
+            extracted_data["resilience"] = resilience_records
         
         # Extract workout data
         workout_records = self.extract_workout_data(raw_data, start_date, end_date)
         if workout_records:
-            extracted_data["workout_records"] = workout_records
+            extracted_data["workouts"] = workout_records
         
         print(f"Extracted Oura data with {len(extracted_data)} data types")
         return extracted_data
@@ -263,19 +263,19 @@ class OuraExtractor(BaseExtractor):
         if "activities" in raw_data:
             activity_records = self.extract_activity_data(raw_data["activities"])
             if activity_records:
-                extracted_data["activity_records"] = activity_records
+                extracted_data["activity"] = activity_records
         
         # Extract resilience data if available (pure conversion, no filtering)
         if "resilience" in raw_data:
             resilience_records = self.extract_resilience_data(raw_data["resilience"])
             if resilience_records:
-                extracted_data["resilience_records"] = resilience_records
+                extracted_data["resilience"] = resilience_records
         
         # Extract workout data if available (pure conversion, no filtering)
         if "workouts" in raw_data:
             workout_records = self.extract_workout_data(raw_data["workouts"])
             if workout_records:
-                extracted_data["workout_records"] = workout_records
+                extracted_data["workouts"] = workout_records
         
         print(f"Extracted Oura data with {len(extracted_data)} data types")
         return extracted_data

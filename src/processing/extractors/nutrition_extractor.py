@@ -101,6 +101,6 @@ class NutritionExtractor(BaseExtractor):
         # Return dictionary format like other extractors
         extracted_data = {}
         if nutrition_records:
-            extracted_data['nutrition_records'] = nutrition_records
+            extracted_data['nutrition'] = nutrition_records
         
         return extracted_data

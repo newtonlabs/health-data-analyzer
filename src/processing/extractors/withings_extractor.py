@@ -123,7 +123,7 @@ class WithingsExtractor(BaseExtractor):
         # Extract weight data
         weight_records = self.extract_weight_data(raw_data, start_date, end_date)
         if weight_records:
-            extracted_data["weight_records"] = weight_records
+            extracted_data["weight"] = weight_records
         
         print(f"Extracted Withings data with {len(extracted_data)} data types")
         return extracted_data
