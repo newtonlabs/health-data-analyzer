@@ -286,8 +286,34 @@ class HealthDataPipelineTest:
                 return True
                 
         except Exception as e:
-            print(f"❌ Whoop: Pipeline failed - {e}")
-            return False
+            error_msg = str(e).lower()
+            # Check for authentication-related errors
+            if any(auth_error in error_msg for auth_error in ['401', 'unauthorized', 'authentication', 'token']):
+                print(f"🔄 Whoop: Authentication error detected, forcing re-authentication...")
+                try:
+                    # Force fresh authentication
+                    if self._authenticate_whoop(force_auth=True):
+                        print(f"🔄 Whoop: Retrying data extraction after re-authentication...")
+                        # Retry extraction with fresh auth
+                        from src.pipeline.clean_pipeline import CleanHealthPipeline
+                        clean_pipeline = CleanHealthPipeline()
+                        file_paths = clean_pipeline.process_whoop_data(days=self.days)
+                        
+                        if file_paths:
+                            print(f"✅ Whoop: Pipeline completed successfully after re-auth")
+                            return True
+                        else:
+                            print("⚠️  Whoop: Pipeline completed but no files generated after re-auth")
+                            return True
+                    else:
+                        print(f"❌ Whoop: Re-authentication failed")
+                        return False
+                except Exception as retry_e:
+                    print(f"❌ Whoop: Retry failed after re-auth - {retry_e}")
+                    return False
+            else:
+                print(f"❌ Whoop: Pipeline failed - {e}")
+                return False
     
     def _extract_oura_data(self):
         """Extract Oura activity data using clean 3-stage pipeline."""
@@ -327,7 +353,7 @@ class HealthDataPipelineTest:
             return False
     
     def _extract_withings_data(self):
-        """Extract Withings weight data using clean 3-stage pipeline."""
+        """Extract Withings weight data using clean 3-stage pipeline with auto re-auth."""
         try:
             from src.pipeline.clean_pipeline import CleanHealthPipeline
             
@@ -355,8 +381,34 @@ class HealthDataPipelineTest:
                 return True
                 
         except Exception as e:
-            print(f"❌ Withings: Pipeline failed - {e}")
-            return False
+            error_msg = str(e).lower()
+            # Check for authentication-related errors
+            if any(auth_error in error_msg for auth_error in ['401', 'unauthorized', 'authentication', 'token']):
+                print(f"🔄 Withings: Authentication error detected, forcing re-authentication...")
+                try:
+                    # Force fresh authentication
+                    if self._authenticate_withings(force_auth=True):
+                        print(f"🔄 Withings: Retrying data extraction after re-authentication...")
+                        # Retry extraction with fresh auth
+                        from src.pipeline.clean_pipeline import CleanHealthPipeline
+                        clean_pipeline = CleanHealthPipeline()
+                        file_paths = clean_pipeline.process_withings_data(days=self.days)
+                        
+                        if file_paths:
+                            print(f"✅ Withings: Pipeline completed successfully after re-auth")
+                            return True
+                        else:
+                            print("⚠️  Withings: Pipeline completed but no files generated after re-auth")
+                            return True
+                    else:
+                        print(f"❌ Withings: Re-authentication failed")
+                        return False
+                except Exception as retry_e:
+                    print(f"❌ Withings: Retry failed after re-auth - {retry_e}")
+                    return False
+            else:
+                print(f"❌ Withings: Pipeline failed - {e}")
+                return False
     
     def _extract_hevy_data(self):
         """Extract Hevy workout data using clean 3-stage pipeline."""

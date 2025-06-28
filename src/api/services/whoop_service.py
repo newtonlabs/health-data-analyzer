@@ -76,3 +76,19 @@ class WhoopService(BaseAPIService):
             Raw API response containing sleep data
         """
         return self.whoop_client.get_sleep(start_date, end_date)
+
+    def get_cycles_data(
+        self, 
+        start_date: datetime, 
+        end_date: datetime
+    ) -> Dict[str, Any]:
+        """Get cycle data for a date range.
+
+        Args:
+            start_date: Start date for data collection
+            end_date: End date for data collection
+
+        Returns:
+            Raw API response containing cycle data
+        """
+        return self.whoop_client.get_cycles(start_date, end_date)

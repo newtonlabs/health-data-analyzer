@@ -19,16 +19,15 @@ class DataSource(Enum):
 class SportType(Enum):
     """Enumeration of sport/activity types.
     
-    Only includes sports that are actually used in current configuration
-    or required for the data models.
+    Categories with configurable mapping:
+    - STRENGTH_TRAINING: weightlifting, strength training, etc.
+    - WALKING: walking activities
+    - CARDIO: running, cycling, etc.
+    - UNKNOWN: fallback for unrecognized activities
     """
-    # Sports from current WHOOP_SPORT_MAPPINGS
-    ROWING = "rowing"
-    WALKING = "walking"
     STRENGTH_TRAINING = "strength_training"
-    OTHER = "other"
-    
-    # Required for data model validation
+    WALKING = "walking"
+    CARDIO = "cardio"
     UNKNOWN = "unknown"
 
 

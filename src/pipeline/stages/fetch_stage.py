@@ -158,7 +158,8 @@ class FetchStage(PipelineStage):
             return {
                 'workouts': service_instance.get_workouts_data(start_dt, end_dt),
                 'recovery': service_instance.get_recovery_data(start_dt, end_dt),
-                'sleep': service_instance.get_sleep_data(start_dt, end_dt)
+                'sleep': service_instance.get_sleep_data(start_dt, end_dt),
+                'cycles': service_instance.get_cycles_data(start_dt, end_dt)
             }
         elif service_name == 'oura':
             # Oura service has multiple data types (now expects datetime objects for consistency)

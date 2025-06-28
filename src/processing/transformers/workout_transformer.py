@@ -50,7 +50,8 @@ class WorkoutTransformer(RecordListTransformer[WorkoutRecord]):
             timestamp=record.timestamp,
             date=record.timestamp.date(),  # Calculate date from timestamp
             source=record.source,
-            sport=record.sport,
+            sport_type=record.sport_type,
+            sport_name=record.sport_name,  # Preserve sport name through transformation
             duration_minutes=self._normalize_duration(record.duration_minutes),
             calories=self._normalize_calories(record.calories),
             strain_score=self._normalize_strain(record.strain_score),

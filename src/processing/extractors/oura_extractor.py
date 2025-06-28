@@ -9,6 +9,7 @@ from .base_extractor import BaseExtractor
 from src.models.raw_data import ActivityRecord, ResilienceRecord, WorkoutRecord
 from src.models.enums import DataSource, SportType
 from src.utils.date_utils import DateUtils
+from src.config import default_config
 
 
 class OuraExtractor(BaseExtractor):
@@ -17,6 +18,7 @@ class OuraExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the Oura extractor."""
         super().__init__(DataSource.OURA)
+        self.config = default_config
     
     def extract_activity_data(self, raw_data: Dict[str, Any]) -> List[ActivityRecord]:
         """Extract activity records from Oura API response.
@@ -155,9 +157,9 @@ class OuraExtractor(BaseExtractor):
                 end_dt = DateUtils.parse_iso_timestamp(end_datetime_str)
                 duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
                 
-                # Map Oura activity to SportType
-                activity = workout_item.get("activity", "").lower()
-                sport = self._map_oura_activity_to_sport(activity)
+                # Get sport name and determine type using config system
+                sport_name = workout_item.get('activity', 'unknown')
+                sport_type = self.config.get_sport_type_from_name(sport_name)
                 
                 # Create WorkoutRecord with raw data (no transformation or filtering)
                 # API already filters by date range, so no need to filter again
@@ -165,7 +167,8 @@ class OuraExtractor(BaseExtractor):
                     timestamp=start_dt,  # Use parsed start datetime as timestamp
                     date=None,  # Will be calculated in transformer
                     source=DataSource.OURA,
-                    sport=sport,
+                    sport_type=sport_type,
+                    sport_name=sport_name,
                     duration_minutes=duration_minutes,
                     calories=int(workout_item.get("calories", 0))
                 )

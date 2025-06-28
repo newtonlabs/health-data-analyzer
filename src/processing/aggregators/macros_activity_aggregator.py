@@ -70,38 +70,4 @@ class MacrosActivityAggregator:
                 return record
         return None
     
-    # Business logic methods (moved from model)
-    @staticmethod
-    def calculate_total_macro_calories(protein: float, carbs: float, fat: float, alcohol: float = 0) -> int:
-        """Calculate total calories from macros (4-4-9-7 rule)."""
-        protein_cals = protein * 4
-        carb_cals = carbs * 4  
-        fat_cals = fat * 9
-        alcohol_cals = alcohol * 7
-        return int(protein_cals + carb_cals + fat_cals + alcohol_cals)
-    
-    @staticmethod
-    def calculate_calorie_deficit_surplus(calories: int, activity_score: int) -> int:
-        """Estimate calorie deficit/surplus (positive = surplus, negative = deficit)."""
-        # Rough estimate: activity score correlates to calories burned
-        estimated_burn = 1800 + (activity_score * 10)  # Base + activity multiplier
-        return calories - estimated_burn
-    
-    @staticmethod
-    def calculate_protein_per_kg(protein: float, weight: float) -> float:
-        """Calculate protein intake per kg body weight."""
-        return round(protein / weight, 2)
-    
-    @staticmethod
-    def calculate_macro_balance(protein: float, carbs: float, fat: float, alcohol: float = 0) -> dict:
-        """Calculate macro percentages of total calories."""
-        total_cals = MacrosActivityAggregator.calculate_total_macro_calories(protein, carbs, fat, alcohol)
-        if total_cals == 0:
-            return {"protein_pct": 0, "carbs_pct": 0, "fat_pct": 0, "alcohol_pct": 0}
-        
-        return {
-            "protein_pct": round(protein * 4 / total_cals * 100, 1),
-            "carbs_pct": round(carbs * 4 / total_cals * 100, 1),
-            "fat_pct": round(fat * 9 / total_cals * 100, 1),
-            "alcohol_pct": round(alcohol * 7 / total_cals * 100, 1),
-        }
+

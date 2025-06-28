@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from .base_extractor import BaseExtractor
 from src.models.raw_data import WorkoutRecord, ExerciseRecord
 from src.models.enums import DataSource, SportType
+from src.config import default_config
 
 
 class HevyExtractor(BaseExtractor):
@@ -14,6 +15,7 @@ class HevyExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the Hevy extractor."""
         super().__init__(DataSource.HEVY)
+        self.config = default_config
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Hevy API response.
@@ -103,12 +105,17 @@ class HevyExtractor(BaseExtractor):
                         reps = set_data.get("reps", 0) or 0
                         total_volume += weight * reps
                 
+                # Get sport type using config system (Hevy is strength training)
+                sport_name = "Strength Training"
+                sport_type = self.config.get_sport_type_from_name(sport_name)
+                
                 # Create WorkoutRecord
                 record = WorkoutRecord(
                     timestamp=workout_timestamp,
                     date=None,  # Will be calculated in transformer
                     source=DataSource.HEVY,
-                    sport=SportType.STRENGTH_TRAINING,  # Hevy is primarily strength training
+                    sport_type=sport_type,
+                    sport_name=sport_name,
                     duration_minutes=duration_minutes,
                     set_count=set_count,
                     volume_kg=total_volume

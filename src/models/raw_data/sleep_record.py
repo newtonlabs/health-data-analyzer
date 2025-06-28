@@ -32,6 +32,9 @@ class SleepRecord:
     bedtime: Optional[datetime] = None
     wake_time: Optional[datetime] = None
     
+    # Sleep type
+    nap: Optional[bool] = None
+    
     def __post_init__(self):
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):

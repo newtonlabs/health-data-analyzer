@@ -66,7 +66,8 @@ class SleepTransformer(RecordListTransformer[SleepRecord]):
             sleep_score=self._normalize_score(record.sleep_score),
             sleep_need_minutes=self._normalize_minutes(record.sleep_need_minutes),
             bedtime=record.bedtime,  # Keep original datetime
-            wake_time=record.wake_time  # Keep original datetime
+            wake_time=record.wake_time,  # Keep original datetime
+            nap=record.nap  # Preserve nap flag
         )
         
         self.logger.debug(f"Transformed sleep record: {cleaned_record.date}")

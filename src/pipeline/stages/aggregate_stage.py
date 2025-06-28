@@ -118,12 +118,13 @@ class AggregateStage(PipelineStage):
                             aggregated_data['recovery_metrics'].append(result)
                     
                     elif aggregator_name == 'training':
-                        result = aggregator.aggregate_daily_training(
+                        results = aggregator.aggregate_daily_training(
                             current_date,
                             aggregator_data.get('workouts', [])
                         )
-                        if result:
-                            aggregated_data['training_metrics'].append(result)
+                        if results:
+                            # Training aggregator now returns a list of records (one per sport)
+                            aggregated_data['training_metrics'].extend(results)
                 
             except Exception as e:
                 self.logger.warning(f"Failed to create aggregations for {current_date}: {e}")

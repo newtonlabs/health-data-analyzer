@@ -13,8 +13,11 @@ class WorkoutRecord:
     timestamp: datetime
     date: date  # Date extracted from timestamp for easier filtering
     source: DataSource
-    sport: SportType
+    sport_type: SportType
     duration_minutes: int
+    
+    # Optional fields (must come after required fields)
+    sport_name: Optional[str] = None  # Raw sport name string from API
     
     # Optional metrics (vary by source)
     strain_score: Optional[float] = None
@@ -38,8 +41,8 @@ class WorkoutRecord:
         """Validate and normalize data after initialization."""
         if isinstance(self.source, str):
             self.source = DataSource(self.source)
-        if isinstance(self.sport, str):
+        if isinstance(self.sport_type, str):
             try:
-                self.sport = SportType(self.sport)
+                self.sport_type = SportType(self.sport_type)
             except ValueError:
-                self.sport = SportType.UNKNOWN
+                self.sport_type = SportType.UNKNOWN

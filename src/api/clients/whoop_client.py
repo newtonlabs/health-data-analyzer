@@ -141,6 +141,25 @@ class WhoopClient(APIClient):
             params=params,
         )
 
+    def get_cycles(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
+        """Get cycle data for a date range.
+
+        Args:
+            start_date: Start date
+            end_date: End date
+
+        Returns:
+            Dictionary containing cycle data including physiological cycles and recovery metrics
+        """
+        params = {
+            "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        return self._make_request(
+            endpoint="v1/cycle",
+            params=params,
+        )
+
     # Authentication methods
     def authenticate(self) -> bool:
         """Authenticate with Whoop using OAuth2 flow.

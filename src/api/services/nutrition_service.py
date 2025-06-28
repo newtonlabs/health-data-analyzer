@@ -5,15 +5,13 @@ from typing import Dict, Any, Optional
 import pandas as pd
 import os
 
-from src.api.clients.nutrition_file_client import NutritionFile
 from src.utils.logging_utils import HealthLogger
 
 
 class NutritionService:
     """Service for reading nutrition data from CSV files.
     
-    This service follows the same pattern as API services but reads from
-    local CSV files instead of making HTTP requests.
+    This service reads directly from CSV files without unnecessary client abstraction.
     """
     
     def __init__(self, data_dir: str = "data", filename: str = "dailysummary.csv"):
@@ -24,7 +22,7 @@ class NutritionService:
             filename: Name of the nutrition data CSV file
         """
         self.logger = HealthLogger(self.__class__.__name__)
-        self.nutrition_client = NutritionFile(data_dir, filename)
+        self.data_file = os.path.join(data_dir, filename)
     
     def get_nutrition_data(
         self, 
@@ -43,12 +41,12 @@ class NutritionService:
         try:
             self.logger.info(f"Loading nutrition data from {start_date.date()} to {end_date.date()}")
             
-            # Load full CSV data directly to get all micronutrients (bypass client filtering)
-            if not self.nutrition_client.data_file or not os.path.exists(self.nutrition_client.data_file):
-                raise FileNotFoundError(f"Nutrition data file not found: {self.nutrition_client.data_file}")
+            # Load full CSV data directly to get all micronutrients
+            if not self.data_file or not os.path.exists(self.data_file):
+                raise FileNotFoundError(f"Nutrition data file not found: {self.data_file}")
             
             # Load full CSV with all columns
-            df = pd.read_csv(self.nutrition_client.data_file, parse_dates=["Date"])
+            df = pd.read_csv(self.data_file, parse_dates=["Date"])
             
             # Filter by date range
             if start_date:
@@ -131,7 +129,6 @@ class NutritionService:
             True if nutrition file exists and is readable, False otherwise
         """
         try:
-            return self.nutrition_client.data_file is not None and \
-                   self.nutrition_client.data_file.exists()
+            return self.data_file is not None and os.path.exists(self.data_file)
         except Exception:
             return False

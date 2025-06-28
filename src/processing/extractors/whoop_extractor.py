@@ -38,15 +38,16 @@ class WhoopExtractor(BaseExtractor):
         without any transformation, cleaning, or persistence.
         
         Args:
-            raw_data: Raw API response data containing workouts, recovery, sleep
+            raw_data: Raw API response data containing workouts, recovery, sleep, cycles
             
         Returns:
-            Dictionary with keys 'workouts', 'recovery', 'sleep' and lists of raw records
+            Dictionary with keys 'workouts', 'recovery', 'sleep', 'cycles' and lists of raw records
         """
         extracted = {
             'workouts': [],
             'recovery': [],
-            'sleep': []
+            'sleep': [],
+            'cycles': []
         }
         
         # Extract workouts (pure conversion, no transformation)
@@ -56,13 +57,20 @@ class WhoopExtractor(BaseExtractor):
         
         # Extract recovery (pure conversion, no transformation)
         if 'recovery' in raw_data:
-            extracted['recovery'] = self.extract_recovery(raw_data['recovery'])
+            cycles_data = raw_data.get('cycles')  # Get cycles data for timestamp lookup
+            extracted['recovery'] = self.extract_recovery(raw_data['recovery'], cycles_data)
             self.logger.info(f"Extracted {len(extracted['recovery'])} raw recovery records")
         
         # Extract sleep (pure conversion, no transformation)
         if 'sleep' in raw_data:
             extracted['sleep'] = self.extract_sleep(raw_data['sleep'])
             self.logger.info(f"Extracted {len(extracted['sleep'])} raw sleep records")
+        
+        # Extract cycles (raw data for research - no processing)
+        if 'cycles' in raw_data:
+            extracted['cycles'] = raw_data['cycles']  # Store raw cycle data as-is
+            cycle_count = len(raw_data['cycles'].get('records', [])) if isinstance(raw_data['cycles'], dict) else len(raw_data['cycles'])
+            self.logger.info(f"Extracted {cycle_count} raw cycle records for research")
         
         self.logger.info("Pure extraction completed - no transformation or persistence")
         return extracted
@@ -135,12 +143,17 @@ class WhoopExtractor(BaseExtractor):
         zone_4_minutes = self.safe_get(zone_duration, 'zone_four_milli', 0, int) / 60000.0 if zone_duration else None
         zone_5_minutes = self.safe_get(zone_duration, 'zone_five_milli', 0, int) / 60000.0 if zone_duration else None
         
+        # Get sport name and determine type using config system
+        sport_name = sport_info.get('name')
+        sport_type = self.config.get_sport_type_from_name(sport_name)
+        
         # Create workout record
         workout = WorkoutRecord(
             timestamp=start_time,
             date=None,  # Will be calculated in transformer
             source=DataSource.WHOOP,
-            sport=SportType(sport_info['sport_type']),
+            sport_type=sport_type,
+            sport_name=sport_name,
             duration_minutes=duration_minutes,
             strain_score=strain_score,
             calories=calories,
@@ -156,11 +169,12 @@ class WhoopExtractor(BaseExtractor):
         
         return workout
     
-    def extract_recovery(self, raw_data: Dict[str, Any]) -> List[RecoveryRecord]:
+    def extract_recovery(self, raw_data: Dict[str, Any], cycles_data: Dict[str, Any] = None) -> List[RecoveryRecord]:
         """Extract recovery records from raw Whoop recovery data.
         
         Args:
             raw_data: Raw recovery API response
+            cycles_data: Raw cycles API response for timestamp lookup
             
         Returns:
             List of RecoveryRecord instances
@@ -170,7 +184,7 @@ class WhoopExtractor(BaseExtractor):
         
         for recovery_data in raw_recovery:
             try:
-                recovery_record = self._extract_single_recovery(recovery_data)
+                recovery_record = self._extract_single_recovery(recovery_data, cycles_data)
                 if recovery_record:
                     recovery_records.append(recovery_record)
             except Exception as e:
@@ -180,11 +194,12 @@ class WhoopExtractor(BaseExtractor):
         self.log_extraction_stats('recovery', len(recovery_records), len(raw_recovery))
         return recovery_records
     
-    def _extract_single_recovery(self, recovery_data: Dict[str, Any]) -> RecoveryRecord:
+    def _extract_single_recovery(self, recovery_data: Dict[str, Any], cycles_data: Dict[str, Any] = None) -> RecoveryRecord:
         """Extract a single recovery record.
         
         Args:
             recovery_data: Raw recovery data from API
+            cycles_data: Raw cycles data for timestamp lookup
             
         Returns:
             RecoveryRecord instance or None if extraction fails
@@ -229,9 +244,21 @@ class WhoopExtractor(BaseExtractor):
         if hrv_rmssd:
             hrv_rmssd = hrv_rmssd / 1000.0 if hrv_rmssd > 100 else hrv_rmssd
         
+        # Look up timestamp from corresponding cycle record
+        cycle_timestamp = None
+        if cycles_data and cycle_id:
+            cycle_records = cycles_data.get('records', []) if isinstance(cycles_data, dict) else []
+            for cycle_record in cycle_records:
+                if str(cycle_record.get('id', '')) == str(cycle_id):
+                    cycle_timestamp = self.safe_get(cycle_record, 'start', None, str)
+                    break
+        
+        # Use cycle start timestamp only (no fallback)
+        timestamp = cycle_timestamp
+        
         # Create recovery record
         recovery = RecoveryRecord(
-            timestamp=self.safe_get(recovery_data, 'created_at', None, str),  # Preserve raw timestamp
+            timestamp=timestamp,  # Use cycle start timestamp or fallback
             date=None,  # Will be calculated in transformer
             source=DataSource.WHOOP,
             recovery_score=recovery_score,  # Map directly from API
@@ -331,9 +358,12 @@ class WhoopExtractor(BaseExtractor):
         bedtime = self.parse_timestamp(sleep_data.get('start'))
         wake_time = self.parse_timestamp(sleep_data.get('end'))
         
+        # Get nap field directly from Whoop API data
+        is_nap = self.safe_get(sleep_data, 'nap', None, bool)
+        
         # Create sleep record
         sleep_record = SleepRecord(
-            timestamp=self.safe_get(sleep_data, 'created_at', None, str),  # Preserve raw timestamp
+            timestamp=self.safe_get(sleep_data, 'start', None, str),  # Use start time for sleep timestamp
             date=None,  # Will be calculated in transformer
             source=DataSource.WHOOP,
             total_sleep_minutes=total_sleep_minutes,
@@ -345,7 +375,8 @@ class WhoopExtractor(BaseExtractor):
             sleep_score=int(sleep_score) if sleep_score else None,
             sleep_need_minutes=sleep_need_minutes,
             bedtime=bedtime,
-            wake_time=wake_time
+            wake_time=wake_time,
+            nap=is_nap
         )
         
         return sleep_record

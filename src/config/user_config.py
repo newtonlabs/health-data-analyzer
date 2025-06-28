@@ -6,6 +6,8 @@ and are actually used. No speculative or future features.
 
 from typing import Dict, List
 
+from src.models.enums import SportType
+
 
 # === EXISTING CONFIGURATION FROM APP_CONFIG.PY ===
 
@@ -27,14 +29,31 @@ RECOVERY_THRESHOLDS: Dict[str, int] = {
     "moderate": 70  # Threshold for moderate recovery (above this is high)
 }
 
-# Whoop Sport ID Mappings (from WHOOP_SPORT_NAMES)
+# Sport Type Classification Arrays (configurable)
+STRENGTH_SPORTS: List[str] = [
+    "weightlifting", "strength training", "weight training", 
+    "resistance training", "lifting", "strength", "weights",
+    "powerlifting", "bodybuilding", "crossfit", "functional training"
+]
+
+CARDIO_SPORTS: List[str] = [
+    "running", "jogging", "cycling", "biking", "swimming", 
+    "rowing", "elliptical", "stairmaster", "treadmill",
+    "spinning", "cardio", "aerobic", "hiit", "interval training"
+]
+
+WALKING_SPORTS: List[str] = [
+    "walking", "walk", "hiking", "trekking", "stroll", "housework"
+]
+
+# Whoop Sport ID Mappings (sport_type removed - now determined dynamically)
 WHOOP_SPORT_MAPPINGS: Dict[int, Dict[str, str]] = {
-    18: {"name": "Rowing", "sport_type": "rowing"},
-    63: {"name": "Walking", "sport_type": "walking"},
-    65: {"name": "Elliptical", "sport_type": "other"},
-    66: {"name": "Stairmaster", "sport_type": "other"},
-    45: {"name": "Weightlifting", "sport_type": "strength_training"},
-    123: {"name": "Strength", "sport_type": "strength_training"},
+    18: {"name": "Rowing"},
+    63: {"name": "Walking"},
+    65: {"name": "Elliptical"},
+    66: {"name": "Stairmaster"},
+    45: {"name": "Weightlifting"},
+    123: {"name": "Strength"},
 }
 
 # Withings Measurement Types (from app_config.py constants)
@@ -70,6 +89,11 @@ class UserConfig:
         self.recovery_thresholds = RECOVERY_THRESHOLDS.copy()
         self.whoop_sport_mappings = WHOOP_SPORT_MAPPINGS.copy()
         self.withings_measurement_types = WITHINGS_MEASUREMENT_TYPES.copy()
+        
+        # Sport type classification arrays
+        self.strength_sports = STRENGTH_SPORTS.copy()
+        self.cardio_sports = CARDIO_SPORTS.copy()
+        self.walking_sports = WALKING_SPORTS.copy()
     
     def is_strength_activity(self, sport: str) -> bool:
         """Check if a sport is considered a strength activity.
@@ -117,11 +141,10 @@ class UserConfig:
             sport_id: Whoop API sport ID
             
         Returns:
-            Dictionary with 'name' and 'sport_type' keys, or default values
+            Dictionary with 'name' key, sport_type determined dynamically
         """
         return self.whoop_sport_mappings.get(sport_id, {
-            "name": f"Unknown Sport {sport_id}",
-            "sport_type": "unknown"
+            "name": f"Unknown Sport {sport_id}"
         })
     
     def get_whoop_sport_name(self, sport_id: int) -> str:
@@ -147,6 +170,36 @@ class UserConfig:
             Measurement name string
         """
         return self.withings_measurement_types.get(measurement_type, f"unknown_type_{measurement_type}")
+    
+    def get_sport_type_from_name(self, sport_name: str) -> 'SportType':
+        """Map sport name to SportType enum with configurable fallback logic.
+        
+        Args:
+            sport_name: Human-readable sport name (e.g., "Walking", "Weightlifting")
+            
+        Returns:
+            SportType enum value
+        """
+        if not sport_name:
+            return SportType.UNKNOWN  # Default fallback
+        
+        # Convert to lowercase for case-insensitive matching
+        name_lower = sport_name.lower()
+        
+        # Check strength sports
+        if any(pattern in name_lower for pattern in self.strength_sports):
+            return SportType.STRENGTH_TRAINING
+        
+        # Check walking sports
+        if any(pattern in name_lower for pattern in self.walking_sports):
+            return SportType.WALKING
+        
+        # Check cardio sports
+        if any(pattern in name_lower for pattern in self.cardio_sports):
+            return SportType.CARDIO
+        
+        # Final fallback for unrecognized activities
+        return SportType.UNKNOWN
 
 
 # Default global configuration instance

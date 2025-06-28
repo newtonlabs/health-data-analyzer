@@ -58,58 +58,7 @@ class HevyClient(APIClient):
         # Set up logger
         self.logger = HealthLogger(self.__class__.__name__)
 
-    def fetch_workouts(
-        self, page_size: int = AppConfig.HEVY_DEFAULT_PAGE_SIZE
-    ) -> dict[str, Any]:
-        """Fetch all workout data from the Hevy API.
 
-        Hevy API does not support date range filtering directly in the endpoint.
-        We will fetch all workouts and filter them later in HealthDataProcessor.
-
-        Args:
-            page_size: Number of workouts to fetch per page (default: 10)
-
-        Returns:
-            Dict containing all raw Hevy workout data.
-
-        Raises:
-            APIClientError: If the API request fails
-        """
-        # Log the start of the fetch operation
-        self.logger.logger.info(f"Fetching Hevy workouts with page size {page_size}")
-
-        all_workouts = []
-        page = 1
-
-        try:
-            while True:
-                params = {"page": page, "pageSize": page_size}
-
-                response_data = self._make_request(
-                    endpoint="v1/workouts",
-                    params=params,
-                )
-
-                workouts = response_data.get("workouts", [])
-                if not workouts:
-                    break
-
-                all_workouts.extend(workouts)
-                self.logger.logger.debug(
-                    f"Fetched {len(workouts)} workouts from page {page}"
-                )
-                page += 1
-
-            self.logger.logger.info(
-                f"Successfully fetched {len(all_workouts)} workouts from Hevy API"
-            )
-            return {"workouts": all_workouts}
-
-        except Exception as e:
-            error_msg = f"Failed to fetch Hevy workouts: {str(e)}"
-            self.logger.log_skipped_date(None, error_msg)
-            ProgressIndicator.step_error(f"ERROR: {error_msg}")
-            raise APIClientError(error_msg)
 
     def _get_access_token(self) -> str:
         """Get API key for Hevy authentication.
@@ -246,5 +195,42 @@ class HevyClient(APIClient):
 
         Returns:
             Dictionary containing workout data
+            
+        Raises:
+            APIClientError: If the API request fails
         """
-        return self.fetch_workouts(page_size=page_size)
+        # Log the start of the fetch operation
+        self.logger.logger.info(f"Fetching Hevy workouts with page size {page_size}")
+
+        all_workouts = []
+        page = 1
+
+        try:
+            while True:
+                params = {"page": page, "pageSize": page_size}
+
+                response_data = self._make_request(
+                    endpoint="v1/workouts",
+                    params=params,
+                )
+
+                workouts = response_data.get("workouts", [])
+                if not workouts:
+                    break
+
+                all_workouts.extend(workouts)
+                self.logger.logger.debug(
+                    f"Fetched {len(workouts)} workouts from page {page}"
+                )
+                page += 1
+
+            self.logger.logger.info(
+                f"Successfully fetched {len(all_workouts)} workouts from Hevy API"
+            )
+            return {"workouts": all_workouts}
+
+        except Exception as e:
+            error_msg = f"Failed to fetch Hevy workouts: {str(e)}"
+            self.logger.log_skipped_date(None, error_msg)
+            ProgressIndicator.step_error(f"ERROR: {error_msg}")
+            raise APIClientError(error_msg)
