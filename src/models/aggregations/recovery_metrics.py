@@ -28,12 +28,12 @@ class RecoveryMetricsRecord:
     
     # Recovery metrics (from Whoop)
     recovery: Optional[float] = None      # Whoop recovery score (0-100)
-    hrv: Optional[float] = None           # HRV RMSSD (ms)
-    hr: Optional[int] = None              # Resting heart rate (bpm)
+    hrv: Optional[float] = None           # HRV RMSSD (ms) - from recovery.hrv_rmssd
+    rhr: Optional[int] = None             # Resting heart rate (bpm) - from recovery.resting_hr
     
     # Sleep metrics (from Whoop)
-    sleep_need: Optional[int] = None      # Sleep need (minutes)
-    sleep_actual: Optional[int] = None    # Actual sleep (minutes)
+    sleep_need: Optional[int] = None      # Sleep need (minutes) - from sleep.sleep_need_minutes
+    sleep_actual: Optional[int] = None    # Actual sleep (minutes) - from sleep.total_sleep_minutes
     
     # Resilience metrics (from Oura)
     resilience_level: Optional[str] = None  # Oura resilience level (limited/adequate/solid/strong)

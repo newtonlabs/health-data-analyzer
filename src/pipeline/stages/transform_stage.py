@@ -8,6 +8,7 @@ from src.processing.transformers.recovery_transformer import RecoveryTransformer
 from src.processing.transformers.sleep_transformer import SleepTransformer
 from src.processing.transformers.exercise_transformer import ExerciseTransformer
 from src.processing.transformers.nutrition_transformer import NutritionTransformer
+from src.processing.transformers.resilience_transformer import ResilienceTransformer
 from src.utils.pipeline_persistence import PipelinePersistence
 from datetime import datetime
 
@@ -27,7 +28,8 @@ class TransformStage(PipelineStage):
             'recovery': RecoveryTransformer(),
             'sleep': SleepTransformer(),
             'exercise': ExerciseTransformer(),
-            'nutrition': NutritionTransformer()
+            'nutrition': NutritionTransformer(),
+            'resilience': ResilienceTransformer()
         }
         
         # Initialize persistence for CSV writing
@@ -73,7 +75,9 @@ class TransformStage(PipelineStage):
                     try:
                         transformer = self.transformers[transformer_key]
                         transformed_records = transformer.transform(records)
-                        service_transformed_data[data_type] = transformed_records
+                        # Store with simplified key (remove _records suffix for consistency)
+                        simplified_key = data_type.replace('_records', '')
+                        service_transformed_data[simplified_key] = transformed_records
                         service_records += len(transformed_records)
                         
                         self.logger.info(f"✅ Transformed {len(transformed_records)} {data_type} records using {transformer_key}Transformer")
@@ -204,8 +208,8 @@ class TransformStage(PipelineStage):
             'exercises': 'exercise',
             'nutrition_records': 'nutrition',
             'nutrition': 'nutrition',
-            'resilience_records': 'recovery',
-            'resilience': 'recovery'
+            'resilience_records': 'resilience',
+            'resilience': 'resilience'
         }
         
         return mapping.get(data_type, data_type.replace('_records', ''))

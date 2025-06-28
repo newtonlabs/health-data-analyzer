@@ -184,12 +184,13 @@ class AggregateStage(PipelineStage):
         weight_records = []
         
         for service, service_data in transformed_data.items():
-            if 'nutrition_records' in service_data:
-                nutrition_records.extend(service_data['nutrition_records'])
-            if 'activity_records' in service_data:
-                activity_records.extend(service_data['activity_records'])
-            if 'weight_records' in service_data:
-                weight_records.extend(service_data['weight_records'])
+            # Use simplified keys (no _records suffix)
+            if 'nutrition' in service_data:
+                nutrition_records.extend(service_data['nutrition'])
+            if 'activity' in service_data:
+                activity_records.extend(service_data['activity'])
+            if 'weight' in service_data:
+                weight_records.extend(service_data['weight'])
         
         return self.macros_aggregator.aggregate_daily_data(
             target_date, nutrition_records, activity_records, weight_records
@@ -203,12 +204,13 @@ class AggregateStage(PipelineStage):
         resilience_records = []
         
         for service, service_data in transformed_data.items():
-            if 'recovery_records' in service_data:
-                recovery_records.extend(service_data['recovery_records'])
-            if 'sleep_records' in service_data:
-                sleep_records.extend(service_data['sleep_records'])
-            if 'resilience_records' in service_data:
-                resilience_records.extend(service_data['resilience_records'])
+            # Use simplified keys (no _records suffix)
+            if 'recovery' in service_data:
+                recovery_records.extend(service_data['recovery'])
+            if 'sleep' in service_data:
+                sleep_records.extend(service_data['sleep'])
+            if 'resilience' in service_data:
+                resilience_records.extend(service_data['resilience'])
         
         return self.recovery_aggregator.aggregate_daily_recovery(
             target_date, recovery_records, sleep_records, resilience_records
@@ -220,8 +222,11 @@ class AggregateStage(PipelineStage):
         workout_records = []
         
         for service, service_data in transformed_data.items():
-            if 'workout_records' in service_data:
-                workout_records.extend(service_data['workout_records'])
+            # Use simplified keys (no _records suffix)
+            if 'workouts' in service_data:  # Whoop workouts
+                workout_records.extend(service_data['workouts'])
+            if 'workout' in service_data:  # Hevy/Oura workouts (simplified from workout_records)
+                workout_records.extend(service_data['workout'])
         
         return self.training_aggregator.aggregate_daily_training(
             target_date, workout_records
