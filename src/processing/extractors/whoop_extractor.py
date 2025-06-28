@@ -5,7 +5,7 @@ structured data records using the new data models.
 """
 
 from datetime import datetime, date
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from .base_extractor import BaseExtractor
 from src.models import (
@@ -147,10 +147,13 @@ class WhoopExtractor(BaseExtractor):
         sport_name = sport_info.get('name')
         sport_type = self.config.get_sport_type_from_name(sport_name)
         
+        # Calculate date using Whoop-specific 4 AM cutoff rule
+        final_date = self._normalize_whoop_date(start_time, "workout")
+        
         # Create workout record
         workout = WorkoutRecord(
             timestamp=start_time,
-            date=None,  # Will be calculated in transformer
+            date=final_date,  # Apply Whoop-specific 4 AM cutoff rule
             source=DataSource.WHOOP,
             sport_type=sport_type,
             sport_name=sport_name,
@@ -256,10 +259,13 @@ class WhoopExtractor(BaseExtractor):
         # Use cycle start timestamp only (no fallback)
         timestamp = cycle_timestamp
         
+        # Calculate date using Whoop-specific 4 AM cutoff rule
+        final_date = self._normalize_whoop_date(timestamp, "recovery")
+        
         # Create recovery record
         recovery = RecoveryRecord(
             timestamp=timestamp,  # Use cycle start timestamp or fallback
-            date=None,  # Will be calculated in transformer
+            date=final_date,  # Apply Whoop-specific 4 AM cutoff rule
             source=DataSource.WHOOP,
             recovery_score=recovery_score,  # Map directly from API
             hrv_rmssd=hrv_rmssd,
@@ -361,10 +367,14 @@ class WhoopExtractor(BaseExtractor):
         # Get nap field directly from Whoop API data
         is_nap = self.safe_get(sleep_data, 'nap', None, bool)
         
+        # Calculate date using Whoop-specific 4 AM cutoff rule
+        sleep_timestamp = self.safe_get(sleep_data, 'start', None, str)
+        final_date = self._normalize_whoop_date(sleep_timestamp, "sleep")
+        
         # Create sleep record
         sleep_record = SleepRecord(
-            timestamp=self.safe_get(sleep_data, 'start', None, str),  # Use start time for sleep timestamp
-            date=None,  # Will be calculated in transformer
+            timestamp=sleep_timestamp,  # Use start time for sleep timestamp
+            date=final_date,  # Apply Whoop-specific 4 AM cutoff rule
             source=DataSource.WHOOP,
             total_sleep_minutes=total_sleep_minutes,
             time_in_bed_minutes=time_in_bed_minutes,
@@ -380,3 +390,31 @@ class WhoopExtractor(BaseExtractor):
         )
         
         return sleep_record
+    
+    def _normalize_whoop_date(self, timestamp: str, data_type: str = "data") -> Optional[date]:
+        """Apply Whoop-specific 4 AM cutoff rule to normalize dates.
+        
+        Whoop uses a 4 AM cutoff where data recorded before 4 AM is counted
+        for the previous day. This applies to workouts, recovery, and sleep data.
+        
+        Args:
+            timestamp: ISO timestamp string
+            data_type: Type of data for logging (e.g., "workout", "recovery", "sleep")
+            
+        Returns:
+            Normalized date or None if parsing fails
+        """
+        if not timestamp:
+            return None
+            
+        try:
+            from src.utils.date_utils import DateUtils
+            # Parse timestamp and apply Whoop 4 AM cutoff rule
+            parsed_datetime = DateUtils.parse_timestamp(timestamp, to_local=True)
+            if parsed_datetime:
+                normalized_datetime = DateUtils.normalize_recovery_date(parsed_datetime)
+                return normalized_datetime.date()
+        except Exception as e:
+            self.logger.warning(f"Error applying Whoop {data_type} date normalization: {e}")
+        
+        return None

@@ -33,15 +33,15 @@ class WhoopService(BaseAPIService):
         end_date: datetime, 
         limit: int = 25
     ) -> Dict[str, Any]:
-        """Get workouts data for a date range.
+        """Get workouts data for a date range with automatic pagination.
 
         Args:
             start_date: Start date for data collection
             end_date: End date for data collection
-            limit: Maximum number of workouts to return
+            limit: Maximum number of workouts per API call (default: 25)
 
         Returns:
-            Raw API response containing workout data
+            Raw API response containing all workout data across all pages
         """
         return self.whoop_client.get_workouts(start_date, end_date, limit)
 

@@ -73,19 +73,48 @@ class WhoopClient(APIClient):
     def get_recovery_data(
         self, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
-        """Fetch recovery data for a date range."""
+        """Fetch recovery data for a date range with automatic pagination."""
         # Whoop API requires end date to be after start date
         api_end = end_date + timedelta(days=1)
-
-        params = {
-            "start": DateUtils.format_date(start_date, DateFormat.ISO),
-            "end": DateUtils.format_date(api_end, DateFormat.ISO),
+        
+        all_records = []
+        next_token = None
+        page_count = 0
+        
+        while True:
+            page_count += 1
+            params = {
+                "start": DateUtils.format_date(start_date, DateFormat.ISO),
+                "end": DateUtils.format_date(api_end, DateFormat.ISO),
+                "limit": 25,
+            }
+            
+            # Add nextToken if we have one from previous page
+            if next_token:
+                params["nextToken"] = next_token
+            
+            response = self._make_request(
+                endpoint="v1/recovery",
+                params=params,
+            )
+            
+            # Add records from this page
+            page_records = response.get('records', [])
+            all_records.extend(page_records)
+            
+            self.logger.info(f"Whoop recovery page {page_count}: {len(page_records)} records")
+            
+            # Check if there are more pages
+            next_token = response.get("next_token")
+            if next_token is None:
+                break
+        
+        self.logger.info(f"Whoop recovery total: {len(all_records)} records from {page_count} pages")
+        
+        return {
+            "records": all_records,
+            "next_token": None
         }
-        response = self._make_request(
-            endpoint="v1/recovery",
-            params=params,
-        )
-        return response
 
     def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get recovery data for a specified time range.
@@ -102,63 +131,153 @@ class WhoopClient(APIClient):
     def get_workouts(
         self, start_date: datetime, end_date: datetime, limit: int = 25
     ) -> dict[str, Any]:
-        """Get workouts for a date range.
+        """Get workouts for a date range with automatic pagination.
 
         Args:
             start_date: Start date
             end_date: End date
-            limit: Max number of workouts to return
+            limit: Max number of workouts per page
 
         Returns:
-            Dictionary containing workout data
+            Dictionary containing all workout data across pages
         """
-        params = {
-            "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "limit": min(limit, 25),
+        all_records = []
+        next_token = None
+        page_count = 0
+        
+        while True:
+            page_count += 1
+            params = {
+                "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "limit": min(limit, 25),
+            }
+            
+            # Add nextToken if we have one from previous page
+            if next_token:
+                params["nextToken"] = next_token
+            
+            response = self._make_request(
+                endpoint="v1/activity/workout",
+                params=params,
+            )
+            
+            # Add records from this page
+            page_records = response.get('records', [])
+            all_records.extend(page_records)
+            
+            self.logger.info(f"Whoop workouts page {page_count}: {len(page_records)} workouts")
+            
+            # Check if there are more pages
+            next_token = response.get("next_token")
+            if next_token is None:  # Explicitly check for None
+                break
+        
+        self.logger.info(f"Whoop workouts total: {len(all_records)} workouts from {page_count} pages")
+        
+        # Return in same format as original API response
+        return {
+            "records": all_records,
+            "next_token": None  # Final response has no next token
         }
-        return self._make_request(
-            endpoint="v1/activity/workout",
-            params=params,
-        )
 
     def get_sleep(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
-        """Get sleep data for a date range.
+        """Get sleep data for a date range with automatic pagination.
 
         Args:
             start_date: Start date
             end_date: End date
 
         Returns:
-            Dictionary containing sleep data including duration, stages, and quality metrics
+            Dictionary containing all sleep data across pages
         """
-        params = {
-            "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        all_records = []
+        next_token = None
+        page_count = 0
+        
+        while True:
+            page_count += 1
+            params = {
+                "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "limit": 25,
+            }
+            
+            # Add nextToken if we have one from previous page
+            if next_token:
+                params["nextToken"] = next_token
+            
+            response = self._make_request(
+                endpoint="v1/activity/sleep",
+                params=params,
+            )
+            
+            # Add records from this page
+            page_records = response.get('records', [])
+            all_records.extend(page_records)
+            
+            self.logger.info(f"Whoop sleep page {page_count}: {len(page_records)} records")
+            
+            # Check if there are more pages
+            next_token = response.get("next_token")
+            if next_token is None:
+                break
+        
+        self.logger.info(f"Whoop sleep total: {len(all_records)} records from {page_count} pages")
+        
+        return {
+            "records": all_records,
+            "next_token": None
         }
-        return self._make_request(
-            endpoint="v1/activity/sleep",
-            params=params,
-        )
 
     def get_cycles(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
-        """Get cycle data for a date range.
+        """Get cycle data for a date range with automatic pagination.
 
         Args:
             start_date: Start date
             end_date: End date
 
         Returns:
-            Dictionary containing cycle data including physiological cycles and recovery metrics
+            Dictionary containing all cycle data across pages
         """
-        params = {
-            "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        all_records = []
+        next_token = None
+        page_count = 0
+        
+        while True:
+            page_count += 1
+            params = {
+                "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "limit": 25,
+            }
+            
+            # Add nextToken if we have one from previous page
+            if next_token:
+                params["nextToken"] = next_token
+            
+            response = self._make_request(
+                endpoint="v1/cycle",
+                params=params,
+            )
+            
+            # Add records from this page
+            page_records = response.get('records', [])
+            all_records.extend(page_records)
+            
+            self.logger.info(f"Whoop cycles page {page_count}: {len(page_records)} records")
+            
+            # Check if there are more pages
+            next_token = response.get("next_token")
+            if next_token is None:
+                break
+        
+        self.logger.info(f"Whoop cycles total: {len(all_records)} records from {page_count} pages")
+        
+        return {
+            "records": all_records,
+            "next_token": None
         }
-        return self._make_request(
-            endpoint="v1/cycle",
-            params=params,
-        )
 
     # Authentication methods
     def authenticate(self) -> bool:

@@ -33,28 +33,25 @@ class TrainingAggregator:
                 day=target_date.strftime("%a"),
                 sport=None,
                 duration=None,
-                strain=None,
                 workout_count=0,
                 calories_burned=None,
             )]
         
-        # Group workouts by sport
-        workouts_by_sport = self._group_workouts_by_sport(daily_workouts)
+        # Group workouts by sport_type
+        workouts_by_sport_type = self._group_workouts_by_sport_type(daily_workouts)
         
-        # Create one record per sport
+        # Create one record per sport_type
         training_records = []
-        for sport, sport_workouts in workouts_by_sport.items():
-            # Calculate metrics for this sport
+        for sport_type, sport_workouts in workouts_by_sport_type.items():
+            # Calculate metrics for this sport_type
             total_duration = sum(w.duration_minutes for w in sport_workouts)
             total_calories = sum(w.calories for w in sport_workouts if w.calories)
-            avg_strain = sum(w.strain_score for w in sport_workouts if w.strain_score) / len([w for w in sport_workouts if w.strain_score]) if any(w.strain_score for w in sport_workouts) else None
             
             training_records.append(TrainingMetricsRecord(
                 date=target_date,
                 day=target_date.strftime("%a"),
-                sport=sport,
+                sport=sport_type,
                 duration=total_duration,
-                strain=avg_strain,
                 workout_count=len(sport_workouts),
                 calories_burned=total_calories if total_calories > 0 else None,
             ))
@@ -68,14 +65,14 @@ class TrainingAggregator:
         """Find all workout records for specific date."""
         return [record for record in records if record.date == target_date]
     
-    def _group_workouts_by_sport(self, workouts: List[WorkoutRecord]) -> dict:
-        """Group workouts by sport type."""
-        workouts_by_sport = {}
+    def _group_workouts_by_sport_type(self, workouts: List[WorkoutRecord]) -> dict:
+        """Group workouts by sport_type."""
+        workouts_by_sport_type = {}
         for workout in workouts:
-            sport = workout.sport_type
-            if sport not in workouts_by_sport:
-                workouts_by_sport[sport] = []
-            workouts_by_sport[sport].append(workout)
-        return workouts_by_sport
+            sport_type = workout.sport_type
+            if sport_type not in workouts_by_sport_type:
+                workouts_by_sport_type[sport_type] = []
+            workouts_by_sport_type[sport_type].append(workout)
+        return workouts_by_sport_type
     
 

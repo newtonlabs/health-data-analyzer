@@ -30,7 +30,6 @@ class TrainingMetricsRecord:
     # Primary training metrics
     sport: Optional[SportType] = None     # Primary sport for the day
     duration: Optional[int] = None        # Total training duration (minutes)
-    strain: Optional[float] = None        # Training strain/intensity score
     
     # Additional derived fields (calculated by aggregator)
     workout_count: Optional[int] = None   # Number of workouts this day
