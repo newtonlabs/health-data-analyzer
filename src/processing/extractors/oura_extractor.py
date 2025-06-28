@@ -1,7 +1,7 @@
 """Oura data extractor for processing health data from Oura Ring API."""
 
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, date
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -51,9 +51,10 @@ class OuraExtractor(BaseExtractor):
                 
                 # Create ActivityRecord with raw data (no transformation or filtering)
                 # API already filters by date range, so no need to filter again
+                calculated_date = self._calculate_date_from_timestamp(timestamp_str)
                 record = ActivityRecord(
                     timestamp=timestamp_str,  # Preserve for transformer
-                    date=None,  # Will be calculated in transformer
+                    date=calculated_date,  # Calculate date in extractor
                     source=DataSource.OURA,
                     steps=activity_item.get("steps", 0),
                     active_calories=activity_item.get("active_calories", 0),
@@ -102,10 +103,10 @@ class OuraExtractor(BaseExtractor):
                 contributors = resilience_item.get("contributors", {})
                 
                 # Create ResilienceRecord with raw data (no transformation or filtering)
-                # API already filters by date range, so no need to filter again
+                calculated_date = self._calculate_date_from_timestamp(timestamp_str)
                 record = ResilienceRecord(
-                    timestamp=day_str,  # Use day as timestamp, will be processed in transformer
-                    date=None,  # Will be calculated in transformer
+                    timestamp=timestamp_str,  # Preserve for transformer
+                    date=calculated_date,  # Calculate date in extractor
                     source=DataSource.OURA,
                     sleep_recovery=contributors.get("sleep_recovery"),
                     daytime_recovery=contributors.get("daytime_recovery"),
@@ -162,10 +163,10 @@ class OuraExtractor(BaseExtractor):
                 sport_type = self.config.get_sport_type_from_name(sport_name)
                 
                 # Create WorkoutRecord with raw data (no transformation or filtering)
-                # API already filters by date range, so no need to filter again
+                calculated_date = self._calculate_date_from_timestamp(start_datetime_str)
                 record = WorkoutRecord(
-                    timestamp=start_dt,  # Use parsed start datetime as timestamp
-                    date=None,  # Will be calculated in transformer
+                    timestamp=start_datetime_str,  # Preserve for transformer
+                    date=calculated_date,  # Calculate date in extractor
                     source=DataSource.OURA,
                     sport_type=sport_type,
                     sport_name=sport_name,
@@ -255,3 +256,25 @@ class OuraExtractor(BaseExtractor):
         
         print(f"Extracted Oura data with {len(extracted_data)} data types")
         return extracted_data
+    
+    def _calculate_date_from_timestamp(self, timestamp: str) -> Optional[date]:
+        """Calculate date from timestamp using generic conversion.
+        
+        Args:
+            timestamp: ISO timestamp string
+            
+        Returns:
+            Date or None if parsing fails
+        """
+        if not timestamp:
+            return None
+            
+        try:
+            # Parse timestamp and convert to local time
+            parsed_datetime = DateUtils.parse_timestamp(timestamp, to_local=True)
+            if parsed_datetime:
+                return parsed_datetime.date()
+        except Exception as e:
+            self.logger.warning(f"Error calculating date from timestamp {timestamp}: {e}")
+        
+        return None

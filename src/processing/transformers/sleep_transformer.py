@@ -37,20 +37,8 @@ class SleepTransformer(RecordListTransformer[SleepRecord]):
             self.logger.warning(f"Invalid sleep record filtered out: {record.timestamp}")
             return None
         
-        # Calculate date from timestamp if needed
+        # Date is now calculated in extractor, just use the provided date
         final_date = record.date
-        if record.timestamp and record.date is None:
-            try:
-                from src.utils.date_utils import DateUtils
-                # Parse timestamp with timezone conversion
-                sleep_datetime = DateUtils.parse_timestamp(record.timestamp, to_local=True)
-                if sleep_datetime:
-                    final_date = sleep_datetime.date()
-                    self.logger.debug(f"Converted timestamp {record.timestamp} to date {final_date}")
-                else:
-                    self.logger.warning(f"Failed to parse timestamp: {record.timestamp}")
-            except Exception as e:
-                self.logger.warning(f"Error parsing timestamp {record.timestamp}: {e}")
         
         # Create a cleaned copy of the record
         cleaned_record = SleepRecord(

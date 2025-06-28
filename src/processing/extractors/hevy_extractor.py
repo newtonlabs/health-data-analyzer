@@ -1,7 +1,7 @@
 """Hevy data extractor for processing workout data from Hevy API."""
 
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from datetime import datetime, timedelta, date
+from typing import Any, Dict, List, Optional
 
 from .base_extractor import BaseExtractor
 from src.models.raw_data import WorkoutRecord, ExerciseRecord
@@ -110,9 +110,10 @@ class HevyExtractor(BaseExtractor):
                 sport_type = self.config.get_sport_type_from_name(sport_name)
                 
                 # Create WorkoutRecord
+                calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
                 record = WorkoutRecord(
                     timestamp=workout_timestamp,
-                    date=None,  # Will be calculated in transformer
+                    date=calculated_date,  # Calculate date in extractor
                     source=DataSource.HEVY,
                     sport_type=sport_type,
                     sport_name=sport_name,
@@ -174,9 +175,10 @@ class HevyExtractor(BaseExtractor):
                             set_type = set_data.get("type", "normal")
                             
                             # Create ExerciseRecord for each set
+                            calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
                             record = ExerciseRecord(
                                 timestamp=workout_timestamp,
-                                date=None,  # Will be calculated in transformer
+                                date=calculated_date,  # Calculate date in extractor
                                 source=DataSource.HEVY,
                                 workout_id=workout.get("id", ""),
                                 exercise_name=exercise_name,
@@ -197,3 +199,24 @@ class HevyExtractor(BaseExtractor):
         
         print(f"Extracted {len(exercise_records)} raw exercise records from Hevy")
         return exercise_records
+    
+    def _calculate_date_from_timestamp(self, timestamp: str) -> Optional[date]:
+        """Calculate date from timestamp string.
+        
+        Args:
+            timestamp: ISO timestamp string
+            
+        Returns:
+            Date or None if parsing fails
+        """
+        if not timestamp:
+            return None
+            
+        try:
+            # Parse ISO timestamp
+            parsed_datetime = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            return parsed_datetime.date()
+        except Exception as e:
+            self.logger.warning(f"Error calculating date from timestamp {timestamp}: {e}")
+        
+        return None

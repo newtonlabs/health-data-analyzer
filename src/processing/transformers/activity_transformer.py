@@ -40,23 +40,11 @@ class ActivityTransformer(RecordListTransformer[ActivityRecord]):
             self.logger.warning(f"Invalid activity record filtered out: {record.date}")
             return None
         
-        # Handle timezone conversion and date calculation
+        # Date is now calculated in extractor, just use the provided date
         final_date = record.date
-        if record.timestamp:
-            try:
-                from src.utils.date_utils import DateUtils
-                # Parse timestamp with timezone conversion
-                activity_datetime = DateUtils.parse_timestamp(record.timestamp, to_local=True)
-                if activity_datetime:
-                    final_date = activity_datetime.date()
-                    self.logger.debug(f"Converted timestamp {record.timestamp} to date {final_date}")
-                else:
-                    self.logger.warning(f"Failed to parse timestamp: {record.timestamp}")
-            except Exception as e:
-                self.logger.warning(f"Error parsing timestamp {record.timestamp}: {e}")
-        elif record.date is None:
-            # If no timestamp and no date, we can't process this record
-            self.logger.warning("No timestamp or date available for activity record")
+        if final_date is None:
+            # If no date available, we can't process this record
+            self.logger.warning("No date available for activity record")
             return None
         
         # Create a cleaned copy of the record

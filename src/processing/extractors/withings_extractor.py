@@ -1,7 +1,7 @@
 """Withings data extractor for processing health data from Withings API."""
 
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, date
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -83,9 +83,10 @@ class WithingsExtractor(BaseExtractor):
                     
                     # Only create record if we have weight data
                     if weight_kg is not None:
+                        calculated_date = self._calculate_date_from_timestamp(timestamp)
                         record = WeightRecord(
                             timestamp=timestamp,
-                            date=None,  # Will be calculated in transformer
+                            date=calculated_date,  # Calculate date in extractor
                             source=DataSource.WITHINGS,
                             weight_kg=weight_kg,
                             body_fat_percentage=body_fat_percentage,
@@ -152,3 +153,22 @@ class WithingsExtractor(BaseExtractor):
         extracted_data = self.extract_all_data(raw_data, start_date, end_date)
         
         return extracted_data
+    
+    def _calculate_date_from_timestamp(self, timestamp: datetime) -> Optional[date]:
+        """Calculate date from datetime timestamp.
+        
+        Args:
+            timestamp: datetime object
+            
+        Returns:
+            Date or None if parsing fails
+        """
+        if not timestamp:
+            return None
+            
+        try:
+            return timestamp.date()
+        except Exception as e:
+            self.logger.warning(f"Error calculating date from timestamp {timestamp}: {e}")
+        
+        return None

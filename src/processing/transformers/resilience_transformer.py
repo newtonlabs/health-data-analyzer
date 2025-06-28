@@ -28,20 +28,8 @@ class ResilienceTransformer(RecordListTransformer[ResilienceRecord]):
             self.logger.warning(f"Invalid resilience record filtered out: {record.timestamp}")
             return None
         
-        # Calculate date from timestamp if needed
+        # Date is now calculated in extractor, just use the provided date
         final_date = record.date
-        if record.timestamp and record.date is None:
-            try:
-                from src.utils.date_utils import DateUtils
-                # Parse timestamp with timezone conversion
-                resilience_datetime = DateUtils.parse_timestamp(record.timestamp, to_local=True)
-                if resilience_datetime:
-                    final_date = resilience_datetime.date()
-                    self.logger.debug(f"Converted timestamp {record.timestamp} to date {final_date}")
-                else:
-                    self.logger.warning(f"Failed to parse timestamp: {record.timestamp}")
-            except Exception as e:
-                self.logger.warning(f"Error parsing timestamp {record.timestamp}: {e}")
         
         # Create a cleaned copy of the record (pass-through for now)
         cleaned_record = ResilienceRecord(

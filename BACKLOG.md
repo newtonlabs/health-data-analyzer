@@ -14,5 +14,6 @@
 [] dry out the oura client
 [] move enums from extractors to one place
 [] Have transformers update the dates based on timezone
+[] finish paginatino for oura and withings
 
 
