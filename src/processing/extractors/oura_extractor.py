@@ -181,34 +181,7 @@ class OuraExtractor(BaseExtractor):
         print(f"Extracted {len(workout_records)} raw workout records from Oura")
         return workout_records
     
-    def _map_oura_activity_to_sport(self, activity: str) -> SportType:
-        """Map Oura activity string to SportType enum.
-        
-        Args:
-            activity: Activity string from Oura API
-            
-        Returns:
-            Corresponding SportType enum value
-        """
-        activity_lower = activity.lower().strip()
-        
-        # Map common Oura activities to SportType
-        activity_mapping = {
-            "walking": SportType.WALKING,
-            "running": SportType.OTHER,  # Could add RUNNING to enum if needed
-            "cycling": SportType.OTHER,
-            "strength_training": SportType.STRENGTH_TRAINING,
-            "weight_training": SportType.STRENGTH_TRAINING,
-            "rowing": SportType.ROWING,
-            "swimming": SportType.OTHER,
-            "yoga": SportType.OTHER,
-            "pilates": SportType.OTHER,
-            "cardio": SportType.OTHER,
-            "hiit": SportType.OTHER,
-            "crossfit": SportType.STRENGTH_TRAINING,
-        }
-        
-        return activity_mapping.get(activity_lower, SportType.OTHER)
+
     
     def extract_all_data(
         self, 
