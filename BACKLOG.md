@@ -17,5 +17,7 @@
 [] finish paginatino for oura and withings
 [] Fix OneDrive bug that has malformed JWT when it expires
 [] remove try/catch and overly safe code
-
+[] Cleanup Utils
+[] Rewrite clients using python libraries vs making your own
+[] Cleanup log statements
 

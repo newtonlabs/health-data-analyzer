@@ -6,7 +6,6 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from src.analysis.aggregator import Aggregator
 from src.app_config import AppConfig
 from src.utils.logging_utils import HealthLogger
 
@@ -18,11 +17,11 @@ from .charts.resilience import ResilienceChartGenerator
 
 
 class ReportGenerator:
-    def __init__(self, analyzer: Aggregator):
+    def __init__(self, analyzer: Any):
         """Initialize ReportGenerator.
 
         Args:
-            analyzer: Aggregator instance to use for metrics generation
+            analyzer: Analyzer instance (Aggregator or MemoryBasedLegacyShim) to use for metrics generation
         """
         self.analyzer = analyzer
         self.logger = HealthLogger(__name__)
