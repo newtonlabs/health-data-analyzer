@@ -118,9 +118,14 @@ class WhoopExtractor(BaseExtractor):
             self.logger.warning(f"Invalid start time in workout: {workout_data.get('start')}")
             return None
         
-        # Extract duration
-        duration_seconds = self.safe_get(workout_data, 'duration_seconds', 0, int)
-        duration_minutes = duration_seconds // 60 if duration_seconds else 0
+        # Calculate duration from start and end times
+        end_time = self.parse_timestamp(workout_data.get('end'))
+        if not end_time:
+            self.logger.warning(f"Invalid end time in workout: {workout_data.get('end')}")
+            return None
+        
+        duration_seconds = (end_time - start_time).total_seconds()
+        duration_minutes = int(duration_seconds // 60) if duration_seconds > 0 else 0
         
         # Extract score data
         score_data = self.safe_get(workout_data, 'score', {}, dict)
@@ -157,6 +162,7 @@ class WhoopExtractor(BaseExtractor):
             source=DataSource.WHOOP,
             sport_type=sport_type,
             sport_name=sport_name,
+            title=None,  # Whoop doesn't provide workout titles
             duration_minutes=duration_minutes,
             strain_score=strain_score,
             calories=calories,

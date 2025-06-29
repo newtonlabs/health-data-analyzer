@@ -52,6 +52,7 @@ class WorkoutTransformer(RecordListTransformer[WorkoutRecord]):
             source=record.source,
             sport_type=record.sport_type,
             sport_name=record.sport_name,  # Preserve sport name through transformation
+            title=record.title,  # Passthrough title field (no transformation needed)
             duration_minutes=self._normalize_duration(record.duration_minutes),
             calories=self._normalize_calories(record.calories),
             strain_score=self._normalize_strain(record.strain_score),

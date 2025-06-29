@@ -146,9 +146,9 @@ class MemoryBasedLegacyShim:
         df = self._filter_last_7_days(df, end_date)
         
         if not df.empty:
-            # Convert to exact legacy format
+            # Convert to exact legacy format - calculate day BEFORE converting date format
+            df['day'] = pd.to_datetime(df['date']).dt.strftime('%a')  # 3-letter day (with year)
             df['date'] = pd.to_datetime(df['date']).dt.strftime('%m-%d')  # MM-DD format
-            df['day'] = pd.to_datetime(df['date'], format='%m-%d').dt.strftime('%a')  # 3-letter day
             # Convert sleep times from minutes to hours (legacy format expects hours)
             if 'sleep_need' in df.columns:
                 df['sleep_need'] = df['sleep_need'] / 60  # minutes to hours
@@ -163,31 +163,22 @@ class MemoryBasedLegacyShim:
         Returns DataFrame matching legacy TrainingAggregator format:
         - date: MM-DD string format
         - day: 3-letter day name
-        - sport: formatted sport name string
+        - sport: workout title (e.g., "Push Day", "Running")
         - duration: HH:MM string format
-        - strain: numeric workout strain/count
         """
-        expected_columns = ['date', 'day', 'sport', 'duration', 'strain']
-        conversion_columns = expected_columns + ['workout_count']
+        expected_columns = ['date', 'day', 'sport', 'duration']
+        conversion_columns = expected_columns + ['title']
         df = self._convert_to_dataframe('training_metrics', conversion_columns)
         df = self._filter_last_7_days(df, end_date)
         
         if not df.empty:
-            # Map workout_count to strain first
-            if 'workout_count' in df.columns:
-                df['strain'] = df['workout_count'].fillna(0).astype(int)
-                # Filter out days with no workouts
-                df = df[df['workout_count'] > 0]
-            else:
-                df['strain'] = 0
+            # Map title to sport column
+            if 'title' in df.columns:
+                df['sport'] = df['title']
             
-            # Convert to exact legacy format
+            # Convert to exact legacy format - calculate day BEFORE converting date format
+            df['day'] = pd.to_datetime(df['date']).dt.strftime('%a')  # 3-letter day (with year)
             df['date'] = pd.to_datetime(df['date']).dt.strftime('%m-%d')  # MM-DD format
-            df['day'] = pd.to_datetime(df['date'], format='%m-%d').dt.strftime('%a')  # 3-letter day
-            
-            # Format sport names
-            if 'sport' in df.columns:
-                df['sport'] = df['sport'].apply(self._format_sport_name)
             
             # Format duration
             if 'duration' in df.columns:

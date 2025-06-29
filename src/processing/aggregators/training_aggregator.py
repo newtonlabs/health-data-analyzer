@@ -5,6 +5,7 @@ from typing import List
 
 from src.models.raw_data import WorkoutRecord
 from src.models.aggregations import TrainingMetricsRecord
+from src.models.enums import SportType, DataSource
 
 
 class TrainingAggregator:
@@ -33,25 +34,49 @@ class TrainingAggregator:
                 day=target_date.strftime("%a"),
                 sport=None,
                 duration=None,
-                workout_count=0,
+                title=None,
             )]
         
-        # Group workouts by sport_type
-        workouts_by_sport_type = self._group_workouts_by_sport_type(daily_workouts)
-        
-        # Create one record per sport_type
+        # Apply business logic filters and create training records
         training_records = []
-        for sport_type, sport_workouts in workouts_by_sport_type.items():
-            # Calculate metrics for this sport_type
-            total_duration = sum(w.duration_minutes for w in sport_workouts)
+        
+        # Process strength workouts (from Hevy only)
+        strength_workouts = [
+            w for w in daily_workouts 
+            if w.sport_type == SportType.STRENGTH_TRAINING and w.source == DataSource.HEVY
+        ]
+        if strength_workouts:
+            total_duration = sum(w.duration_minutes for w in strength_workouts)
+            # Use the title from the first (or longest) strength workout
+            primary_workout = max(strength_workouts, key=lambda w: w.duration_minutes or 0)
             
             training_records.append(TrainingMetricsRecord(
                 date=target_date,
                 day=target_date.strftime("%a"),
-                sport=sport_type,
+                sport=SportType.STRENGTH_TRAINING,
                 duration=total_duration,
-                workout_count=len(sport_workouts),
+                title=primary_workout.title,
             ))
+        
+        # Process cardio workouts (from Whoop only)
+        cardio_workouts = [
+            w for w in daily_workouts 
+            if w.sport_type == SportType.CARDIO and w.source == DataSource.WHOOP
+        ]
+        if cardio_workouts:
+            total_duration = sum(w.duration_minutes for w in cardio_workouts)
+            # Use sport_name as title for cardio workouts
+            primary_workout = max(cardio_workouts, key=lambda w: w.duration_minutes or 0)
+            
+            training_records.append(TrainingMetricsRecord(
+                date=target_date,
+                day=target_date.strftime("%a"),
+                sport=SportType.CARDIO,
+                duration=total_duration,
+                title=primary_workout.sport_name,  # Use sport_name as title for cardio
+            ))
+        
+        # Ignore walking workouts as requested
         
         # Sort by duration (longest first) for consistent ordering
         training_records.sort(key=lambda x: x.duration or 0, reverse=True)
@@ -62,14 +87,6 @@ class TrainingAggregator:
         """Find all workout records for specific date."""
         return [record for record in records if record.date == target_date]
     
-    def _group_workouts_by_sport_type(self, workouts: List[WorkoutRecord]) -> dict:
-        """Group workouts by sport_type."""
-        workouts_by_sport_type = {}
-        for workout in workouts:
-            sport_type = workout.sport_type
-            if sport_type not in workouts_by_sport_type:
-                workouts_by_sport_type[sport_type] = []
-            workouts_by_sport_type[sport_type].append(workout)
-        return workouts_by_sport_type
+
     
 

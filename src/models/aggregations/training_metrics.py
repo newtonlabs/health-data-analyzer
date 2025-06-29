@@ -30,9 +30,7 @@ class TrainingMetricsRecord:
     # Primary training metrics
     sport: Optional[SportType] = None     # Primary sport for the day
     duration: Optional[int] = None        # Total training duration (minutes)
-    
-    # Additional derived fields (calculated by aggregator)
-    workout_count: Optional[int] = None   # Number of workouts this day
+    title: Optional[str] = None           # Primary workout title for the day
     
     def __post_init__(self):
         """Calculate derived fields after initialization."""

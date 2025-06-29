@@ -18,6 +18,7 @@ class WorkoutRecord:
     
     # Optional fields (must come after required fields)
     sport_name: Optional[str] = None  # Raw sport name string from API
+    title: Optional[str] = None  # Workout title/name (e.g., "Push Day", "Leg Day")
     
     # Optional metrics (vary by source)
     strain_score: Optional[float] = None

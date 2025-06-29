@@ -109,6 +109,9 @@ class HevyExtractor(BaseExtractor):
                 sport_name = "Strength Training"
                 sport_type = self.config.get_sport_type_from_name(sport_name)
                 
+                # Extract workout title from raw data
+                workout_title = workout.get("title")
+                
                 # Create WorkoutRecord
                 calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
                 record = WorkoutRecord(
@@ -117,6 +120,7 @@ class HevyExtractor(BaseExtractor):
                     source=DataSource.HEVY,
                     sport_type=sport_type,
                     sport_name=sport_name,
+                    title=workout_title,
                     duration_minutes=duration_minutes,
                     set_count=set_count,
                     volume_kg=total_volume

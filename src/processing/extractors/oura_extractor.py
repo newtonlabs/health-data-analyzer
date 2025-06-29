@@ -170,6 +170,7 @@ class OuraExtractor(BaseExtractor):
                     source=DataSource.OURA,
                     sport_type=sport_type,
                     sport_name=sport_name,
+                    title=None,  # Oura doesn't provide workout titles
                     duration_minutes=duration_minutes,
                     calories=int(workout_item.get("calories", 0))
                 )
