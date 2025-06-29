@@ -44,12 +44,16 @@ class MemoryBasedLegacyShim:
             return pd.DataFrame(columns=expected_columns)
         
         data_list = self.aggregated_data[data_key]
-        if not data_list:
-            self.logger.warning(f"Empty {data_key} data list")
-            return pd.DataFrame(columns=expected_columns)
         
-        # Convert list of objects to DataFrame
-        df = pd.DataFrame([item.__dict__ if hasattr(item, '__dict__') else item for item in data_list])
+        # Handle both DataFrame and list inputs
+        if isinstance(data_list, pd.DataFrame):
+            df = data_list.copy()
+        else:
+            if not data_list:
+                self.logger.warning(f"Empty {data_key} data list")
+                return pd.DataFrame(columns=expected_columns)
+            # Convert list of objects to DataFrame
+            df = pd.DataFrame([item.__dict__ if hasattr(item, '__dict__') else item for item in data_list])
         
         # Ensure all expected columns exist
         for col in expected_columns:
@@ -105,16 +109,21 @@ class MemoryBasedLegacyShim:
         df = self._filter_last_7_days(df, end_date)
         
         if not df.empty:
+            # Calculate day BEFORE converting date format (need full date for correct day calculation)
+            df['day'] = pd.to_datetime(df['date']).dt.strftime('%a')  # 3-letter day
+            
             # Convert to exact legacy format
             df['date'] = pd.to_datetime(df['date']).dt.strftime('%m-%d')  # MM-DD format
-            df['day'] = pd.to_datetime(df['date'], format='%m-%d').dt.strftime('%a')  # 3-letter day
             
             # Convert sport_type to activity column (legacy format expects string)
             if 'sport_type' in df.columns:
-                df['activity'] = df['sport_type'].apply(self._format_sport_name)
+                # Use enum VALUE and title case it (e.g., 'strength' -> 'Strength')
+                df['activity'] = df['sport_type'].apply(lambda x: x.value.replace('_', ' ').title() if x else 'Rest')
                 # Replace empty/None values with 'Rest'
                 df['activity'] = df['activity'].fillna('Rest')
                 df.loc[df['activity'] == '', 'activity'] = 'Rest'
+                # Remove sport_type column - don't pass it to report generator
+                df = df.drop('sport_type', axis=1)
             else:
                 df['activity'] = 'Rest'  # Default to Rest if no sport_type column
             

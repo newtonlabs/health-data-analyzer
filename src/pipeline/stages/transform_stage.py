@@ -131,29 +131,25 @@ class TransformStage(PipelineStage):
         """
         file_paths = {}
         
-        try:
-            # Generate extracted CSV files
-            for data_type, records in extracted_data.items():
-                if records:
-                    # Remove '_records' suffix for file naming
-                    clean_type = data_type.replace('_records', '')
-                    file_path = self.persistence.save_extracted_data(
-                        service, clean_type, records, timestamp
-                    )
-                    file_paths[f"{service}_{clean_type}_extracted"] = file_path
-            
-            # Generate transformed CSV files
-            for data_type, records in transformed_data.items():
-                if records:
-                    # Remove '_records' suffix for file naming
-                    clean_type = data_type.replace('_records', '')
-                    file_path = self.persistence.save_transformed_data(
-                        service, clean_type, records, timestamp
-                    )
-                    file_paths[f"{service}_{clean_type}_transformed"] = file_path
-                    
-        except Exception as e:
-            self.logger.warning(f"Failed to generate CSV files for {service}: {e}")
+        # Generate extracted CSV files
+        for data_type, records in extracted_data.items():
+            if records:
+                # Remove '_records' suffix for file naming
+                clean_type = data_type.replace('_records', '')
+                file_path = self.persistence.save_extracted_data(
+                    service, clean_type, records, timestamp
+                )
+                file_paths[f"{service}_{clean_type}_extracted"] = file_path
+        
+        # Generate transformed CSV files
+        for data_type, records in transformed_data.items():
+            if records:
+                # Remove '_records' suffix for file naming
+                clean_type = data_type.replace('_records', '')
+                file_path = self.persistence.save_transformed_data(
+                    service, clean_type, records, timestamp
+                )
+                file_paths[f"{service}_{clean_type}_transformed"] = file_path
         
         return file_paths
     

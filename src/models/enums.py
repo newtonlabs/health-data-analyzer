@@ -26,7 +26,7 @@ class SportType(Enum):
     - REST: rest days with no significant activity
     - UNKNOWN: fallback for unrecognized activities
     """
-    STRENGTH_TRAINING = "strength_training"
+    STRENGTH_TRAINING = "strength"
     WALKING = "walking"
     CARDIO = "cardio"
     REST = "rest"

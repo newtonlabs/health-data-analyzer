@@ -30,24 +30,23 @@ class AggregateStage(PipelineStage):
         """
         self.logger.info(f"🔄 Creating daily aggregations for {context.get_days_count()} days...")
         
-        try:
-            # Create aggregations for the date range
-            aggregated_data = self._create_aggregations(context)
-            context.aggregated_data = aggregated_data
-            
-            file_paths = {}
-            total_records = 0
-            
-            # Generate CSV files if enabled
-            if context.enable_csv:
-                file_paths = self._generate_aggregation_files(aggregated_data)
-            
-            # Count total records
-            for aggregation_type, records in aggregated_data.items():
-                if isinstance(records, list):
-                    total_records += len(records)
-            
-            return self._create_success_result(
+        # Create aggregations for the date range
+        aggregated_data = self._create_aggregations(context)
+        context.aggregated_data = aggregated_data
+        
+        file_paths = {}
+        total_records = 0
+        
+        # Generate CSV files if enabled
+        if context.enable_csv:
+            file_paths = self._generate_aggregation_files(aggregated_data)
+        
+        # Count total records
+        for aggregation_type, records in aggregated_data.items():
+            if isinstance(records, list):
+                total_records += len(records)
+        
+        return self._create_success_result(
                 data={'aggregation_types': list(aggregated_data.keys())},
                 file_paths=file_paths,
                 metrics={
@@ -57,11 +56,6 @@ class AggregateStage(PipelineStage):
                     'csv_files_generated': len(file_paths)
                 }
             )
-            
-        except Exception as e:
-            error_msg = f"Failed to create aggregations: {str(e)}"
-            self.logger.error(error_msg)
-            return self._create_error_result(error=error_msg)
     
     def _create_aggregations(self, context: PipelineContext) -> dict:
         """Create daily aggregations from transformed data.
@@ -154,15 +148,11 @@ class AggregateStage(PipelineStage):
         file_paths = {}
         timestamp = datetime.now()
         
-        try:
-            # Save each aggregation type to a consolidated CSV file
-            for agg_type, records in aggregated_data.items():
-                if records:
-                    file_path = self._save_consolidated_aggregation(agg_type, records, timestamp)
-                    file_paths[f"{agg_type}_aggregated"] = file_path
-                    
-        except Exception as e:
-            self.logger.warning(f"Failed to generate aggregation CSV files: {e}")
+        # Save each aggregation type to a consolidated CSV file
+        for agg_type, records in aggregated_data.items():
+            if records:
+                file_path = self._save_consolidated_aggregation(agg_type, records, timestamp)
+                file_paths[f"{agg_type}_aggregated"] = file_path
         
         return file_paths
     

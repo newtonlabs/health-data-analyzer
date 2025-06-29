@@ -165,7 +165,7 @@ class OuraExtractor(BaseExtractor):
                 # Create WorkoutRecord with raw data (no transformation or filtering)
                 calculated_date = self._calculate_date_from_timestamp(start_datetime_str)
                 record = WorkoutRecord(
-                    timestamp=start_datetime_str,  # Preserve for transformer
+                    timestamp=start_dt,  # Use parsed datetime object for transformer
                     date=calculated_date,  # Calculate date in extractor
                     source=DataSource.OURA,
                     sport_type=sport_type,

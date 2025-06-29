@@ -51,29 +51,22 @@ class FetchStage(PipelineStage):
                 failed_services.append(service)
                 continue
             
-            try:
-                self.logger.info(f"📡 Fetching {service} data...")
-                service_instance = self.services[service]
-                
-                # Fetch raw data directly from service (no processor wrapper)
-                raw_data = self._fetch_service_data(service, service_instance, context.start_date, context.end_date)
-                context.raw_data[service] = raw_data
-                
-                # Generate raw data files if enabled
-                if context.enable_csv:
-                    service_files = self._generate_raw_data_files(
-                        service, raw_data, timestamp
-                    )
-                    file_paths.update(service_files)
-                
-                successful_services.append(service)
-                self.logger.info(f"✅ {service} data fetched successfully")
-                
-            except Exception as e:
-                # Allow service-level failures but continue with other services
-                error_msg = f"Failed to fetch {service} data: {str(e)}"
-                self.logger.error(error_msg)
-                failed_services.append(service)
+            self.logger.info(f"📡 Fetching {service} data...")
+            service_instance = self.services[service]
+            
+            # Fetch raw data directly from service (no processor wrapper)
+            raw_data = self._fetch_service_data(service, service_instance, context.start_date, context.end_date)
+            context.raw_data[service] = raw_data
+            
+            # Generate raw data files if enabled
+            if context.enable_csv:
+                service_files = self._generate_raw_data_files(
+                    service, raw_data, timestamp
+                )
+                file_paths.update(service_files)
+            
+            successful_services.append(service)
+            self.logger.info(f"✅ {service} data fetched successfully")
         
         # Determine stage result
         if successful_services and not failed_services:
