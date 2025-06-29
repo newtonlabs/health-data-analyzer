@@ -84,15 +84,70 @@ def run_pipeline(days: int):
 
 
 def test_onedrive_operations():
-    """Test OneDrive operations. No exception handling - errors bubble up."""
+    """Test OneDrive folder creation and file upload."""
     print("🔄 Testing OneDrive operations...")
     
+    # Initialize OneDrive service
     onedrive = OneDriveService()
+    
+    # Test folder creation
     test_folder = f"health-data-test-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     folder_id = onedrive.create_folder(test_folder)
+    print(f"✅ Created test folder: {test_folder} (ID: {folder_id})")
     
-    print(f"✅ OneDrive test successful - created folder: {test_folder}")
-    return folder_id
+    # Test file upload (use a simple test file)
+    test_content = f"Test file created at {datetime.now()}"
+    test_file = "data/test_upload.txt"
+    os.makedirs(os.path.dirname(test_file), exist_ok=True)
+    with open(test_file, 'w') as f:
+        f.write(test_content)
+    
+    file_id = onedrive.upload_file(test_file, f"{test_folder}/test_upload.txt")
+    print(f"✅ Uploaded test file (ID: {file_id})")
+    
+    # Clean up
+    os.remove(test_file)
+    print("✅ OneDrive operations completed successfully")
+
+
+def test_pdf_generation():
+    """Test PDF generation from markdown report."""
+    print("📄 Testing PDF generation...")
+    
+    from src.reporting.pdf_converter import PDFConverter
+    
+    # Find the most recent markdown report
+    reports_dir = "data/05_reports"
+    if not os.path.exists(reports_dir):
+        print("❌ No reports directory found")
+        return
+    
+    # Look for markdown files
+    md_files = [f for f in os.listdir(reports_dir) if f.endswith('.md')]
+    if not md_files:
+        print("❌ No markdown reports found")
+        return
+    
+    # Use the most recent report
+    md_file = sorted(md_files)[-1]
+    markdown_path = os.path.join(reports_dir, md_file)
+    
+    # Generate PDF in the same directory
+    pdf_filename = md_file.replace('.md', '.pdf')
+    pdf_path = os.path.join(reports_dir, pdf_filename)
+    
+    print(f"📄 Converting {md_file} to PDF...")
+    
+    # Initialize PDF converter and generate PDF
+    converter = PDFConverter()
+    converter.markdown_to_pdf(markdown_path, pdf_path)
+    
+    # Verify PDF was created
+    if os.path.exists(pdf_path):
+        file_size = os.path.getsize(pdf_path)
+        print(f"✅ PDF generated successfully: {pdf_filename} ({file_size:,} bytes)")
+    else:
+        print(f"❌ PDF generation failed: {pdf_filename}")
 
 
 def validate_results(result, days: int):
@@ -147,7 +202,11 @@ def main():
     validate_results(result, args.days)
     print()
     
-    # Step 4: Test OneDrive
+    # Step 4: Test PDF generation
+    test_pdf_generation()
+    print()
+    
+    # Step 5: Test OneDrive
     test_onedrive_operations()
     print()
     

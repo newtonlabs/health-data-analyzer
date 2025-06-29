@@ -32,19 +32,21 @@ class PDFConverter:
         # No need to extract title anymore as it will be handled by the HTML template
         # Just pass the report dates to the template
 
-        # Get the report dates from the filename (format: YYYY-MM-DD-weekly-status.md)
-        report_date_str = os.path.basename(markdown_file).split("-weekly-status")[0]
-
+        # Get the report dates from the filename (format: health_report_YYYY-MM-DD.md)
+        filename = os.path.basename(markdown_file)
+        
+        # Extract date from health_report_YYYY-MM-DD.md format - fail fast if not correct format
+        if not (filename.startswith('health_report_') and filename.endswith('.md')):
+            raise ValueError(f"Expected filename format 'health_report_YYYY-MM-DD.md', got: {filename}")
+        
+        # Extract YYYY-MM-DD from health_report_YYYY-MM-DD.md
+        date_part = filename[len('health_report_'):-len('.md')]
+        report_end_date = datetime.strptime(date_part, "%Y-%m-%d")
+        
         # Calculate the start date (7 days before the report date)
-        try:
-            report_end_date = datetime.strptime(report_date_str, "%Y-%m-%d")
-            report_start_date = report_end_date - timedelta(days=6)
-            report_start = report_start_date.strftime("%m-%d")
-            report_end = report_end_date.strftime("%m-%d")
-        except ValueError:
-            # Fallback if we can't parse the date
-            report_start = ""
-            report_end = ""
+        report_start_date = report_end_date - timedelta(days=6)
+        report_start = report_start_date.strftime("%m-%d")
+        report_end = report_end_date.strftime("%m-%d")
 
         # The title will be set in the HTML template
         title = ""
@@ -99,8 +101,8 @@ class PDFConverter:
             recovery_low_color=recovery_low_color,
         )
 
-        # Set base_url to the directory containing the markdown file
-        # This ensures relative image paths are resolved correctly
+        # Set base_url to reports directory since charts are now co-located
+        # Both charts and markdown are in data/05_reports/ structure
         markdown_dir = os.path.dirname(os.path.abspath(markdown_file))
         html = HTML(string=formatted_html, base_url=markdown_dir)
 

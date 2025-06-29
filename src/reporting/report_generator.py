@@ -221,13 +221,11 @@ class ReportGenerator:
             chart_gen = chart_generator_class()
             chart_path = chart_gen.generate(df, filename=filename)
             if chart_path:
-                # Extract relative path from charts_dir to ensure correct markdown path
-                # Instantiate a ChartGenerator to get the default charts_dir
-                base_chart_gen = ChartGenerator()
-                relative_chart_path = os.path.relpath(
-                    chart_path, base_chart_gen.charts_dir
-                )
-                return f"![{chart_type_name} Chart](charts/{relative_chart_path})\n"
+                # Create relative path from report location to chart
+                # Charts are in data/05_reports/charts/, reports are in data/05_reports/
+                # So relative path is just charts/filename.png
+                chart_filename = os.path.basename(chart_path)
+                return f"![{chart_type_name} Chart](charts/{chart_filename})\n"
             return None
         except Exception as e:
             self.logger.error(f"Error generating {chart_type_name} chart: {e}")

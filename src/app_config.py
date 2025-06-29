@@ -67,8 +67,8 @@ class AppConfig:
 
     # ===== Reporting Configuration =====
 
-    # Charts directory
-    REPORTING_CHARTS_DIR = os.path.join("data", "charts")
+    # Charts directory - within reports directory for easier PDF generation
+    REPORTING_CHARTS_DIR = os.path.join("data", "05_reports", "charts")
 
     # Chart colors
     REPORTING_COLORS = {
