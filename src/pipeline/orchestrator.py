@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 
 from src.pipeline.stages import (
     PipelineContext, StageResult, StageStatus,
-    FetchStage, ExtractStage, TransformStage, AggregateStage
+    FetchStage, ExtractStage, TransformStage, AggregateStage, ReportStage
 )
 from src.utils.logging_utils import HealthLogger
 
@@ -67,7 +67,15 @@ class PipelineResult:
 
 
 class HealthDataOrchestrator:
-    """Main orchestrator for the 4-stage health data pipeline."""
+    """Main orchestrator for the 5-stage health data pipeline.
+    
+    Coordinates the execution of all pipeline stages:
+    1. Fetch: Retrieve raw data from APIs
+    2. Extract: Parse and structure data
+    3. Transform: Clean and normalize data
+    4. Aggregate: Combine data across sources
+    5. Report: Generate legacy-style reports
+    """
     
     def __init__(self):
         """Initialize the pipeline orchestrator."""
@@ -78,18 +86,21 @@ class HealthDataOrchestrator:
             'fetch': FetchStage(),
             'extract': ExtractStage(), 
             'transform': TransformStage(),
-            'aggregate': AggregateStage()
+            'aggregate': AggregateStage(),
+            'report': ReportStage()
         }
     
     def run_pipeline(self, days: int, services: List[str] = None, 
-                    enable_csv: bool = True, debug_mode: bool = False) -> PipelineResult:
-        """Run the complete 4-stage health data pipeline.
+                    enable_csv: bool = True, debug_mode: bool = False, 
+                    enable_report: bool = True) -> PipelineResult:
+        """Run the complete 5-stage health data pipeline.
         
         Args:
             days: Number of days to process
             services: List of services to process (None for all)
             enable_csv: Whether to generate CSV files
             debug_mode: Enable debug logging
+            enable_report: Whether to generate legacy report
             
         Returns:
             PipelineResult with execution results
@@ -113,43 +124,33 @@ class HealthDataOrchestrator:
             debug_mode=debug_mode
         )
         
-        self.logger.info(f"🚀 Starting 4-stage pipeline for {days} days")
+        self.logger.info(f"🚀 Starting 5-stage pipeline for {days} days")
         self.logger.info(f"📅 Date range: {start_date} to {end_date}")
         self.logger.info(f"🔧 Services: {', '.join(services)}")
         self.logger.info(f"📁 CSV generation: {'enabled' if enable_csv else 'disabled'}")
         
         # Execute pipeline stages in order
         stage_order = ['fetch', 'extract', 'transform', 'aggregate']
+        if enable_report:
+            stage_order.append('report')
         
         for stage_name in stage_order:
-            try:
-                self.logger.info(f"🔄 Executing {stage_name} stage...")
-                stage = self.stages[stage_name]
-                
-                stage_start = time.time()
-                result = stage.execute(context)
-                result.duration_seconds = time.time() - stage_start
-                
-                context.add_stage_result(result)
-                
-                if result.status == StageStatus.SUCCESS:
-                    self.logger.info(f"✅ {stage_name} stage completed successfully")
-                elif result.status == StageStatus.PARTIAL:
-                    self.logger.warning(f"⚠️ {stage_name} stage completed with warnings: {result.error}")
-                else:
-                    self.logger.error(f"❌ {stage_name} stage failed: {result.error}")
-                    # Continue with remaining stages even if one fails
-                    
-            except Exception as e:
-                error_msg = f"Unexpected error in {stage_name} stage: {str(e)}"
-                self.logger.error(error_msg)
-                
-                error_result = StageResult(
-                    stage_name=stage_name,
-                    status=StageStatus.FAILED,
-                    error=error_msg
-                )
-                context.add_stage_result(error_result)
+            self.logger.info(f"🔄 Executing {stage_name} stage...")
+            stage = self.stages[stage_name]
+            
+            stage_start = time.time()
+            result = stage.execute(context)
+            result.duration_seconds = time.time() - stage_start
+            
+            context.add_stage_result(result)
+            
+            if result.status == StageStatus.SUCCESS:
+                self.logger.info(f"✅ {stage_name} stage completed successfully")
+            elif result.status == StageStatus.PARTIAL:
+                self.logger.warning(f"⚠️ {stage_name} stage completed with warnings: {result.error}")
+            else:
+                self.logger.error(f"❌ {stage_name} stage failed: {result.error}")
+                # Continue with remaining stages even if one fails
         
         total_duration = time.time() - start_time
         result = PipelineResult(context, total_duration)
@@ -225,3 +226,5 @@ class HealthDataOrchestrator:
                 self.logger.info(f"   📄 {file_type}: {file_path}")
         
         self.logger.info("=" * 40)
+    
+

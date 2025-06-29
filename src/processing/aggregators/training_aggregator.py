@@ -34,7 +34,6 @@ class TrainingAggregator:
                 sport=None,
                 duration=None,
                 workout_count=0,
-                calories_burned=None,
             )]
         
         # Group workouts by sport_type
@@ -45,7 +44,6 @@ class TrainingAggregator:
         for sport_type, sport_workouts in workouts_by_sport_type.items():
             # Calculate metrics for this sport_type
             total_duration = sum(w.duration_minutes for w in sport_workouts)
-            total_calories = sum(w.calories for w in sport_workouts if w.calories)
             
             training_records.append(TrainingMetricsRecord(
                 date=target_date,
@@ -53,7 +51,6 @@ class TrainingAggregator:
                 sport=sport_type,
                 duration=total_duration,
                 workout_count=len(sport_workouts),
-                calories_burned=total_calories if total_calories > 0 else None,
             ))
         
         # Sort by duration (longest first) for consistent ordering

@@ -39,58 +39,47 @@ class TransformStage(PipelineStage):
         
         # Process each service's extracted data
         for service, extracted_data in context.extracted_data.items():
-            try:
-                self.logger.info(f"🧹 Transforming {service} data by data type...")
+            self.logger.info(f"🧹 Transforming {service} data by data type...")
+            
+            service_transformed_data = {}
+            service_records = 0
+            
+            # Transform each data type using registry
+            for data_type, records in extracted_data.items():
+                if not records:
+                    continue
                 
-                service_transformed_data = {}
-                service_records = 0
+                # Find transformer for this data type
+                transformer_info = self.registry.get_transformer_for_data_type(data_type)
+                if not transformer_info:
+                    self.logger.warning(f"No transformer for data type: {data_type}")
+                    continue
                 
-                # Transform each data type using registry
-                for data_type, records in extracted_data.items():
-                    if not records:
-                        continue
-                    
-                    # Find transformer for this data type
-                    transformer_info = self.registry.get_transformer_for_data_type(data_type)
-                    if not transformer_info:
-                        self.logger.warning(f"No transformer for data type: {data_type}")
-                        continue
-                    
-                    try:
-                        transformer = transformer_info['instance']
-                        output_key = transformer_info['output_key']
-                        transformed_records = transformer.transform(records)
-                        
-                        # Store with transformer's preferred output key
-                        service_transformed_data[output_key] = transformed_records
-                        service_records += len(transformed_records)
-                        
-                        self.logger.info(f"✅ Transformed {len(transformed_records)} {data_type} records to {output_key}")
-                        
-                    except Exception as e:
-                        self.logger.error(f"Failed to transform {data_type}: {e}")
-                        failed_transformations.append(f"{service}_{data_type}")
+                transformer = transformer_info['instance']
+                output_key = transformer_info['output_key']
+                transformed_records = transformer.transform(records)
                 
-                # Store transformed data for this service
-                if service_transformed_data:
-                    context.transformed_data[service] = service_transformed_data
-                    total_records += service_records
-                    
-                    # Generate CSV files if enabled
-                    if context.enable_csv:
-                        service_files = self._generate_csv_files(
-                            service, extracted_data, service_transformed_data, timestamp
-                        )
-                        file_paths.update(service_files)
-                    
-                    successful_transformations.append(service)
-                    self.logger.info(f"✅ {service} transformation completed: {service_records} records")
-                else:
-                    failed_transformations.append(service)
-                    
-            except Exception as e:
-                error_msg = f"Failed to transform {service} data: {str(e)}"
-                self.logger.error(error_msg)
+                # Store with transformer's preferred output key
+                service_transformed_data[output_key] = transformed_records
+                service_records += len(transformed_records)
+                
+                self.logger.info(f"✅ Transformed {len(transformed_records)} {data_type} records to {output_key}")
+            
+            # Store transformed data for this service
+            if service_transformed_data:
+                context.transformed_data[service] = service_transformed_data
+                total_records += service_records
+                
+                # Generate CSV files if enabled
+                if context.enable_csv:
+                    service_files = self._generate_csv_files(
+                        service, extracted_data, service_transformed_data, timestamp
+                    )
+                    file_paths.update(service_files)
+                
+                successful_transformations.append(service)
+                self.logger.info(f"✅ {service} transformation completed: {service_records} records")
+            else:
                 failed_transformations.append(service)
         
         # Determine stage result

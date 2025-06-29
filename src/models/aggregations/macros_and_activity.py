@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
+from ..enums import SportType
+
 
 @dataclass
 class MacrosAndActivityRecord:
@@ -32,9 +34,9 @@ class MacrosAndActivityRecord:
     fat: Optional[float] = None      # grams
     alcohol: Optional[float] = None  # grams
     
-    # Activity metrics (from Oura)
-    activity: Optional[int] = None   # Oura activity score (0-100)
-    steps: Optional[int] = None      # Daily step count
+    # Activity metrics
+    sport_type: Optional[SportType] = None  # Primary sport/workout for the day
+    steps: Optional[int] = None             # Daily step count (from Oura)
     
     # Body metrics (from Withings)
     weight: Optional[float] = None   # kg

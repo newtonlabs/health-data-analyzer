@@ -53,6 +53,7 @@ class AppConfig:
     ANALYSIS_STRENGTH_ACTIVITIES: list[str] = [
         "Strength",  # Weight training
         "Weightlifting",  # Weight training
+        "Strength Training",  # From SportType.STRENGTH_TRAINING formatting
     ]
 
     # Mapping of Oura resilience levels to numeric scores (equal zones)

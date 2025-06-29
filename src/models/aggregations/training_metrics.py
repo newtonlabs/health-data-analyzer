@@ -33,7 +33,6 @@ class TrainingMetricsRecord:
     
     # Additional derived fields (calculated by aggregator)
     workout_count: Optional[int] = None   # Number of workouts this day
-    calories_burned: Optional[int] = None # Total calories from workouts
     
     def __post_init__(self):
         """Calculate derived fields after initialization."""

@@ -29,7 +29,7 @@ class RecoveryMetricsRecord:
     # Recovery metrics (from Whoop)
     recovery: Optional[float] = None      # Whoop recovery score (0-100)
     hrv: Optional[float] = None           # HRV RMSSD (ms) - from recovery.hrv_rmssd
-    rhr: Optional[int] = None             # Resting heart rate (bpm) - from recovery.resting_hr
+    hr: Optional[int] = None              # Resting heart rate (bpm) - from recovery.resting_hr
     
     # Sleep metrics (from Whoop)
     sleep_need: Optional[int] = None      # Sleep need (minutes) - from sleep.sleep_need_minutes

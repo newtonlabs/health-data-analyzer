@@ -45,28 +45,22 @@ class ExtractStage(PipelineStage):
                 failed_services.append(service)
                 continue
             
-            try:
-                self.logger.info(f"🔧 Extracting {service} data...")
-                extractor = self.extractors[service]
-                
-                # Extract structured data from raw data
-                extracted_data = extractor.extract_data(raw_data)
-                context.extracted_data[service] = extracted_data
-                
-                # Count records
-                service_records = sum(
-                    len(records) if isinstance(records, list) else 0
-                    for records in extracted_data.values()
-                )
-                total_records += service_records
-                
-                successful_services.append(service)
-                self.logger.info(f"✅ {service} extraction completed: {service_records} records")
-                
-            except Exception as e:
-                error_msg = f"Failed to extract {service} data: {str(e)}"
-                self.logger.error(error_msg)
-                failed_services.append(service)
+            self.logger.info(f"🔧 Extracting {service} data...")
+            extractor = self.extractors[service]
+            
+            # Extract structured data from raw data
+            extracted_data = extractor.extract_data(raw_data)
+            context.extracted_data[service] = extracted_data
+            
+            # Count records
+            service_records = sum(
+                len(records) if isinstance(records, list) else 0
+                for records in extracted_data.values()
+            )
+            total_records += service_records
+            
+            successful_services.append(service)
+            self.logger.info(f"✅ {service} extraction completed: {service_records} records")
         
         # Determine stage result
         if successful_services and not failed_services:

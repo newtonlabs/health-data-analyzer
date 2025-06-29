@@ -5,6 +5,7 @@ from .fetch_stage import FetchStage
 from .extract_stage import ExtractStage
 from .transform_stage import TransformStage
 from .aggregate_stage import AggregateStage
+from .report_stage import ReportStage
 
 __all__ = [
     'PipelineStage',
@@ -14,5 +15,6 @@ __all__ = [
     'FetchStage',
     'ExtractStage',
     'TransformStage',
-    'AggregateStage'
+    'AggregateStage',
+    'ReportStage'
 ]

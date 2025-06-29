@@ -37,7 +37,7 @@ class ProcessorRegistry:
         
         # Register aggregators
         self.register_aggregator('recovery', RecoveryAggregator(), ['recovery', 'sleep', 'resilience'])
-        self.register_aggregator('macros', MacrosActivityAggregator(), ['nutrition', 'activity', 'weight'])
+        self.register_aggregator('macros', MacrosActivityAggregator(), ['nutrition', 'activity', 'weight', 'workouts'])
         self.register_aggregator('training', TrainingAggregator(), ['workouts'])
     
     def register_transformer(self, output_key: str, transformer: Any, input_types: List[str]):
@@ -108,6 +108,14 @@ class ProcessorRegistry:
         
         collected_data = {}
         required_types = aggregator_info['required_data']
+        
+        # Debug: Show what's in transformed_data
+        if aggregator_name == 'macros':
+            print(f"DEBUG: Required types for macros: {required_types}")
+            for service_name, service_data in transformed_data.items():
+                print(f"DEBUG: Service {service_name} has keys: {list(service_data.keys())}")
+                for key, records in service_data.items():
+                    print(f"  {key}: {len(records) if isinstance(records, list) else 'not a list'}")
         
         # Collect data of each required type from all services
         for data_type in required_types:

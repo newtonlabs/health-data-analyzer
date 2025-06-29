@@ -81,53 +81,58 @@ class AggregateStage(PipelineStage):
         # Process each day in the date range
         current_date = context.start_date
         while current_date <= context.end_date:
-            try:
-                # Process all registered aggregators
-                for aggregator_name in self.registry.get_all_aggregator_names():
-                    # Collect data required by this aggregator
-                    aggregator_data = self.registry.collect_data_for_aggregator(
-                        aggregator_name, context.transformed_data
-                    )
-                    
-                    # Get aggregator instance
-                    aggregator_info = self.registry.get_aggregator(aggregator_name)
-                    if not aggregator_info:
-                        continue
-                    
-                    aggregator = aggregator_info['instance']
-                    
-                    # Call appropriate aggregation method based on aggregator type
-                    if aggregator_name == 'macros':
-                        result = aggregator.aggregate_daily_data(
-                            current_date, 
-                            aggregator_data.get('nutrition', []),
-                            aggregator_data.get('activity', []),
-                            aggregator_data.get('weight', [])
-                        )
-                        if result:
-                            aggregated_data['macros_activity'].append(result)
-                    
-                    elif aggregator_name == 'recovery':
-                        result = aggregator.aggregate_daily_recovery(
-                            current_date,
-                            aggregator_data.get('recovery', []),
-                            aggregator_data.get('sleep', []),
-                            aggregator_data.get('resilience', [])
-                        )
-                        if result:
-                            aggregated_data['recovery_metrics'].append(result)
-                    
-                    elif aggregator_name == 'training':
-                        results = aggregator.aggregate_daily_training(
-                            current_date,
-                            aggregator_data.get('workouts', [])
-                        )
-                        if results:
-                            # Training aggregator now returns a list of records (one per sport)
-                            aggregated_data['training_metrics'].extend(results)
+            # Process all registered aggregators
+            for aggregator_name in self.registry.get_all_aggregator_names():
+                # Collect data required by this aggregator
+                aggregator_data = self.registry.collect_data_for_aggregator(
+                    aggregator_name, context.transformed_data
+                )
                 
-            except Exception as e:
-                self.logger.warning(f"Failed to create aggregations for {current_date}: {e}")
+                # Get aggregator instance
+                aggregator_info = self.registry.get_aggregator(aggregator_name)
+                if not aggregator_info:
+                    continue
+                
+                aggregator = aggregator_info['instance']
+                
+                # Call appropriate aggregation method based on aggregator type
+                if aggregator_name == 'macros':
+                    self.logger.info(f"🔍 Processing macros for {current_date}: {len(aggregator_data.get('workouts', []))} workouts")
+                    self.logger.info(f"  Nutrition records: {len(aggregator_data.get('nutrition', []))}")
+                    self.logger.info(f"  Activity records: {len(aggregator_data.get('activity', []))}")
+                    self.logger.info(f"  Weight records: {len(aggregator_data.get('weight', []))}")
+                    self.logger.info(f"  Available data keys: {list(aggregator_data.keys())}")
+                    result = aggregator.aggregate_daily_data(
+                        current_date, 
+                        aggregator_data.get('nutrition', []),
+                        aggregator_data.get('activity', []),
+                        aggregator_data.get('weight', []),
+                        aggregator_data.get('workouts', [])
+                    )
+                    self.logger.info(f"🎯 Macros result for {current_date}: {result.sport_type if result else 'None'}")
+                    if result:
+                        aggregated_data['macros_activity'].append(result)
+                    else:
+                        self.logger.warning(f"⚠️ No macros result for {current_date}")
+                
+                elif aggregator_name == 'recovery':
+                    result = aggregator.aggregate_daily_recovery(
+                        current_date,
+                        aggregator_data.get('recovery', []),
+                        aggregator_data.get('sleep', []),
+                        aggregator_data.get('resilience', [])
+                    )
+                    if result:
+                        aggregated_data['recovery_metrics'].append(result)
+                
+                elif aggregator_name == 'training':
+                    results = aggregator.aggregate_daily_training(
+                        current_date,
+                        aggregator_data.get('workouts', [])
+                    )
+                    if results:
+                        # Training aggregator now returns a list of records (one per sport)
+                        aggregated_data['training_metrics'].extend(results)
             
             current_date += timedelta(days=1)
         
@@ -180,8 +185,15 @@ class AggregateStage(PipelineStage):
         agg_dir = "data/04_aggregated"
         os.makedirs(agg_dir, exist_ok=True)
         
-        # Convert records to dictionaries
-        data_dicts = [asdict(record) for record in records]
+        # Convert records to dictionaries with proper enum serialization
+        data_dicts = []
+        for record in records:
+            record_dict = asdict(record)
+            # Convert enum values to their string values for CSV export
+            for key, value in record_dict.items():
+                if hasattr(value, 'value'):  # Check if it's an enum
+                    record_dict[key] = value.value
+            data_dicts.append(record_dict)
         
         # Create DataFrame and save to CSV
         df = pd.DataFrame(data_dicts)
@@ -193,5 +205,3 @@ class AggregateStage(PipelineStage):
         self.logger.info(f"Saved {len(records)} {aggregation_type} records to {file_path}")
         
         return file_path
-    
-

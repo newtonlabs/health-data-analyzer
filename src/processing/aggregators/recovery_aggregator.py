@@ -39,7 +39,7 @@ class RecoveryAggregator:
             # Recovery metrics (from Whoop)
             recovery=float(recovery.recovery_score) if recovery and recovery.recovery_score else None,
             hrv=recovery.hrv_rmssd if recovery else None,
-            rhr=recovery.resting_hr if recovery else None,
+            hr=recovery.resting_hr if recovery else None,
             # Sleep metrics (from Whoop)
             sleep_need=sleep.sleep_need_minutes if sleep else None,
             sleep_actual=sleep.total_sleep_minutes if sleep else None,

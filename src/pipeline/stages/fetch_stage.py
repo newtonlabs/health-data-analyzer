@@ -70,6 +70,7 @@ class FetchStage(PipelineStage):
                 self.logger.info(f"✅ {service} data fetched successfully")
                 
             except Exception as e:
+                # Allow service-level failures but continue with other services
                 error_msg = f"Failed to fetch {service} data: {str(e)}"
                 self.logger.error(error_msg)
                 failed_services.append(service)
@@ -119,16 +120,12 @@ class FetchStage(PipelineStage):
         """
         file_paths = {}
         
-        try:
-            # Save raw data as JSON files - combine all data types into single file
-            if raw_data:
-                file_path = self.persistence.save_raw_data(
-                    service, raw_data, timestamp
-                )
-                file_paths[f"{service}_raw"] = file_path
-                    
-        except Exception as e:
-            self.logger.warning(f"Failed to generate raw data files for {service}: {e}")
+        # Save raw data as JSON files - combine all data types into single file
+        if raw_data:
+            file_path = self.persistence.save_raw_data(
+                service, raw_data, timestamp
+            )
+            file_paths[f"{service}_raw"] = file_path
         
         return file_paths
     

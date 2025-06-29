@@ -33,6 +33,7 @@ from typing import List, Dict
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from src.pipeline.orchestrator import HealthDataOrchestrator
+from src.pipeline.stages import StageStatus
 
 class HealthDataPipelineTest:
     """Comprehensive end-to-end test for the health data pipeline."""
@@ -573,7 +574,10 @@ def main():
     parser.add_argument('--skip-extraction', action='store_true', help='Skip data extraction testing')
     parser.add_argument('--skip-aggregation', action='store_true', help='Skip aggregation testing')
     parser.add_argument('--full-pipeline', action='store_true', help='Test complete 4-stage pipeline')
-    parser.add_argument('--force-auth', action='store_true', help='Force fresh authentication even if tokens exist')
+    parser.add_argument('--force-auth', action='store_true', 
+                        help='Force fresh authentication even if tokens exist')
+    parser.add_argument('--force-withings-auth', action='store_true',
+                        help='Force fresh Withings authentication before pipeline')
     
     args = parser.parse_args()
     
@@ -616,8 +620,8 @@ def main():
         print("🚀 PIPELINE EXECUTION PHASE")
         print("=" * 30)
         
-        # Always test the new 4-stage orchestrator pipeline
-        pipeline_results = test_4stage_pipeline(args.days)
+        # Always test the new 5-stage orchestrator pipeline
+        pipeline_results = test_5stage_pipeline(args.days)
         
         if 'error' in pipeline_results:
             print(f"❌ Pipeline failed: {pipeline_results['error']}")
@@ -639,6 +643,7 @@ def main():
             results['extraction_total'] = total_services
             results['aggregation_success'] = 1 if pipeline_results['success'] else 0
             results['aggregation_total'] = 1
+            results['report_success'] = 1 if pipeline_results.get('report_generated', False) else 0
             
             # Show detailed results
             print(f"\n📊 Pipeline Results:")
@@ -710,6 +715,8 @@ def main():
         print(f"📊 Aggregation: {results['aggregation_success']}/{results['aggregation_total']} pipeline")
     print(f"📁 CSV Generation: {'✅ Success' if results['csv_files'] > 0 else '❌ Failed'}")
     print(f"📊 Aggregated Files: {'✅ Success' if results['aggregated_files'] > 0 else '❌ Failed'}")
+    if not args.skip_extraction and 'report_success' in results:
+        print(f"📄 Report Generation: {'✅ Success' if results['report_success'] > 0 else '❌ Failed'}")
     print()
     
     # Overall success determination
@@ -730,18 +737,89 @@ def main():
     return results
 
 
-def test_4stage_pipeline(days: int) -> Dict:
-    """Test the complete 4-stage pipeline including aggregations."""
+def test_5stage_pipeline(days: int) -> Dict:
+    """Test the complete 5-stage pipeline including aggregations and report generation."""
     orchestrator = HealthDataOrchestrator()
     
+    def _force_withings_reauth():
+        """Force Withings re-authentication."""
+        try:
+            from src.api.clients.withings_client import WithingsClient
+            client = WithingsClient()
+            print("🔄 Withings: Forcing fresh authentication due to pipeline failure...")
+            client.token_manager.clear_tokens()
+            client.access_token = None
+            client.refresh_token = None
+            return client.authenticate()
+        except Exception as e:
+            print(f"❌ Withings: Re-authentication failed - {e}")
+            return False
+    
     try:
-        print(f"🚀 Testing {days}-day pipeline with all 5 services...")
+        print(f"🚀 Testing {days}-day pipeline with all 5 services and report generation...")
         result = orchestrator.run_pipeline(
             days=days,
             services=['whoop', 'oura', 'withings', 'hevy', 'nutrition'],
             enable_csv=True,
-            debug_mode=False
+            debug_mode=False,
+            enable_report=True
         )
+        
+        # Check if Withings failed due to authentication and retry if needed
+        withings_failed = False
+        withings_auth_error = False
+        
+        # Check for Withings failures in any stage
+        for stage_name, stage_result in result.context.stage_results.items():
+            if hasattr(stage_result, 'error') and stage_result.error:
+                error_str = str(stage_result.error).lower()
+                if 'withings' in error_str:
+                    withings_failed = True
+                    if any(auth_error in error_str for auth_error in ['401', 'unauthorized', 'authentication', 'token', 'expired']):
+                        withings_auth_error = True
+                        break
+        
+        # Also check service processing results for partial Withings failures
+        if result.services_processed and 'withings' in result.services_processed:
+            withings_data = result.services_processed['withings']
+            # Handle both integer and dictionary formats
+            if isinstance(withings_data, dict):
+                # Count completed stages in dictionary format
+                withings_stages = sum(1 for stage, status in withings_data.items() if status)
+            else:
+                # Handle integer format
+                withings_stages = withings_data
+            
+            if withings_stages < 3:  # Should complete 3 stages (fetch, extract, transform)
+                print(f"⚠️ Withings completed only {withings_stages}/3 stages, likely authentication issue")
+                withings_failed = True
+                withings_auth_error = True
+        
+        if withings_failed and withings_auth_error:
+            print("🔄 Detected Withings authentication failure, attempting re-authentication...")
+            if _force_withings_reauth():
+                print("🔄 Retrying pipeline after Withings re-authentication...")
+                result = orchestrator.run_pipeline(
+                    days=days,
+                    services=['whoop', 'oura', 'withings', 'hevy', 'nutrition'],
+                    enable_csv=True,
+                    debug_mode=False,
+                    enable_report=True
+                )
+        
+        # Check if report was generated
+        report_generated = False
+        report_content = None
+        if 'report' in result.context.stage_results:
+            report_stage_result = result.context.stage_results['report']
+            if report_stage_result.status in [StageStatus.SUCCESS, StageStatus.PARTIAL]:
+                report_generated = True
+                if 'report_content' in report_stage_result.data:
+                    report_content = report_stage_result.data['report_content']
+                    print(f"✅ Report generated successfully ({len(report_content)} characters)")
+                    # Show a preview of the report
+                    preview = report_content[:300] + "..." if len(report_content) > 300 else report_content
+                    print(f"📝 Report preview:\n{'-'*50}\n{preview}\n{'-'*50}")
         
         return {
             'success': result.success,
@@ -749,10 +827,11 @@ def test_4stage_pipeline(days: int) -> Dict:
             'total_stages': result.total_stages,
             'services_processed': result.services_processed,
             'file_paths': result.file_paths,
-            'duration': result.total_duration
+            'duration': result.total_duration,
+            'report_generated': report_generated
         }
     except Exception as e:
-        print(f"❌ 4-stage pipeline failed: {e}")
+        print(f"❌ 5-stage pipeline failed: {e}")
         return {'error': str(e), 'stages_completed': 0, 'services_processed': {}}
 
 
