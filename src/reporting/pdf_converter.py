@@ -57,16 +57,29 @@ class PDFConverter:
             extensions=["tables", "fenced_code", "nl2br", "sane_lists"],
         )
 
-        # Read and encode logo
-        logo_path = os.path.join(self.assets_dir, "rb-logo.webp")
-        logo_data = ""
-        if os.path.exists(logo_path):
-            with open(logo_path, "rb") as f:
-                logo_data = base64.b64encode(f.read()).decode("utf-8")
+        # Read and encode RB logo
+        rb_logo_path = os.path.join(self.assets_dir, "rb-logo.webp")
+        rb_logo_data = ""
+        if os.path.exists(rb_logo_path):
+            with open(rb_logo_path, "rb") as f:
+                rb_logo_data = base64.b64encode(f.read()).decode("utf-8")
 
-        logo_html = (
-            f'<img src="data:image/webp;base64,{logo_data}" alt="Logo">'
-            if logo_data
+        rb_logo_html = (
+            f'<img src="data:image/webp;base64,{rb_logo_data}" alt="RB Logo">'
+            if rb_logo_data
+            else ""
+        )
+        
+        # Read and encode NewtonLabs logo
+        newtonlabs_logo_path = os.path.join(self.assets_dir, "newtonlabs_logo.webp")
+        newtonlabs_logo_data = ""
+        if os.path.exists(newtonlabs_logo_path):
+            with open(newtonlabs_logo_path, "rb") as f:
+                newtonlabs_logo_data = base64.b64encode(f.read()).decode("utf-8")
+
+        newtonlabs_logo_html = (
+            f'<img src="data:image/webp;base64,{newtonlabs_logo_data}" alt="NewtonLabs Logo">'
+            if newtonlabs_logo_data
             else ""
         )
 
@@ -87,7 +100,8 @@ class PDFConverter:
         # Get the HTML template and format it with our variables
         template = get_report_template()
         formatted_html = template.format(
-            logo_html=logo_html,
+            rb_logo_html=rb_logo_html,
+            newtonlabs_logo_html=newtonlabs_logo_html,
             report_start=report_start,
             report_end=report_end,
             html_content=html_content,

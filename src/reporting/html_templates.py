@@ -5,7 +5,8 @@ def get_report_template():
     """Return the HTML template for the weekly report.
 
     The template uses the following variables:
-    - logo_html: HTML for the logo
+    - rb_logo_html: HTML for the RB logo (left side)
+    - newtonlabs_logo_html: HTML for the NewtonLabs logo (right side)
     - report_start: Start date of the report period (MM-DD format)
     - report_end: End date of the report period (MM-DD format)
     - html_content: Main content of the report
@@ -58,14 +59,15 @@ def get_report_template():
         
         /* Premium Header Banner - inspired by the provided image */
         .banner {{
-            background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
-            padding: 1.5rem 2rem;
+            background: #1a1a1a;
+            background: linear-gradient(135deg, #1a1a1a 0%, #111111 50%, #000000 100%);
+            padding: 1.8rem 2.5rem; /* Increased padding for more breathing room */
             margin-bottom: 2rem;
             display: flex;
-            justify-content: flex-start; /* Align items to the left for better balance */
+            justify-content: space-between; /* Space between left and right sections */
             align-items: center;
             position: relative;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0px 4px 8px rgba(0, 0, 0, 0.2); /* Added soft outer shadow */
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), 0px 2px 10px rgba(0, 0, 0, 0.2); /* Enhanced shadow depth */
             border-radius: 0; /* Sharper corners for a more premium look */
             overflow: hidden;
             font-style: normal; /* Ensure no italics in the banner */
@@ -76,7 +78,7 @@ def get_report_template():
             font-style: normal;
         }}
         
-        /* Red accent line at the bottom of the banner */
+        /* Red-cyan gradient bottom border unifying both sides */
         .banner::after {{
             content: '';
             position: absolute;
@@ -84,38 +86,95 @@ def get_report_template():
             left: 0;
             right: 0;
             height: 3px;
-            background-color: #B3001B; /* Deeper, richer red that pops more on dark background */
-            box-shadow: 0 0 8px rgba(179, 0, 27, 0.7); /* Enhanced glow effect */
+            background: linear-gradient(90deg, 
+                #B3001B 0%,     /* Bright red start (RB side) */
+                #8B0000 25%,    /* Dark red */
+                #4a4a4a 50%,    /* Neutral middle */
+                #00a8cc 75%,    /* Darker cyan */
+                #00d4ff 100%    /* Cyan end (NewtonLabs side) */
+            );
+            box-shadow: 0 0 6px rgba(100, 100, 255, 0.4); /* Unified glow effect */
         }}
+        
+        /* Cyan accent line under NewtonLabs logo */
+        .banner .right-section::after {{
+            content: '';
+            position: absolute;
+            bottom: 30px; /* Positioned even higher to match shifted logo */
+            right: 2.5rem;
+            width: 115px; /* Match increased logo width */
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, #00d4ff 20%, #00a8cc 80%, transparent 100%);
+            box-shadow: 0 0 4px rgba(0, 212, 255, 0.6); /* Reduced blur for crisper edge */
+            border-radius: 1px;
+        }}
+        
+
         
         .banner img {{
             height: 60px;
             width: auto;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-            margin-right: 20px; /* Reduced space to account for divider */
         }}
         
-        /* Semi-transparent vertical divider between logo and text */
-        .vertical-divider {{
-            height: 50px; /* Extended to about 85% of the text block height */
-            width: 1px;
-            background-color: rgba(255, 255, 255, 0.25); /* Semi-transparent white */
-            margin: 0 20px;
-            align-self: center;
+        .banner .left-section {{
+            display: flex;
+            align-items: center;
+        }}
+        
+        .banner .left-section img {{
+            margin-right: 0; /* Remove margin since no divider */
+        }}
+        
+        .banner .right-section {{
+            display: flex;
+            align-items: flex-start; /* Align to top for higher positioning */
+            padding-top: 5px; /* Shift NewtonLabs logo even higher */
+        }}
+        
+        .banner .right-section img {{
+            margin-left: 0; /* Remove margin since no divider */
+            height: 115px; /* Increased by additional 5-10% to equal RB logo weight */
+            position: relative;
         }}
         
         .banner .title {{
             color: #fff;
             margin: 0;
-            font-size: 28px;
-            font-weight: 300;
-            font-style: normal; /* Explicitly set to normal to prevent italics */
-            letter-spacing: 1px;
             border: none;
-            padding: 0;
+            padding: 0 40px; /* Increased padding for better centering */
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow to elevate text block */
+            background: rgba(0, 0, 0, 0.1); /* Very subtle background for shadow effect */
+            border-radius: 8px; /* Rounded corners for elevated look */
             flex: 1; /* Allow title to take remaining space */
-            transform: translateY(-2px); /* Slight upward nudge for optical centering */
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center vertically with logos */
+            align-items: center; /* Center horizontally */
+            position: relative;
+            text-align: center; /* Center text alignment */
+        }}
+        
+        .banner .title .name {{
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 32px;
+            font-weight: 600; /* Bold for name */
+            font-style: normal;
+            letter-spacing: 0.5px;
+            margin: 0;
+            line-height: 1.1;
+        }}
+        
+        .banner .title .date-range {{
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 18px;
+            font-weight: 300; /* Lighter font for date */
+            font-style: normal;
+            margin-top: 8px;
+            color: #CCCCCC;
+            letter-spacing: 0.3px;
+            line-height: 1.2;
         }}
         
         /* Headings */
@@ -323,11 +382,15 @@ def get_report_template():
     <body>
         <div class="container">
             <div class="banner">
-                {logo_html}
-                <div class="vertical-divider"></div>
+                <div class="left-section">
+                    {rb_logo_html}
+                </div>
                 <div class="title">
-                    <div style="font-size: 28px; font-weight: 500; font-style: normal;">Thomas Newton</div>
-                    <div style="font-size: 22px; font-weight: 300; font-style: normal; margin-top: 15px; color: #CCCCCC;">{report_start} to {report_end}</div>
+                    <div class="name">Thomas Newton</div>
+                    <div class="date-range">{report_start} to {report_end}</div>
+                </div>
+                <div class="right-section">
+                    {newtonlabs_logo_html}
                 </div>
             </div>
             <div class="content">
