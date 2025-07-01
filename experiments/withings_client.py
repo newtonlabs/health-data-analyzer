@@ -25,6 +25,10 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
             token_endpoint="https://wbsapi.withings.net/v2/oauth2",
             scopes=["user.metrics,user.activity,user.sleepevents"]
         )
+        
+        # Use Withings-specific error handling strategy
+        from auth_base import WithingsErrorStrategy
+        self.error_strategy = WithingsErrorStrategy()
 
     def _exchange_code_for_token(self, code: str, state: str) -> dict:
         """Exchange authorization code for access token using Withings-specific format.
@@ -119,10 +123,6 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dict containing weight measurements and body composition data
         """
-        # Ensure we're authenticated
-        if not self.is_authenticated():
-            self.authenticate()
-        
         # Convert dates to Unix timestamps
         startdate = int(start_date.timestamp())
         enddate = int(end_date.timestamp())
@@ -144,54 +144,3 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         # Error checking is now handled in the make_request override
         return data.get("body", {})
 
-    def make_request(self, endpoint: str, method: str = "GET", params: dict = None, json_data: dict = None, **kwargs):
-        """Override make_request to handle Withings-specific API errors with retry logic."""
-        
-        # For Withings API endpoints, we need custom retry logic
-        if endpoint.startswith("v2/"):
-            max_retries = 2
-            for attempt in range(max_retries):
-                try:
-                    # Make the actual request
-                    response = super(WithingsClientExperimental, self).make_request(endpoint, method, params, json_data, **kwargs)
-                    
-                    # Check Withings-specific error format
-                    try:
-                        data = response.json()
-                        if data.get("status") != 0:
-                            error_msg = data.get("error", "Unknown error")
-                            
-                            # If it's an invalid token error and we have retries left
-                            if "invalid_token" in error_msg.lower() and attempt < max_retries - 1:
-                                print(f"⚠️  Withings invalid token error (attempt {attempt + 1}): {error_msg}")
-                                
-                                # Try refresh first
-                                print("🔄 Attempting token refresh...")
-                                if self.refresh_token_if_needed(force=True):
-                                    print("✅ Token refreshed, retrying request...")
-                                    continue  # Retry the request
-                                
-                                # Refresh failed, try full re-authentication
-                                print("🔄 Refresh failed, attempting full re-authentication...")
-                                if self.authenticate():
-                                    print("✅ Re-authenticated, retrying request...")
-                                    continue  # Retry the request
-                                else:
-                                    raise Exception(f"Failed to re-authenticate: {error_msg}")
-                            else:
-                                # Not an auth error, or out of retries
-                                raise Exception(f"Withings API error: {error_msg}")
-                    except ValueError:
-                        # Not JSON, continue normally
-                        pass
-                        
-                    return response
-                    
-                except Exception as e:
-                    # If it's not a Withings API error, re-raise
-                    if attempt == max_retries - 1:
-                        raise
-                    # Otherwise continue to next attempt
-        else:
-            # For non-v2 endpoints, use standard retry logic
-            return super().make_request(endpoint, method, params, json_data, **kwargs)

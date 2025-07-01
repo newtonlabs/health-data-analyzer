@@ -42,10 +42,6 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dict containing recovery data
         """
-        # Ensure we're authenticated
-        if not self.is_authenticated():
-            self.authenticate()
-        
         # Whoop API requires end date to be after start date
         api_end = end_date + timedelta(days=1)
         
@@ -93,10 +89,6 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dictionary containing all workout data across pages
         """
-        # Ensure we're authenticated
-        if not self.is_authenticated():
-            self.authenticate()
-        
         all_records = []
         next_token = None
         page_count = 0
@@ -138,10 +130,6 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dict containing sleep data
         """
-        # Ensure we're authenticated
-        if not self.is_authenticated():
-            self.authenticate()
-        
         # Whoop API requires end date to be after start date
         api_end = end_date + timedelta(days=1)
         
@@ -186,10 +174,6 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dict containing cycle data
         """
-        # Ensure we're authenticated
-        if not self.is_authenticated():
-            self.authenticate()
-        
         # Whoop API requires end date to be after start date
         api_end = end_date + timedelta(days=1)
         

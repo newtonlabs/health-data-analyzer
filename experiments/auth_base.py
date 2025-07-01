@@ -14,6 +14,130 @@ from authlib.integrations.requests_client import OAuth2Session
 from authlib.oauth2.rfc6749 import OAuth2Token
 
 
+class ErrorHandlingStrategy:
+    """Base class for API-specific error handling strategies."""
+    
+    def is_authentication_error(self, error: Exception, response=None) -> bool:
+        """Check if an error indicates authentication failure.
+        
+        Args:
+            error: The exception that was raised
+            response: Optional response object
+            
+        Returns:
+            True if this appears to be an authentication error
+        """
+        raise NotImplementedError
+    
+    def extract_error_message(self, error: Exception, response=None) -> str:
+        """Extract a meaningful error message from the error.
+        
+        Args:
+            error: The exception that was raised
+            response: Optional response object
+            
+        Returns:
+            Human-readable error message
+        """
+        return str(error)
+
+
+class StandardHttpErrorStrategy(ErrorHandlingStrategy):
+    """Standard HTTP error handling for most OAuth2 APIs."""
+    
+    def is_authentication_error(self, error: Exception, response=None) -> bool:
+        """Check for standard HTTP authentication errors."""
+        error_str = str(error).lower()
+        
+        # Standard HTTP auth errors
+        if "401" in error_str or "unauthorized" in error_str:
+            return True
+            
+        # Common token error messages
+        token_phrases = ["invalid", "expired", "token", "forbidden", "403"]
+        for phrase in token_phrases:
+            if phrase in error_str:
+                return True
+        
+        # Check if it's an HTTPError with response
+        if hasattr(error, 'response') and error.response:
+            try:
+                status_code = error.response.status_code
+                if status_code in [401, 403]:
+                    return True
+                    
+                # Try to get response JSON for API-specific errors
+                try:
+                    response_json = error.response.json()
+                    error_msg = str(response_json.get("error", "")).lower()
+                    if "invalid_token" in error_msg or "expired" in error_msg or "unauthorized" in error_msg:
+                        return True
+                except:
+                    pass
+            except:
+                pass
+                
+        return False
+
+
+class WithingsErrorStrategy(ErrorHandlingStrategy):
+    """Withings-specific error handling for status-based responses."""
+    
+    def is_authentication_error(self, error: Exception, response=None) -> bool:
+        """Check for Withings-specific authentication errors."""
+        # First check standard HTTP errors
+        if StandardHttpErrorStrategy().is_authentication_error(error, response):
+            return True
+            
+        # Check for Withings-specific error format in response
+        # This handles both error exceptions and successful HTTP responses with status != 0
+        if response:
+            try:
+                data = response.json()
+                if data.get("status") != 0:
+                    error_msg = str(data.get("error", "")).lower()
+                    if "invalid_token" in error_msg or "expired" in error_msg:
+                        return True
+            except:
+                pass
+                
+        return False
+    
+    def extract_error_message(self, error: Exception, response=None) -> str:
+        """Extract error message from Withings response format."""
+        if response:
+            try:
+                data = response.json()
+                if data.get("status") != 0:
+                    return data.get("error", str(error))
+            except:
+                pass
+        return str(error)
+    
+    def validate_response(self, response) -> None:
+        """Validate Withings response format and raise errors if needed.
+        
+        This method checks successful HTTP responses for Withings-specific errors.
+        
+        Args:
+            response: HTTP response object
+            
+        Raises:
+            Exception: If response contains Withings API errors
+        """
+        try:
+            data = response.json()
+            if data.get("status") != 0:
+                error_msg = data.get("error", "Unknown error")
+                # Create an exception with the response attached for error strategy
+                error = requests.HTTPError(f"Withings API error: {error_msg}")
+                error.response = response
+                raise error
+        except ValueError:
+            # Not JSON, no validation needed
+            pass
+
+
 class CallbackHandler(BaseHTTPRequestHandler):
     """HTTP request handler for OAuth2 callback."""
     
@@ -113,6 +237,9 @@ class AuthlibOAuth2Client:
             redirect_uri=self.redirect_uri,
             scope=' '.join(self.scopes)
         )
+        
+        # Initialize error handling strategy (can be overridden by subclasses)
+        self.error_strategy = StandardHttpErrorStrategy()
         
         # Load existing token if available
         self._load_token()
@@ -323,63 +450,17 @@ class AuthlibOAuth2Client:
         response.raise_for_status()
         return response.json()
 
-    def _is_authentication_error(self, error: Exception, response_data: dict = None) -> bool:
-        """Check if an error indicates authentication failure.
-        
-        Subclasses can override this to handle API-specific error formats.
+    def _is_authentication_error(self, error: Exception, response=None) -> bool:
+        """Check if an error indicates authentication failure using the configured strategy.
         
         Args:
             error: The exception that was raised
-            response_data: Optional response data (for APIs that return error info in JSON)
+            response: Optional response object
             
         Returns:
             True if this appears to be an authentication error
         """
-        error_str = str(error).lower()
-        
-        # Standard HTTP auth errors
-        if "401" in error_str or "unauthorized" in error_str:
-            return True
-            
-        # Common token error messages
-        token_phrases = ["invalid", "expired", "token", "forbidden", "403"]
-        for phrase in token_phrases:
-            if phrase in error_str:
-                return True
-                
-        # Check if it's an HTTPError with response
-        if hasattr(error, 'response') and error.response is not None:
-            try:
-                status_code = error.response.status_code
-                if status_code in [401, 403]:
-                    return True
-                    
-                # Try to get response JSON for API-specific errors
-                try:
-                    response_json = error.response.json()
-                    error_msg = str(response_json.get("error", "")).lower()
-                    if "invalid_token" in error_msg or "expired" in error_msg or "unauthorized" in error_msg:
-                        return True
-                except:
-                    pass
-            except:
-                pass
-            
-        # Check response data if provided
-        if response_data:
-            if isinstance(response_data, dict):
-                error_msg = str(response_data.get("error", "")).lower()
-                if "invalid_token" in error_msg or "expired" in error_msg:
-                    return True
-        
-        # Check if error has attached response data (from Withings client)
-        if hasattr(error, 'response_data') and error.response_data:
-            if isinstance(error.response_data, dict):
-                error_msg = str(error.response_data.get("error", "")).lower()
-                if "invalid_token" in error_msg or "expired" in error_msg:
-                    return True
-                    
-        return False
+        return self.error_strategy.is_authentication_error(error, response)
 
     def refresh_token_if_needed(self, force: bool = False) -> bool:
         """Refresh token if needed using sliding window approach.
@@ -511,11 +592,17 @@ class AuthlibOAuth2Client:
                 )
                 
                 response.raise_for_status()
+                
+                # Allow error strategy to validate successful responses (e.g., Withings status != 0)
+                if hasattr(self.error_strategy, 'validate_response'):
+                    self.error_strategy.validate_response(response)
+                
                 return response
                 
             except Exception as e:
                 # Check if this is an authentication error
-                is_auth_error = self._is_authentication_error(e)
+                response_for_error = getattr(e, 'response', None)
+                is_auth_error = self._is_authentication_error(e, response_for_error)
                 
                 # Only retry on auth errors and if we have retries left
                 if is_auth_error and attempt < max_retries - 1:
