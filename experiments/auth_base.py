@@ -136,6 +136,25 @@ class WithingsErrorStrategy(ErrorHandlingStrategy):
         except ValueError:
             # Not JSON, no validation needed
             pass
+    
+    def validate_token_response(self, response_data: dict, operation: str = "token exchange") -> dict:
+        """Validate Withings token response and extract body.
+        
+        Args:
+            response_data: JSON response from Withings token endpoint
+            operation: Description of the operation (for error messages)
+            
+        Returns:
+            Token data from response body
+            
+        Raises:
+            Exception: If token response contains errors
+        """
+        if response_data.get("status") != 0:
+            error_msg = response_data.get("error", "Unknown error")
+            raise Exception(f"Withings {operation} failed: {error_msg}")
+        
+        return response_data.get("body", {})
 
 
 class CallbackHandler(BaseHTTPRequestHandler):
@@ -176,7 +195,46 @@ class CallbackHandler(BaseHTTPRequestHandler):
 
 
 class AuthlibOAuth2Client:
-    """Base OAuth2 client using authlib for authentication."""
+    """Base OAuth2 client using authlib for authentication.
+    
+    This class provides a complete OAuth2 authentication flow with the following features:
+    
+    ## OAuth2 Flow:
+    1. **Authorization**: User visits authorization URL and grants permission
+    2. **Token Exchange**: Authorization code is exchanged for access/refresh tokens
+    3. **API Requests**: Access token is used for authenticated API calls
+    4. **Token Refresh**: Expired access tokens are automatically refreshed
+    5. **Re-authentication**: When refresh fails, user is prompted to re-authenticate
+    
+    ## Key Methods (Override Points for Subclasses):
+    
+    ### Token Management:
+    - `_exchange_code_for_token()`: Convert auth code to tokens (OVERRIDE for custom formats)
+    - `_refresh_access_token()`: Refresh expired tokens (OVERRIDE for custom formats)
+    
+    ### Error Handling:
+    - `error_strategy`: Strategy pattern for API-specific error detection
+    - `_is_authentication_error()`: Uses strategy to detect auth errors
+    
+    ### Request Processing:
+    - `make_request()`: Central HTTP request handler with retry logic
+    - Error strategy's `validate_response()`: Check successful responses for API errors
+    
+    ## Standard OAuth2 APIs (like Whoop):
+    - Use default implementations - no overrides needed
+    - Set `error_strategy = StandardHttpErrorStrategy()`
+    
+    ## Custom OAuth2 APIs (like Withings):
+    - Override token methods for custom request/response formats
+    - Set `error_strategy = CustomErrorStrategy()` for API-specific error handling
+    - Strategy handles response validation automatically
+    
+    ## Architecture Benefits:
+    - **Strategy Pattern**: API-specific logic isolated in strategies
+    - **Template Method**: Common flow in base class, customization via overrides
+    - **Single Responsibility**: Each method has one clear purpose
+    - **DRY Principle**: No code duplication across clients
+    """
     
     # Token validity configuration
     DEFAULT_TOKEN_VALIDITY_DAYS = 90
@@ -426,14 +484,19 @@ class AuthlibOAuth2Client:
     def _exchange_code_for_token(self, code: str, state: str) -> dict:
         """Exchange authorization code for access token.
         
-        This method can be overridden by subclasses to handle API-specific token exchange.
+        **STANDARD OAUTH2 IMPLEMENTATION** - Works for most APIs (Whoop, etc.)
+        
+        **OVERRIDE REQUIRED FOR:**
+        - APIs with custom request formats (Withings uses 'action' parameter)
+        - APIs with custom response formats (Withings wraps tokens in 'body')
+        - APIs requiring additional parameters or headers
         
         Args:
             code: Authorization code from OAuth callback
             state: State parameter from callback
             
         Returns:
-            Token dictionary
+            Token dictionary with access_token, refresh_token, etc.
             
         Raises:
             Exception: If token exchange fails
@@ -506,10 +569,15 @@ class AuthlibOAuth2Client:
     def _refresh_access_token(self) -> dict:
         """Refresh the access token using the refresh token.
         
-        This method can be overridden by subclasses to handle API-specific token refresh.
+        **STANDARD OAUTH2 IMPLEMENTATION** - Works for most APIs (Whoop, etc.)
+        
+        **OVERRIDE REQUIRED FOR:**
+        - APIs with custom request formats (Withings uses 'action' parameter)
+        - APIs with custom response formats (Withings wraps tokens in 'body')
+        - APIs requiring additional parameters or headers
         
         Returns:
-            New token dictionary
+            New token dictionary with refreshed access_token
             
         Raises:
             Exception: If token refresh fails

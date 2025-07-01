@@ -32,18 +32,28 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
             ]
         )
 
-    def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
-        """Get recovery data for a specified time range.
-
+    def _paginated_request(
+        self, 
+        endpoint: str, 
+        start_date: datetime, 
+        end_date: datetime, 
+        limit: int = 25,
+        adjust_end_date: bool = True
+    ) -> dict[str, Any]:
+        """Generic pagination handler for Whoop API endpoints.
+        
         Args:
-            start_date: Start date for recovery data
-            end_date: End date for recovery data
-
+            endpoint: API endpoint (e.g., "v1/recovery")
+            start_date: Start date for data
+            end_date: End date for data
+            limit: Max records per page
+            adjust_end_date: Whether to add 1 day to end_date (required by some endpoints)
+            
         Returns:
-            Dict containing recovery data
+            Dictionary with all paginated records
         """
-        # Whoop API requires end date to be after start date
-        api_end = end_date + timedelta(days=1)
+        # Adjust end date if required by endpoint
+        api_end = end_date + timedelta(days=1) if adjust_end_date else end_date
         
         all_records = []
         next_token = None
@@ -54,13 +64,13 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
             params = {
                 "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "end": api_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "limit": 25,
+                "limit": limit,
             }
             
             if next_token:
                 params["nextToken"] = next_token
             
-            response = self.make_request("v1/recovery", params=params)
+            response = self.make_request(endpoint, params=params)
             data = response.json()
             
             records = data.get("records", [])
@@ -75,6 +85,18 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
             "records": all_records,
             "next_token": None
         }
+
+    def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
+        """Get recovery data for a specified time range.
+
+        Args:
+            start_date: Start date for recovery data
+            end_date: End date for recovery data
+
+        Returns:
+            Dict containing recovery data
+        """
+        return self._paginated_request("v1/recovery", start_date, end_date)
 
     def get_workouts(
         self, start_date: datetime, end_date: datetime, limit: int = 25
@@ -89,36 +111,9 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dictionary containing all workout data across pages
         """
-        all_records = []
-        next_token = None
-        page_count = 0
-        
-        while True:
-            page_count += 1
-            params = {
-                "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "end": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "limit": limit,
-            }
-            
-            if next_token:
-                params["nextToken"] = next_token
-            
-            response = self.make_request("v1/activity/workout", params=params)
-            data = response.json()
-            
-            records = data.get("records", [])
-            all_records.extend(records)
-            
-            # Check if there are more pages
-            next_token = data.get("next_token")
-            if not next_token:
-                break
-        
-        return {
-            "records": all_records,
-            "next_token": None
-        }
+        return self._paginated_request(
+            "v1/activity/workout", start_date, end_date, limit, adjust_end_date=False
+        )
 
     def get_sleep(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get sleep data for a specified time range.
@@ -130,39 +125,7 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dict containing sleep data
         """
-        # Whoop API requires end date to be after start date
-        api_end = end_date + timedelta(days=1)
-        
-        all_records = []
-        next_token = None
-        page_count = 0
-        
-        while True:
-            page_count += 1
-            params = {
-                "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "end": api_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "limit": 25,
-            }
-            
-            if next_token:
-                params["nextToken"] = next_token
-            
-            response = self.make_request("v2/activity/sleep", params=params)
-            data = response.json()
-            
-            records = data.get("records", [])
-            all_records.extend(records)
-            
-            # Check if there are more pages
-            next_token = data.get("next_token")
-            if not next_token:
-                break
-        
-        return {
-            "records": all_records,
-            "next_token": None
-        }
+        return self._paginated_request("v2/activity/sleep", start_date, end_date)
 
     def get_cycles(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get physiological cycle data for a specified time range.
@@ -174,36 +137,4 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
         Returns:
             Dict containing cycle data
         """
-        # Whoop API requires end date to be after start date
-        api_end = end_date + timedelta(days=1)
-        
-        all_records = []
-        next_token = None
-        page_count = 0
-        
-        while True:
-            page_count += 1
-            params = {
-                "start": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "end": api_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "limit": 25,
-            }
-            
-            if next_token:
-                params["nextToken"] = next_token
-            
-            response = self.make_request("v1/cycle", params=params)
-            data = response.json()
-            
-            records = data.get("records", [])
-            all_records.extend(records)
-            
-            # Check if there are more pages
-            next_token = data.get("next_token")
-            if not next_token:
-                break
-        
-        return {
-            "records": all_records,
-            "next_token": None
-        }
+        return self._paginated_request("v1/cycle", start_date, end_date)

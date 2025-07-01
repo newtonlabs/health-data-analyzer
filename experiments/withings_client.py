@@ -9,7 +9,41 @@ from auth_base import AuthlibOAuth2Client
 
 
 class WithingsClientExperimental(AuthlibOAuth2Client):
-    """Experimental Withings API client using authlib."""
+    """Experimental Withings API client using authlib.
+    
+    ## Why Withings Requires Custom Implementation:
+    
+    Withings deviates from standard OAuth2 in several ways, requiring method overrides:
+    
+    ### 1. Custom Token Request Format:
+    **Standard OAuth2**: `grant_type=authorization_code&client_id=...`
+    **Withings**: `action=requesttoken&grant_type=authorization_code&client_id=...`
+    
+    ### 2. Custom Response Format:
+    **Standard OAuth2**: `{"access_token": "...", "refresh_token": "..."}`
+    **Withings**: `{"status": 0, "body": {"access_token": "...", "refresh_token": "..."}}`
+    
+    ### 3. Custom Error Handling:
+    **Standard OAuth2**: HTTP status codes (401, 403) indicate auth errors
+    **Withings**: HTTP 200 with `{"status": 401, "error": "invalid_token"}` indicates auth errors
+    
+    ## Architecture Solution:
+    
+    ### Method Overrides (Required):
+    - `_exchange_code_for_token()`: Handle Withings token request/response format
+    - `_refresh_access_token()`: Handle Withings refresh request/response format
+    
+    ### Strategy Pattern (Automatic):
+    - `WithingsErrorStrategy`: Handles error detection and response validation
+    - No need to override `_is_authentication_error()` or `make_request()`
+    - Base class automatically uses strategy for error handling
+    
+    ## Result:
+    Clean separation of concerns:
+    - **Method overrides**: Handle API format differences
+    - **Strategy pattern**: Handle error detection and validation
+    - **Base class**: Provides all OAuth2 flow and retry logic
+    """
 
     def __init__(self):
         """Initialize the Withings client.
@@ -33,12 +67,31 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
     def _exchange_code_for_token(self, code: str, state: str) -> dict:
         """Exchange authorization code for access token using Withings-specific format.
         
+        **OVERRIDE REQUIRED** because Withings uses non-standard OAuth2 format:
+        
+        **Standard OAuth2 Request**:
+        ```
+        POST /token
+        grant_type=authorization_code&client_id=...&code=...
+        ```
+        
+        **Withings Request** (requires 'action' parameter):
+        ```
+        POST /v2/oauth2
+        action=requesttoken&grant_type=authorization_code&client_id=...&code=...
+        ```
+        
+        **Withings Response** (tokens wrapped in 'body'):
+        ```
+        {"status": 0, "body": {"access_token": "...", "refresh_token": "..."}}
+        ```
+        
         Args:
             code: Authorization code from OAuth callback
             state: State parameter from callback
             
         Returns:
-            Token dictionary
+            Token dictionary extracted from response body
             
         Raises:
             Exception: If token exchange fails
@@ -56,38 +109,35 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         response.raise_for_status()
         token_response = response.json()
         
-        # Handle Withings-specific response format
-        if token_response.get("status") != 0:
-            error_msg = token_response.get("error", "Unknown error")
-            raise Exception(f"Withings token exchange failed: {error_msg}")
-        
-        return token_response.get("body", {})
+        # Use strategy to validate and extract token data
+        return self.error_strategy.validate_token_response(token_response, "token exchange")
 
-    def _is_authentication_error(self, error: Exception, response_data: dict = None) -> bool:
-        """Override to handle Withings-specific error format."""
-        # First check standard errors
-        if super()._is_authentication_error(error, response_data):
-            return True
-            
-        # Check for Withings-specific error format
-        # Withings returns errors in response JSON with status != 0
-        try:
-            if hasattr(error, 'response') and error.response is not None:
-                response_json = error.response.json()
-                if response_json.get("status") != 0:
-                    error_msg = response_json.get("error", "").lower()
-                    if "invalid_token" in error_msg:
-                        return True
-        except:
-            pass
-            
-        return False
+    # _is_authentication_error override removed - now handled by WithingsErrorStrategy
 
     def _refresh_access_token(self) -> dict:
         """Refresh the access token using Withings-specific format.
         
+        **OVERRIDE REQUIRED** because Withings uses non-standard OAuth2 format:
+        
+        **Standard OAuth2 Request**:
+        ```
+        POST /token
+        grant_type=refresh_token&client_id=...&refresh_token=...
+        ```
+        
+        **Withings Request** (requires 'action' parameter):
+        ```
+        POST /v2/oauth2
+        action=requesttoken&grant_type=refresh_token&client_id=...&refresh_token=...
+        ```
+        
+        **Withings Response** (tokens wrapped in 'body'):
+        ```
+        {"status": 0, "body": {"access_token": "...", "refresh_token": "..."}}
+        ```
+        
         Returns:
-            New token dictionary
+            New token dictionary extracted from response body
             
         Raises:
             Exception: If token refresh fails
@@ -104,12 +154,8 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         response.raise_for_status()
         token_response = response.json()
         
-        # Handle Withings-specific response format
-        if token_response.get("status") != 0:
-            error_msg = token_response.get("error", "Unknown error")
-            raise Exception(f"Withings token refresh failed: {error_msg}")
-        
-        return token_response.get("body", {})
+        # Use strategy to validate and extract token data
+        return self.error_strategy.validate_token_response(token_response, "token refresh")
 
     def get_weight_data(
         self, start_date: datetime, end_date: datetime
