@@ -14,6 +14,152 @@ from authlib.integrations.requests_client import OAuth2Session
 from authlib.oauth2.rfc6749 import OAuth2Token
 
 
+# ============================================================================
+# Shared Utilities for All Clients
+# ============================================================================
+
+from dataclasses import dataclass
+
+
+@dataclass
+class ClientConfig:
+    """Configuration for OAuth2 and OneDrive clients."""
+    validity_days: int = 90
+    refresh_buffer_hours: int = 24
+    
+    @classmethod
+    def from_env(cls) -> 'ClientConfig':
+        """Create configuration from environment variables."""
+        return cls(
+            validity_days=int(os.getenv("TOKEN_VALIDITY_DAYS", 90)),
+            refresh_buffer_hours=int(os.getenv("TOKEN_REFRESH_BUFFER_HOURS", 24))
+        )
+
+
+class TokenFileManager:
+    """Manages token file operations for all clients."""
+    
+    def __init__(self, service_name: str):
+        """Initialize token file manager for a service.
+        
+        Args:
+            service_name: Name of the service (e.g., 'whoop', 'withings', 'onedrive')
+        """
+        self.service_name = service_name
+        self.token_file = os.path.expanduser(f"~/.{service_name}_tokens.json")
+    
+    def load_token(self) -> Optional[dict]:
+        """Load token from file.
+        
+        Returns:
+            Token data dictionary or None if file doesn't exist
+        """
+        if not os.path.exists(self.token_file):
+            return None
+            
+        try:
+            with open(self.token_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Warning: Failed to load {self.service_name} token: {e}")
+            return None
+    
+    def save_token(self, token_data: dict, config: ClientConfig, extra_data: dict = None) -> None:
+        """Save token to file with sliding window metadata.
+        
+        Args:
+            token_data: Base token data
+            config: Client configuration
+            extra_data: Optional additional data to include (e.g., MSAL cache)
+        """
+        try:
+            # Add sliding window expiration
+            now = datetime.now()
+            sliding_expires = now + timedelta(days=config.validity_days)
+            
+            # Prepare final token data
+            final_token = token_data.copy()
+            final_token.update({
+                "sliding_window_expires_at": sliding_expires.timestamp(),
+                "saved_at": now.isoformat()
+            })
+            
+            # Add any extra data (e.g., MSAL cache)
+            if extra_data:
+                final_token.update(extra_data)
+            
+            with open(self.token_file, 'w') as f:
+                json.dump(final_token, f, indent=2)
+                
+        except Exception as e:
+            print(f"Warning: Failed to save {self.service_name} token: {e}")
+    
+    def clear_token(self) -> None:
+        """Remove the token file."""
+        try:
+            if os.path.exists(self.token_file):
+                os.remove(self.token_file)
+        except Exception as e:
+            print(f"Warning: Failed to clear {self.service_name} token: {e}")
+
+
+class SlidingWindowValidator:
+    """Utilities for sliding window token validation."""
+    
+    @staticmethod
+    def is_in_sliding_window(token_data: dict) -> bool:
+        """Check if token is within the sliding window.
+        
+        Args:
+            token_data: Token data dictionary
+            
+        Returns:
+            True if token is within the sliding window
+        """
+        if not token_data or "sliding_window_expires_at" not in token_data:
+            return False
+            
+        sliding_expires = datetime.fromtimestamp(token_data["sliding_window_expires_at"])
+        return datetime.now() < sliding_expires
+    
+    @staticmethod
+    def should_refresh_proactively(token_data: dict, buffer_hours: int) -> bool:
+        """Check if token should be refreshed proactively.
+        
+        Args:
+            token_data: Token data dictionary
+            buffer_hours: Hours before expiry to trigger refresh
+            
+        Returns:
+            True if token should be refreshed proactively
+        """
+        if not token_data or "expires_at" not in token_data:
+            return False
+            
+        expires_at = datetime.fromtimestamp(token_data["expires_at"])
+        buffer_time = datetime.now() + timedelta(hours=buffer_hours)
+        
+        return buffer_time >= expires_at
+    
+    @staticmethod
+    def get_days_remaining(token_data: dict) -> int:
+        """Get days remaining in sliding window.
+        
+        Args:
+            token_data: Token data dictionary
+            
+        Returns:
+            Days remaining, or 0 if expired/invalid
+        """
+        if not token_data or "sliding_window_expires_at" not in token_data:
+            return 0
+            
+        sliding_expires = datetime.fromtimestamp(token_data["sliding_window_expires_at"])
+        remaining = sliding_expires - datetime.now()
+        
+        return max(0, remaining.days)
+
+
 class ErrorHandlingStrategy:
     """Base class for API-specific error handling strategies."""
     

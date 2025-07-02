@@ -1,15 +1,21 @@
-"""Experimental Withings API client using authlib for OAuth2 authentication."""
+"""Withings API client using authlib for OAuth2 authentication."""
 
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict
 
 import requests
-from auth_base import AuthlibOAuth2Client
+from .auth_base import (
+    AuthlibOAuth2Client, 
+    ClientConfig, 
+    TokenFileManager, 
+    SlidingWindowValidator,
+    WithingsErrorStrategy
+)
 
 
-class WithingsClientExperimental(AuthlibOAuth2Client):
-    """Experimental Withings API client using authlib.
+class WithingsClient(AuthlibOAuth2Client):
+    """Withings API client using authlib.
     
     ## Why Withings Requires Custom Implementation:
     
@@ -49,11 +55,17 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         """Initialize the Withings client.
         
         Reads WITHINGS_CLIENT_ID and WITHINGS_CLIENT_SECRET from environment.
+        Uses shared utilities for configuration and token management.
         """
+        # Initialize shared utilities
+        self.config = ClientConfig.from_env()
+        self.token_manager = TokenFileManager("withings")
+        self.sliding_window = SlidingWindowValidator()
+        
         super().__init__(
             env_client_id="WITHINGS_CLIENT_ID",
             env_client_secret="WITHINGS_CLIENT_SECRET",
-            token_file="~/.withings_tokens_experimental.json",
+            token_file="~/.withings_tokens.json",
             base_url="https://wbsapi.withings.net",
             authorization_endpoint="https://account.withings.com/oauth2_user/authorize2",
             token_endpoint="https://wbsapi.withings.net/v2/oauth2",
@@ -61,8 +73,41 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         )
         
         # Use Withings-specific error handling strategy
-        from auth_base import WithingsErrorStrategy
         self.error_strategy = WithingsErrorStrategy()
+        
+        # Override token validity settings from shared config
+        self.validity_days = self.config.validity_days
+        self.refresh_buffer_hours = self.config.refresh_buffer_hours
+
+    def get_token_status(self) -> dict:
+        """Get token status using shared utilities.
+        
+        Returns:
+            Dictionary with token status information
+        """
+        token_data = self.token_manager.load_token()
+        if not token_data:
+            return {"status": "no_token", "days_remaining": 0}
+        
+        is_valid = self.sliding_window.is_in_sliding_window(token_data)
+        days_remaining = self.sliding_window.get_days_remaining(token_data)
+        should_refresh = self.sliding_window.should_refresh_proactively(
+            token_data, self.config.refresh_buffer_hours
+        )
+        
+        return {
+            "status": "valid" if is_valid else "expired",
+            "days_remaining": days_remaining,
+            "should_refresh": should_refresh,
+            "sliding_window_valid": is_valid
+        }
+
+    def clear_stored_token(self) -> None:
+        """Clear stored token using shared utilities."""
+        self.token_manager.clear_token()
+        self.token = None
+        if hasattr(self.session, 'token'):
+            self.session.token = None
 
     def _exchange_code_for_token(self, code: str, state: str) -> dict:
         """Exchange authorization code for access token using Withings-specific format.
@@ -189,4 +234,3 @@ class WithingsClientExperimental(AuthlibOAuth2Client):
         
         # Error checking is now handled in the make_request override
         return data.get("body", {})
-

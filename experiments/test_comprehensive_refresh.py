@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Comprehensive refresh token testing for both Whoop and Withings."""
+"""Comprehensive refresh token testing for clean OAuth2 clients."""
 
 import json
 import os
 import sys
 from datetime import datetime, timedelta
 
-# Add the project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the clients directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+clients_dir = os.path.join(current_dir, 'clients')
+sys.path.insert(0, clients_dir)
 
-from experiments.whoop_client import WhoopClientExperimental
-from experiments.withings_client import WithingsClientExperimental
+# Import clients from the clients package
+from clients.whoop_client import WhoopClient
+from clients.withings_client import WithingsClient
 
 
 def test_client_refresh_capabilities(client_class, client_name, token_file):
@@ -164,14 +167,14 @@ def main():
     # Test configurations
     test_configs = [
         {
-            "class": WhoopClientExperimental,
+            "class": WhoopClient,
             "name": "Whoop",
-            "token_file": "/Users/tnewton/.whoop_tokens_experimental.json"
+            "token_file": os.path.expanduser("~/.whoop_tokens.json")
         },
         {
-            "class": WithingsClientExperimental,
+            "class": WithingsClient,
             "name": "Withings", 
-            "token_file": "/Users/tnewton/.withings_tokens_experimental.json"
+            "token_file": os.path.expanduser("~/.withings_tokens.json")
         }
     ]
     

@@ -1,24 +1,35 @@
-"""Experimental Whoop API client using authlib for OAuth2 authentication."""
+"""Whoop API client using authlib for OAuth2 authentication."""
 
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict
 
-from auth_base import AuthlibOAuth2Client
+from .auth_base import (
+    AuthlibOAuth2Client, 
+    ClientConfig, 
+    TokenFileManager, 
+    SlidingWindowValidator
+)
 
 
-class WhoopClientExperimental(AuthlibOAuth2Client):
-    """Experimental Whoop API client using authlib."""
+class WhoopClient(AuthlibOAuth2Client):
+    """Whoop API client using authlib with shared utilities."""
 
     def __init__(self):
         """Initialize the Whoop client.
         
         Reads WHOOP_CLIENT_ID and WHOOP_CLIENT_SECRET from environment.
+        Uses shared utilities for configuration and token management.
         """
+        # Initialize shared utilities
+        self.config = ClientConfig.from_env()
+        self.token_manager = TokenFileManager("whoop")
+        self.sliding_window = SlidingWindowValidator()
+        
         super().__init__(
             env_client_id="WHOOP_CLIENT_ID",
             env_client_secret="WHOOP_CLIENT_SECRET",
-            token_file="~/.whoop_tokens_experimental.json",
+            token_file="~/.whoop_tokens.json",
             base_url="https://api.prod.whoop.com/developer",
             authorization_endpoint="https://api.prod.whoop.com/oauth/oauth2/auth",
             token_endpoint="https://api.prod.whoop.com/oauth/oauth2/token",
@@ -31,6 +42,40 @@ class WhoopClientExperimental(AuthlibOAuth2Client):
                 "offline"
             ]
         )
+        
+        # Override token validity settings from shared config
+        self.validity_days = self.config.validity_days
+        self.refresh_buffer_hours = self.config.refresh_buffer_hours
+
+    def get_token_status(self) -> dict:
+        """Get token status using shared utilities.
+        
+        Returns:
+            Dictionary with token status information
+        """
+        token_data = self.token_manager.load_token()
+        if not token_data:
+            return {"status": "no_token", "days_remaining": 0}
+        
+        is_valid = self.sliding_window.is_in_sliding_window(token_data)
+        days_remaining = self.sliding_window.get_days_remaining(token_data)
+        should_refresh = self.sliding_window.should_refresh_proactively(
+            token_data, self.config.refresh_buffer_hours
+        )
+        
+        return {
+            "status": "valid" if is_valid else "expired",
+            "days_remaining": days_remaining,
+            "should_refresh": should_refresh,
+            "sliding_window_valid": is_valid
+        }
+
+    def clear_stored_token(self) -> None:
+        """Clear stored token using shared utilities."""
+        self.token_manager.clear_token()
+        self.token = None
+        if hasattr(self.session, 'token'):
+            self.session.token = None
 
     def _paginated_request(
         self, 
