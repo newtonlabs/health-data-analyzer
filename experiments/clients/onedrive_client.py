@@ -9,15 +9,14 @@ import msal
 import requests
 from msal import PublicClientApplication
 
-from .auth_base import ClientConfig, TokenFileManager, SlidingWindowValidator
+from .auth_base import TokenFileManager, SlidingWindowValidator
+from .config import ClientFactory
 
 
 class OneDriveClient:
     """OneDrive client using MSAL with simplified 90-day authentication."""
 
-    # Token validity configuration
-    DEFAULT_TOKEN_VALIDITY_DAYS = 90
-    DEFAULT_REFRESH_BUFFER_HOURS = 24
+    # Constants
     SECONDS_PER_DAY = 24 * 3600
 
     def __init__(self):
@@ -28,7 +27,6 @@ class OneDriveClient:
         Uses shared utilities for configuration and token management.
         """
         # Initialize shared utilities
-        self.config = ClientConfig.from_env()
         self.token_manager = TokenFileManager("onedrive")
         self.sliding_window = SlidingWindowValidator()
         
@@ -38,15 +36,19 @@ class OneDriveClient:
         if not self.client_id:
             raise ValueError("Environment variable ONEDRIVE_CLIENT_ID is required")
 
+        # Get service configuration
+        service_config = ClientFactory.get_service_config("onedrive")
+        client_config = ClientFactory.get_client_config()
+        
         # Microsoft Graph API configuration
         self.tenant_id = "consumers"  # Use 'consumers' for personal accounts
-        self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
-        self.scopes = ["https://graph.microsoft.com/Files.ReadWrite"]
-        self.base_url = "https://graph.microsoft.com/v1.0"
+        self.authority = service_config["authority"]
+        self.scopes = service_config["scopes"]
+        self.base_url = service_config["base_url"]
         
         # Token validity configuration using shared config
-        self.validity_days = self.config.validity_days
-        self.refresh_buffer_hours = self.config.refresh_buffer_hours
+        self.validity_days = client_config.validity_days
+        self.refresh_buffer_hours = client_config.refresh_buffer_hours
         
         # Token storage using shared token manager
         self.token_file = self.token_manager.token_file
@@ -103,7 +105,8 @@ class OneDriveClient:
         extra_data = {"msal_cache": self.msal_token_cache.serialize()}
         
         # Use shared token manager
-        self.token_manager.save_token(token_data, self.config, extra_data)
+        client_config = ClientFactory.get_client_config()
+        self.token_manager.save_token(token_data, client_config, extra_data)
         self.token = {**token_data, **extra_data}
 
     def is_authenticated(self) -> bool:
@@ -116,12 +119,13 @@ class OneDriveClient:
 
     def is_in_sliding_window(self) -> bool:
         """Check if we're within the 90-day sliding window."""
-        return SlidingWindowValidator.is_in_sliding_window(self.token)
+        return self.sliding_window.is_in_sliding_window(self.token)
 
     def should_refresh_proactively(self) -> bool:
         """Check if we should refresh the token proactively."""
-        return SlidingWindowValidator.should_refresh_proactively(
-            self.token, self.config.refresh_buffer_hours
+        client_config = ClientFactory.get_client_config()
+        return self.sliding_window.should_refresh_proactively(
+            self.token, client_config.refresh_buffer_hours
         )
 
     def get_token_status(self) -> dict:
@@ -136,8 +140,9 @@ class OneDriveClient:
         
         is_valid = self.sliding_window.is_in_sliding_window(token_data)
         days_remaining = self.sliding_window.get_days_remaining(token_data)
+        client_config = ClientFactory.get_client_config()
         should_refresh = self.sliding_window.should_refresh_proactively(
-            token_data, self.config.refresh_buffer_hours
+            token_data, client_config.refresh_buffer_hours
         )
         
         return {
@@ -256,6 +261,14 @@ class OneDriveClient:
             else:
                 error = result.get("error") if result else "No result"
                 print(f"⚠️ Silent token acquisition failed: {error}")
+                
+                # Check if token has expired
+                if self.token and 'expires_at' in self.token:
+                    expires_at = datetime.fromtimestamp(self.token['expires_at'])
+                    if datetime.now() > expires_at:
+                        print("🔄 Token has expired, re-authentication required")
+                        print("   Run the client's authenticate() method to get a new token")
+                
                 return False
                 
         except Exception as e:

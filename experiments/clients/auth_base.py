@@ -19,21 +19,7 @@ from authlib.oauth2.rfc6749 import OAuth2Token
 # ============================================================================
 
 from dataclasses import dataclass
-
-
-@dataclass
-class ClientConfig:
-    """Configuration for OAuth2 and OneDrive clients."""
-    validity_days: int = 90
-    refresh_buffer_hours: int = 24
-    
-    @classmethod
-    def from_env(cls) -> 'ClientConfig':
-        """Create configuration from environment variables."""
-        return cls(
-            validity_days=int(os.getenv("TOKEN_VALIDITY_DAYS", 90)),
-            refresh_buffer_hours=int(os.getenv("TOKEN_REFRESH_BUFFER_HOURS", 24))
-        )
+from .config import ClientConfig, CLIENT_CONFIG
 
 
 class TokenFileManager:
@@ -382,9 +368,7 @@ class AuthlibOAuth2Client:
     - **DRY Principle**: No code duplication across clients
     """
     
-    # Token validity configuration
-    DEFAULT_TOKEN_VALIDITY_DAYS = 90
-    DEFAULT_REFRESH_BUFFER_HOURS = 24
+    # Constants
     SECONDS_PER_DAY = 24 * 3600
 
     def __init__(
@@ -426,9 +410,10 @@ class AuthlibOAuth2Client:
         self.scopes = scopes
         self.redirect_uri = redirect_uri
         
-        # Token validity configuration
-        self.validity_days = int(os.getenv("TOKEN_VALIDITY_DAYS", self.DEFAULT_TOKEN_VALIDITY_DAYS))
-        self.refresh_buffer_hours = int(os.getenv("TOKEN_REFRESH_BUFFER_HOURS", self.DEFAULT_REFRESH_BUFFER_HOURS))
+        # Token validity configuration from centralized config
+        config = CLIENT_CONFIG
+        self.validity_days = config.validity_days
+        self.refresh_buffer_hours = config.refresh_buffer_hours
         
         # Token storage
         self.token_file = os.path.expanduser(token_file)

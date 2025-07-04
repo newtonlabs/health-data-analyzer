@@ -7,11 +7,11 @@ from typing import Any, Dict
 import requests
 from .auth_base import (
     AuthlibOAuth2Client, 
-    ClientConfig, 
     TokenFileManager, 
     SlidingWindowValidator,
     WithingsErrorStrategy
 )
+from .config import ClientFactory
 
 
 class WithingsClient(AuthlibOAuth2Client):
@@ -58,26 +58,24 @@ class WithingsClient(AuthlibOAuth2Client):
         Uses shared utilities for configuration and token management.
         """
         # Initialize shared utilities
-        self.config = ClientConfig.from_env()
         self.token_manager = TokenFileManager("withings")
         self.sliding_window = SlidingWindowValidator()
+        
+        # Get service configuration
+        service_config = ClientFactory.get_service_config("withings")
         
         super().__init__(
             env_client_id="WITHINGS_CLIENT_ID",
             env_client_secret="WITHINGS_CLIENT_SECRET",
             token_file="~/.withings_tokens.json",
-            base_url="https://wbsapi.withings.net",
-            authorization_endpoint="https://account.withings.com/oauth2_user/authorize2",
-            token_endpoint="https://wbsapi.withings.net/v2/oauth2",
-            scopes=["user.metrics,user.activity,user.sleepevents"]
+            base_url=service_config["base_url"],
+            authorization_endpoint=service_config["auth_url"],
+            token_endpoint=service_config["token_url"],
+            scopes=service_config["scopes"]
         )
         
         # Use Withings-specific error handling strategy
         self.error_strategy = WithingsErrorStrategy()
-        
-        # Override token validity settings from shared config
-        self.validity_days = self.config.validity_days
-        self.refresh_buffer_hours = self.config.refresh_buffer_hours
 
     def get_token_status(self) -> dict:
         """Get token status using shared utilities.

@@ -6,10 +6,10 @@ from typing import Any, Dict
 
 from .auth_base import (
     AuthlibOAuth2Client, 
-    ClientConfig, 
     TokenFileManager, 
     SlidingWindowValidator
 )
+from .config import ClientFactory
 
 
 class WhoopClient(AuthlibOAuth2Client):
@@ -22,30 +22,21 @@ class WhoopClient(AuthlibOAuth2Client):
         Uses shared utilities for configuration and token management.
         """
         # Initialize shared utilities
-        self.config = ClientConfig.from_env()
         self.token_manager = TokenFileManager("whoop")
         self.sliding_window = SlidingWindowValidator()
+        
+        # Get service configuration
+        service_config = ClientFactory.get_service_config("whoop")
         
         super().__init__(
             env_client_id="WHOOP_CLIENT_ID",
             env_client_secret="WHOOP_CLIENT_SECRET",
             token_file="~/.whoop_tokens.json",
-            base_url="https://api.prod.whoop.com/developer",
-            authorization_endpoint="https://api.prod.whoop.com/oauth/oauth2/auth",
-            token_endpoint="https://api.prod.whoop.com/oauth/oauth2/token",
-            scopes=[
-                "read:recovery",
-                "read:cycles", 
-                "read:sleep",
-                "read:workout",
-                "read:profile",
-                "offline"
-            ]
+            base_url=service_config["base_url"],
+            authorization_endpoint=service_config["auth_url"],
+            token_endpoint=service_config["token_url"],
+            scopes=service_config["scopes"]
         )
-        
-        # Override token validity settings from shared config
-        self.validity_days = self.config.validity_days
-        self.refresh_buffer_hours = self.config.refresh_buffer_hours
 
     def get_token_status(self) -> dict:
         """Get token status using shared utilities.

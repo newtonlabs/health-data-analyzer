@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Example usage of the OAuth2 health data clients.
-This script demonstrates basic usage for Whoop, Withings, and OneDrive APIs.
+Example usage of the OAuth2 and API key health data clients.
+This script demonstrates basic usage for Whoop, Withings, OneDrive, Hevy, and Oura APIs.
 """
 
 import sys
@@ -13,6 +13,8 @@ import json
 from clients.whoop_client import WhoopClient
 from clients.withings_client import WithingsClient
 from clients.onedrive_client import OneDriveClient
+from clients.hevy_client import HevyClient
+from clients.oura_client import OuraClient
 
 
 def test_whoop_client():
@@ -167,6 +169,103 @@ Features demonstrated:
             print(f"❌ OneDrive client failed: {e}")
             return False
 
+def test_hevy_client():
+    """Test the Hevy client with basic data retrieval."""
+    print("🏋️ Testing Hevy Client")
+    print("-" * 30)
+    
+    try:
+        # Initialize client (reads HEVY_API_KEY from environment)
+        client = HevyClient(page_size=10)  # Smaller page size for demo
+        
+        # Get recent workouts
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=30)  # Last 30 days
+        
+        print(f"📅 Fetching workouts from {start_date.date()} to {end_date.date()}")
+        
+        # This will automatically handle API key authentication
+        workouts_data = client.get_workouts(start_date, end_date, page_size=5)
+        
+        workouts = workouts_data.get('workouts', [])
+        print(f"✅ Retrieved {len(workouts)} workouts")
+        
+        # Show workout details
+        for i, workout in enumerate(workouts[:3], 1):
+            print(f"   {i}. Workout {workout.get('id', 'N/A')}")
+            print(f"      Title: {workout.get('title', 'N/A')}")
+            print(f"      Date: {workout.get('start_time', 'N/A')}")
+            print(f"      Duration: {workout.get('end_time', 'N/A')}")
+            
+            # Show exercise count
+            exercises = workout.get('exercises', [])
+            print(f"      Exercises: {len(exercises)} movements")
+            print()
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Hevy client failed: {e}")
+        # Check if it's an authentication issue
+        try:
+            test_client = HevyClient()
+            if not test_client.is_authenticated():
+                print("    Missing HEVY_API_KEY environment variable")
+        except:
+            pass
+        return False
+
+def test_oura_client():
+    """Test the Oura client with basic data retrieval."""
+    print("💍 Testing Oura Client")
+    print("-" * 30)
+    
+    try:
+        # Initialize client (reads OURA_API_KEY from environment)
+        client = OuraClient()
+        
+        # Get recent activity data
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=7)  # Last 7 days
+        
+        print(f"📅 Fetching activity data from {start_date.date()} to {end_date.date()}")
+        
+        # This will automatically handle API key authentication
+        activity_data = client.get_activity_data(start_date, end_date)
+        
+        activities = activity_data.get('data', [])
+        print(f"✅ Retrieved {len(activities)} activity records")
+        
+        # Show activity details
+        for i, activity in enumerate(activities[:3], 1):
+            print(f"   {i}. Activity for {activity.get('day', 'N/A')}")
+            print(f"      Score: {activity.get('score', 'N/A')}")
+            print(f"      Active calories: {activity.get('active_calories', 'N/A')}")
+            print(f"      Steps: {activity.get('steps', 'N/A')}")
+            print(f"      Target calories: {activity.get('target_calories', 'N/A')}")
+            print()
+        
+        # Also test personal info endpoint
+        try:
+            personal_info = client.get_personal_info()
+            if personal_info:
+                print("📋 Personal info retrieved successfully")
+        except:
+            print("📋 Personal info not available or limited access")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Oura client failed: {e}")
+        # Check if it's an authentication issue
+        try:
+            test_client = OuraClient()
+            if not test_client.is_authenticated():
+                print("    Missing OURA_API_KEY environment variable")
+        except:
+            pass
+        return False
+
 def check_authentication_status():
     """Check the authentication status of all clients."""
     print("🔐 Authentication Status")
@@ -216,10 +315,36 @@ def check_authentication_status():
         
     except Exception as e:
         print(f"OneDrive status check failed: {e}")
+    
+    # Check Hevy
+    try:
+        hevy = HevyClient()
+        hevy_auth = hevy.is_authenticated()
+        
+        print(f"Hevy:")
+        print(f"   Authenticated: {'✅ Yes' if hevy_auth else '❌ No'}")
+        print(f"   Type: API key authentication")
+        print(f"   No tokens: Simple API key, no persistence needed")
+        
+    except Exception as e:
+        print(f"Hevy status check failed: {e}")
+
+    # Check Oura
+    try:
+        oura = OuraClient()
+        oura_auth = oura.is_authenticated()
+        
+        print(f"Oura:")
+        print(f"   Authenticated: {'✅ Yes' if oura_auth else '❌ No'}")
+        print(f"   Type: API key authentication")
+        print(f"   No tokens: Simple API key, no persistence needed")
+        
+    except Exception as e:
+        print(f"Oura status check failed: {e}")
 
 def main():
     """Main function to run all tests."""
-    print("🚀 OAuth2 Health Data Clients - Clean Implementation")
+    print("🚀 OAuth2 & API Key Health Data Clients - Clean Implementation")
     print("=" * 60)
     print()
     
@@ -227,7 +352,7 @@ def main():
     check_authentication_status()
     print()
     
-    # Test all three clients
+    # Test all four clients
     whoop_success = test_whoop_client()
     print()
     
@@ -237,33 +362,47 @@ def main():
     onedrive_success = test_onedrive_client()
     print()
     
+    hevy_success = test_hevy_client()
+    print()
+    
+    oura_success = test_oura_client()
+    print()
+    
     # Summary
     print("📋 Summary")
     print("-" * 30)
     print(f"Whoop: {'✅ Success' if whoop_success else '❌ Failed'}")
     print(f"Withings: {'✅ Success' if withings_success else '❌ Failed'}")
     print(f"OneDrive: {'✅ Success' if onedrive_success else '❌ Failed'}")
+    print(f"Hevy: {'✅ Success' if hevy_success else '❌ Failed'}")
+    print(f"Oura: {'✅ Success' if oura_success else '❌ Failed'}")
     
-    success_count = sum([whoop_success, withings_success, onedrive_success])
+    success_count = sum([whoop_success, withings_success, onedrive_success, hevy_success, oura_success])
     
     if success_count > 0:
-        print(f"\n🎉 {success_count}/3 clients are working!")
+        print(f"\n🎉 {success_count}/5 clients are working!")
         print("\n💡 Tips:")
-        print("   - Tokens are saved locally and persist across runs")
-        print("   - Sessions last up to 89 days with sliding window")
-        print("   - Re-authentication is automatic when needed")
+        print("   - OAuth2 tokens are saved locally and persist across runs")
+        print("   - OAuth2 sessions last up to 89 days with sliding window")
+        print("   - Re-authentication is automatic when needed for OAuth2 clients")
+        print("   - Hevy and Oura use simple API key authentication (no tokens)")
         print("   - OneDrive provides cloud storage for health reports")
-        print("   - All clients use the same authentication patterns")
+        print("   - All clients use consistent authentication patterns")
         print("\n🏗️ Architecture:")
         print("   - Clean naming (no 'experimental' suffixes)")
         print("   - Production-ready structure")
         print("   - Modular design with shared base classes")
-        print("   - Standard token file names (~/.service_tokens.json)")
+        print("   - OAuth2: Standard token file names (~/.service_tokens.json)")
+        print("   - API Key: Simple authentication with retry logic")
     else:
         print("\n⚠️ All clients failed. Check your environment variables:")
-        print("   - WHOOP_CLIENT_ID and WHOOP_CLIENT_SECRET")
-        print("   - WITHINGS_CLIENT_ID and WITHINGS_CLIENT_SECRET")
-        print("   - ONEDRIVE_CLIENT_ID")
+        print("   OAuth2 clients:")
+        print("     - WHOOP_CLIENT_ID and WHOOP_CLIENT_SECRET")
+        print("     - WITHINGS_CLIENT_ID and WITHINGS_CLIENT_SECRET")
+        print("     - ONEDRIVE_CLIENT_ID")
+        print("   API Key clients:")
+        print("     - HEVY_API_KEY")
+        print("     - OURA_API_KEY")
         print("   - Ensure .env file is properly configured")
 
 if __name__ == "__main__":
