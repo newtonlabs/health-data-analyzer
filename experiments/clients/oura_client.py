@@ -5,11 +5,11 @@ Oura Ring API client using the APIKeyClient base class.
 from typing import Any, Dict, Optional
 from datetime import datetime, timedelta
 
-from .api_key_client import APIKeyClient
+from .api_key_auth_base import APIKeyAuthBase
 from .config import ClientFactory
 
 
-class OuraClient(APIKeyClient):
+class OuraClient(APIKeyAuthBase):
     """Oura Ring API client using personal access token authentication."""
     
     def __init__(self):

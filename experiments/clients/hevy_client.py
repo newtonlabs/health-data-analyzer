@@ -7,11 +7,11 @@ from typing import Any, Dict, Optional
 
 import requests
 
-from .api_key_client import APIKeyClient
+from .api_key_auth_base import APIKeyAuthBase
 from .config import ClientFactory
 
 
-class HevyClient(APIKeyClient):
+class HevyClient(APIKeyAuthBase):
     """Hevy API client using API key authentication.
     
     Hevy is a workout tracking app with a simple API that uses API key authentication.
@@ -40,7 +40,7 @@ class HevyClient(APIKeyClient):
         self, 
         start_date: datetime = None, 
         end_date: datetime = None,
-        page_size: int = None
+        page_size: int = 10  # Match source of truth: AppConfig.HEVY_DEFAULT_PAGE_SIZE = 10
     ) -> Dict[str, Any]:
         """Get workout data from the Hevy API.
         
@@ -55,89 +55,35 @@ class HevyClient(APIKeyClient):
         Returns:
             Dictionary containing workout data
         """
-        page_size = page_size or self.page_size
-        print(f"📋 Fetching Hevy workouts with page size {page_size}")
+        # Use provided page_size or fall back to instance default
+        if page_size is None:
+            page_size = self.page_size
         
         all_workouts = []
         page = 1
         
-        try:
-            while True:
-                params = {
-                    "page": page,
-                    "pageSize": page_size
-                }
-                
-                response = self.make_request("v1/workouts", params=params)
-                
-                # Handle 404 as empty result (no workouts found)
-                if response.status_code == 404:
-                    break
-                
-                data = response.json()
-                workouts = data.get("workouts", [])
-                
-                if not workouts:
-                    break
-                
-                # Apply client-side date filtering if dates provided
-                if start_date or end_date:
-                    filtered_workouts = []
-                    for workout in workouts:
-                        workout_date = datetime.fromisoformat(workout.get('start_time', '').replace('Z', '+00:00'))
-                        
-                        if start_date and workout_date.date() < start_date.date():
-                            continue
-                        if end_date and workout_date.date() > end_date.date():
-                            continue
-                            
-                        filtered_workouts.append(workout)
-                    
-                    workouts = filtered_workouts
-                
-                all_workouts.extend(workouts)
-                print(f"📄 Fetched {len(workouts)} workouts from page {page}")
-                page += 1
-                
-                # If we got fewer workouts than page size, we're done
-                if len(data.get("workouts", [])) < page_size:
-                    break
+        while True:
+            params = {
+                "page": page,
+                "pageSize": page_size
+            }
             
-            print(f"✅ Retrieved {len(all_workouts)} total workouts from Hevy")
-            return {"workouts": all_workouts}
+            response = self.make_request("v1/workouts", params=params)
+            data = response.json()
+            workouts = data.get("workouts", [])
             
-        except Exception as e:
-            print(f"❌ Hevy client failed: {e}")
-            raise
-    
-    def get_workout_details(self, workout_id: str) -> Dict[str, Any]:
-        """Get detailed information for a specific workout.
+            if not workouts:
+                break
+            
+            all_workouts.extend(workouts)
+            page += 1
+            
+            # If we got fewer workouts than page size, we're done
+            if len(workouts) < page_size:
+                break
         
-        Args:
-            workout_id: ID of the workout to fetch
-            
-        Returns:
-            Dictionary containing detailed workout data
-        """
-        try:
-            response = self.make_request(f"v1/workouts/{workout_id}")
-            return response.json()
-        except Exception as e:
-            print(f"❌ Failed to fetch workout {workout_id}: {e}")
-            raise
+        return {"workouts": all_workouts}
     
-    def get_exercises(self) -> Dict[str, Any]:
-        """Get list of available exercises from Hevy.
-        
-        Returns:
-            Dictionary containing exercise data
-        """
-        try:
-            response = self.make_request("v1/exercises")
-            return response.json()
-        except Exception as e:
-            print(f"❌ Failed to fetch exercises: {e}")
-            raise
     
     def get_client_info(self) -> Dict[str, str]:
         """Get client information for debugging.

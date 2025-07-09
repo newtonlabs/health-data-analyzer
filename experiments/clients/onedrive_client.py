@@ -9,7 +9,7 @@ import msal
 import requests
 from msal import PublicClientApplication
 
-from .auth_base import TokenFileManager, SlidingWindowValidator
+from .oauth2_auth_base import TokenFileManager, SlidingWindowValidator
 from .config import ClientFactory
 
 
@@ -83,21 +83,16 @@ class OneDriveClient:
         if not token_data:
             return False
             
-        try:
-            # Load MSAL cache if available
-            if "msal_cache" in token_data:
-                self.msal_token_cache.deserialize(token_data["msal_cache"])
+        # Load MSAL cache if available
+        if "msal_cache" in token_data:
+            self.msal_token_cache.deserialize(token_data["msal_cache"])
+        
+        # Load access token
+        if "access_token" in token_data:
+            self.access_token = token_data["access_token"]
             
-            # Load access token
-            if "access_token" in token_data:
-                self.access_token = token_data["access_token"]
-                
-            self.token = token_data
-            return True
-            
-        except Exception as e:
-            print(f"Warning: Failed to load token: {e}")
-            return False
+        self.token = token_data
+        return True
 
     def _save_token(self, token_data: dict) -> None:
         """Save token to file."""
@@ -164,8 +159,6 @@ class OneDriveClient:
         Returns:
             bool: True if authentication was successful
         """
-        print("🔐 Starting OneDrive authentication...")
-        
         # Ensure MSAL app is initialized
         self._ensure_msal_app()
         
@@ -173,10 +166,9 @@ class OneDriveClient:
         flow = self.app.initiate_device_flow(scopes=self.scopes)
         
         if "user_code" not in flow:
-            print(f"❌ Failed to start device code flow: {flow.get('error', 'Unknown error')}")
             return False
         
-        # Display instructions to user
+        # Display instructions to user (ESSENTIAL for device code flow)
         print(f"Please visit this URL to authorize the application:")
         print(f"🔗 {flow['verification_uri']}")
         print(f"📱 Enter the code: {flow['user_code']}")
@@ -187,7 +179,6 @@ class OneDriveClient:
         result = self.app.acquire_token_by_device_flow(flow)
         
         if "access_token" not in result:
-            print(f"❌ Failed to acquire token: {result.get('error', 'Unknown error')}")
             return False
         
         # Calculate extended expiration (90 days from now)
@@ -222,57 +213,38 @@ class OneDriveClient:
         if not force and not self.should_refresh_proactively():
             return True
             
-        print("🔄 Refreshing OneDrive token...")
-        
         # Ensure MSAL app is initialized
         self._ensure_msal_app()
         
-        try:
-            # Get accounts from MSAL cache
-            accounts = self.app.get_accounts()
+        # Get accounts from MSAL cache
+        accounts = self.app.get_accounts()
+        
+        if not accounts:
+            return False
+        
+        # Try silent token acquisition
+        result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
+        
+        if result and "access_token" in result:
+            # Calculate new expiration
+            expires_in = result.get("expires_in", 3600)
+            expires_at = datetime.now() + timedelta(seconds=expires_in)
             
-            if not accounts:
-                print("⚠️ No accounts found in MSAL cache, re-authentication required")
-                return False
+            # Update token data
+            token_data = self.token.copy() if self.token else {}
+            token_data.update({
+                "access_token": result["access_token"],
+                "token_type": result.get("token_type", "Bearer"),
+                "expires_in": expires_in,
+                "expires_at": expires_at.timestamp(),
+                "last_refresh": datetime.now().isoformat()
+            })
             
-            # Try silent token acquisition
-            result = self.app.acquire_token_silent(self.scopes, account=accounts[0])
+            self._save_token(token_data)
+            self.access_token = result["access_token"]
             
-            if result and "access_token" in result:
-                # Calculate new expiration
-                expires_in = result.get("expires_in", 3600)
-                expires_at = datetime.now() + timedelta(seconds=expires_in)
-                
-                # Update token data
-                token_data = self.token.copy() if self.token else {}
-                token_data.update({
-                    "access_token": result["access_token"],
-                    "token_type": result.get("token_type", "Bearer"),
-                    "expires_in": expires_in,
-                    "expires_at": expires_at.timestamp(),
-                    "last_refresh": datetime.now().isoformat()
-                })
-                
-                self._save_token(token_data)
-                self.access_token = result["access_token"]
-                
-                print("✅ Token refreshed successfully")
-                return True
-            else:
-                error = result.get("error") if result else "No result"
-                print(f"⚠️ Silent token acquisition failed: {error}")
-                
-                # Check if token has expired
-                if self.token and 'expires_at' in self.token:
-                    expires_at = datetime.fromtimestamp(self.token['expires_at'])
-                    if datetime.now() > expires_at:
-                        print("🔄 Token has expired, re-authentication required")
-                        print("   Run the client's authenticate() method to get a new token")
-                
-                return False
-                
-        except Exception as e:
-            print(f"❌ Error refreshing token: {e}")
+            return True
+        else:
             return False
 
     def _get_access_token(self) -> str:
@@ -291,8 +263,7 @@ class OneDriveClient:
         
         # Try to refresh if needed
         if self.should_refresh_proactively():
-            if not self.refresh_token_if_needed():
-                print("⚠️ Token refresh failed, but continuing with existing token")
+            self.refresh_token_if_needed()
         
         if not self.access_token:
             raise Exception("No valid access token available")
@@ -325,7 +296,6 @@ class OneDriveClient:
         
         # Check for authentication errors and retry once
         if response.status_code == 401:
-            print("🔄 Authentication error, attempting token refresh...")
             if self.refresh_token_if_needed(force=True):
                 headers["Authorization"] = f"Bearer {self._get_access_token()}"
                 kwargs["headers"] = headers
@@ -366,7 +336,6 @@ class OneDriveClient:
             file_content = f.read()
         
         # Upload file
-        print(f"📤 Uploading {filename} to OneDrive...")
         response = self.make_request(upload_endpoint, method="PUT", data=file_content)
         
         if response.status_code not in [200, 201]:
@@ -375,7 +344,6 @@ class OneDriveClient:
         file_id = response.json()["id"]
         
         # Create sharing link
-        print("🔗 Creating sharing link...")
         response = self.make_request(
             f"me/drive/items/{file_id}/createLink",
             method="POST",
@@ -386,7 +354,6 @@ class OneDriveClient:
             raise Exception(f"Failed to create sharing link: {response.text}")
         
         share_url = response.json()["link"]["webUrl"]
-        print(f"✅ File uploaded successfully: {share_url}")
         
         return share_url
 
@@ -401,7 +368,6 @@ class OneDriveClient:
         
         if response.status_code == 404:
             # Create folder
-            print(f"📁 Creating folder: {folder_name}")
             response = self.make_request(
                 "me/drive/root/children",
                 method="POST",

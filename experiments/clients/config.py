@@ -42,7 +42,7 @@ class ServiceConfig:
             "base_url": "https://api.prod.whoop.com/developer",
             "auth_url": "https://api.prod.whoop.com/oauth/oauth2/auth", 
             "token_url": "https://api.prod.whoop.com/oauth/oauth2/token",
-            "scopes": ["read:recovery", "read:cycles", "read:sleep", "read:workout", "read:profile", "offline"],
+            "scopes": ["read:recovery", "read:cycles", "read:sleep", "read:workout", "read:profile", "offline"],  # Match source exactly
             "default_page_size": 50
         }
     
@@ -52,7 +52,7 @@ class ServiceConfig:
             "base_url": "https://wbsapi.withings.net",
             "auth_url": "https://account.withings.com/oauth2_user/authorize2",
             "token_url": "https://wbsapi.withings.net/v2/oauth2", 
-            "scopes": ["user.metrics", "user.activity", "user.sleepevents"],
+            "scopes": "user.metrics,user.activity,user.sleepevents",  # Match source of truth exactly
             "default_page_size": 100
         }
     
@@ -68,7 +68,7 @@ class ServiceConfig:
     def HEVY():
         return {
             "base_url": "https://api.hevyapp.com", 
-            "default_page_size": 50
+            "default_page_size": 10  # Match source of truth: AppConfig.HEVY_DEFAULT_PAGE_SIZE = 10
         }
     
     @staticmethod

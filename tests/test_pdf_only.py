@@ -19,8 +19,8 @@ def main():
     
     # Define paths
     reports_dir = Path("data/05_reports")
-    markdown_file = reports_dir / "health_report_2025-06-29.md"
-    pdf_file = reports_dir / "health_report_2025-06-29.pdf"
+    markdown_file = reports_dir / "health_report_2025-07-06.md"
+    pdf_file = reports_dir / "health_report_2025-07-06.pdf"
     
     # Check if markdown file exists
     if not markdown_file.exists():

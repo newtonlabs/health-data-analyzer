@@ -326,7 +326,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'<html><body><h1>Authorization Failed</h1><p>No authorization code received.</p></body></html>')
 
 
-class AuthlibOAuth2Client:
+class OAuth2AuthBase:
     """Base OAuth2 client using authlib for authentication.
     
     This class provides a complete OAuth2 authentication flow with the following features:

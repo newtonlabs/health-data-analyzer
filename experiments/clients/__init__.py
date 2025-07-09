@@ -25,7 +25,7 @@ from .withings_client import WithingsClient
 from .onedrive_client import OneDriveClient
 from .hevy_client import HevyClient
 from .oura_client import OuraClient
-from .api_key_client import APIKeyClient
+from .api_key_auth_base import APIKeyAuthBase
 
 __all__ = [
     "WhoopClient",
@@ -33,5 +33,5 @@ __all__ = [
     "OneDriveClient",
     "HevyClient",
     "OuraClient",
-    "APIKeyClient"
+    "APIKeyAuthBase",
 ]

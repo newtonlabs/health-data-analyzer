@@ -4,15 +4,15 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict
 
-from .auth_base import (
-    AuthlibOAuth2Client, 
+from .oauth2_auth_base import (
+    OAuth2AuthBase, 
     TokenFileManager, 
     SlidingWindowValidator
 )
 from .config import ClientFactory
 
 
-class WhoopClient(AuthlibOAuth2Client):
+class WhoopClient(OAuth2AuthBase):
     """Whoop API client using authlib with shared utilities."""
 
     def __init__(self):
@@ -122,6 +122,18 @@ class WhoopClient(AuthlibOAuth2Client):
             "next_token": None
         }
 
+    def get_recovery_data(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
+        """Fetch recovery data for a date range with automatic pagination.
+        
+        Args:
+            start_date: Start date for recovery data
+            end_date: End date for recovery data
+            
+        Returns:
+            Dictionary containing recovery data with pagination
+        """
+        return self._paginated_request("v1/recovery", start_date, end_date)
+    
     def get_recovery(self, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Get recovery data for a specified time range.
 

@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict
 
 import requests
-from .auth_base import (
-    AuthlibOAuth2Client, 
+from .oauth2_auth_base import (
+    OAuth2AuthBase, 
     TokenFileManager, 
     SlidingWindowValidator,
     WithingsErrorStrategy
@@ -14,7 +14,7 @@ from .auth_base import (
 from .config import ClientFactory
 
 
-class WithingsClient(AuthlibOAuth2Client):
+class WithingsClient(OAuth2AuthBase):
     """Withings API client using authlib.
     
     ## Why Withings Requires Custom Implementation:
@@ -64,6 +64,10 @@ class WithingsClient(AuthlibOAuth2Client):
         # Get service configuration
         service_config = ClientFactory.get_service_config("withings")
         
+        # Withings uses comma-separated scopes, but base class expects list
+        scopes_string = service_config["scopes"]
+        scopes_list = scopes_string.split(",") if isinstance(scopes_string, str) else scopes_string
+        
         super().__init__(
             env_client_id="WITHINGS_CLIENT_ID",
             env_client_secret="WITHINGS_CLIENT_SECRET",
@@ -71,7 +75,19 @@ class WithingsClient(AuthlibOAuth2Client):
             base_url=service_config["base_url"],
             authorization_endpoint=service_config["auth_url"],
             token_endpoint=service_config["token_url"],
-            scopes=service_config["scopes"]
+            scopes=scopes_list
+        )
+        
+        # Store original comma-separated scopes for Withings API
+        self.withings_scopes = scopes_string
+        
+        # Override OAuth2 session with comma-separated scopes for Withings
+        from authlib.integrations.requests_client import OAuth2Session
+        self.session = OAuth2Session(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            redirect_uri=self.redirect_uri,
+            scope=self.withings_scopes  # Use comma-separated scopes
         )
         
         # Use Withings-specific error handling strategy
@@ -216,18 +232,25 @@ class WithingsClient(AuthlibOAuth2Client):
         startdate = int(start_date.timestamp())
         enddate = int(end_date.timestamp())
         
-        # Request weight measurements (type 1)
-        # Note: Multiple measurement types cause "Multiple type request not available" error
-        # This may be due to account limitations or API changes
+        # Request all body composition measurement types (matching source of truth)
+        # 1=weight, 6=body_fat_percentage, 76=muscle_mass, 88=bone_mass, 77=water_percentage
+        meastype_values = [
+            "1",   # WITHINGS_MEASUREMENT_TYPE_WEIGHT
+            "6",   # WITHINGS_MEASUREMENT_TYPE_FAT_RATIO
+            "76",  # WITHINGS_MEASUREMENT_TYPE_MUSCLE_MASS
+            "88",  # WITHINGS_MEASUREMENT_TYPE_BONE_MASS
+            "77",  # WITHINGS_MEASUREMENT_TYPE_WATER_PERCENTAGE
+        ]
+        
         params = {
             "action": "getmeas",
-            "meastype": "1",  # Weight only for now
-            "category": "1",  # Real measurements
+            "meastype": ",".join(meastype_values),  # All body composition measurement types
+            "category": "1",  # Real measurements (1)
             "startdate": startdate,
             "enddate": enddate,
         }
         
-        response = self.make_request("v2/measure", params=params)
+        response = self.make_request("measure", params=params)
         data = response.json()
         
         # Error checking is now handled in the make_request override

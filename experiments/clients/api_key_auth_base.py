@@ -14,7 +14,7 @@ import requests
 from .config import ClientFactory
 
 
-class APIKeyClient:
+class APIKeyAuthBase:
     """Base class for API key-based authentication clients.
     
     This is a simplified base class for APIs that use API key authentication
