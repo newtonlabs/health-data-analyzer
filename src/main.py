@@ -39,8 +39,8 @@ def fetch_data(days: int = 8) -> None:
         ProgressIndicator.step_complete(f"Pipeline completed in {result.total_duration:.2f}s")
         
         # Show results
-        ProgressIndicator.bullet_item(f"Stages completed: {result.stages_completed}/{result.total_stages}")
-        ProgressIndicator.bullet_item(f"Services processed: {len(result.services_processed)}")
+        ProgressIndicator.step_complete(f"Stages completed: {result.stages_completed}/{result.total_stages}")
+        ProgressIndicator.step_complete(f"Services processed: {len(result.services_processed)}")
         
         # Find generated report
         reports_dir = Path("data/05_reports")
