@@ -74,7 +74,6 @@ def run_pipeline(days: int):
             days=days,
             services=services,
             enable_csv=True,
-            debug_mode=False,
             enable_report=True
         )
         

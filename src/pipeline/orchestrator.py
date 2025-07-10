@@ -91,15 +91,13 @@ class HealthDataOrchestrator:
         }
     
     def run_pipeline(self, days: int, services: List[str] = None, 
-                    enable_csv: bool = True, debug_mode: bool = False, 
-                    enable_report: bool = True) -> PipelineResult:
+                    enable_csv: bool = True, enable_report: bool = True) -> PipelineResult:
         """Run the complete 5-stage health data pipeline.
         
         Args:
             days: Number of days to process
             services: List of services to process (None for all)
             enable_csv: Whether to generate CSV files
-            debug_mode: Enable debug logging
             enable_report: Whether to generate legacy report
             
         Returns:
@@ -120,8 +118,7 @@ class HealthDataOrchestrator:
             start_date=start_date,
             end_date=end_date,
             services=services,
-            enable_csv=enable_csv,
-            debug_mode=debug_mode
+            enable_csv=enable_csv
         )
         
         self.logger.info(f"🚀 Starting 5-stage pipeline for {days} days")

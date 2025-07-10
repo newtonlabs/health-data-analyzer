@@ -35,7 +35,6 @@ class PipelineContext:
     end_date: date
     services: List[str]
     enable_csv: bool = True
-    debug_mode: bool = False
     
     # Data flow between stages
     raw_data: Dict[str, Any] = field(default_factory=dict)

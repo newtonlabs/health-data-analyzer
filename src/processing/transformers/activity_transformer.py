@@ -73,10 +73,6 @@ class ActivityTransformer(RecordListTransformer[ActivityRecord]):
         if not record.date and not record.timestamp:
             return False
         
-        # Check source
-        if record.source != DataSource.OURA:
-            return False
-        
         # Activity data is reliable - no need for value range validation
         return True
     

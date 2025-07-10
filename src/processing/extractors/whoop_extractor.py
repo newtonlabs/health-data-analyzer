@@ -12,6 +12,7 @@ from src.models import (
     WorkoutRecord, 
     RecoveryRecord, 
     SleepRecord,
+    ActivityRecord,
     DataSource, 
     SportType, 
     RecoveryLevel
@@ -66,11 +67,10 @@ class WhoopExtractor(BaseExtractor):
             extracted['sleep'] = self.extract_sleep(raw_data['sleep'])
             self.logger.info(f"Extracted {len(extracted['sleep'])} raw sleep records")
         
-        # Extract cycles (raw data for research - no processing)
+        # Extract cycles as activity data (daily activity summaries)
         if 'cycles' in raw_data:
-            extracted['cycles'] = raw_data['cycles']  # Store raw cycle data as-is
-            cycle_count = len(raw_data['cycles'].get('records', [])) if isinstance(raw_data['cycles'], dict) else len(raw_data['cycles'])
-            self.logger.info(f"Extracted {cycle_count} raw cycle records for research")
+            extracted['activity'] = self.extract_cycles_as_activity(raw_data['cycles'])
+            self.logger.info(f"Extracted {len(extracted['activity'])} activity records from cycles data")
         
         self.logger.info("Pure extraction completed - no transformation or persistence")
         return extracted
@@ -406,3 +406,63 @@ class WhoopExtractor(BaseExtractor):
             return normalized_datetime.date()
         
         return None
+    
+    def extract_cycles_as_activity(self, cycles_data: Dict[str, Any]) -> List[ActivityRecord]:
+        """Extract cycles data as activity records (daily activity summaries).
+        
+        Args:
+            cycles_data: Raw cycles data from API
+            
+        Returns:
+            List of ActivityRecord instances
+        """
+        records = []
+        
+        # Handle both dict format with 'records' key and direct list format
+        cycle_records = cycles_data.get('records', []) if isinstance(cycles_data, dict) else cycles_data
+        
+        for cycle in cycle_records:
+            if not isinstance(cycle, dict):
+                continue
+                
+            # Extract basic cycle information
+            cycle_id = self.safe_get(cycle, 'id', '', (str, int))
+            if not cycle_id:
+                continue
+            
+            # Convert to string for consistent handling
+            cycle_id = str(cycle_id)
+            
+            # Parse date from cycle data
+            start_time = self.safe_get(cycle, 'start', '', str)
+            if start_time:
+                record_date = self.parse_timestamp(start_time).date()
+            else:
+                # Fallback to cycle_id if it's in date format
+                try:
+                    record_date = datetime.strptime(cycle_id[:10], '%Y-%m-%d').date()
+                except (ValueError, IndexError):
+                    self.logger.warning(f"Could not parse date from cycle {cycle_id}")
+                    continue
+            
+            # Extract activity metrics from cycle data
+            # Whoop cycles contain strain and activity data
+            score_data = self.safe_get(cycle, 'score', {}, dict)
+            
+            # Convert kilojoules to calories (1 kJ = 0.239006 calories)
+            kilojoules = self.safe_get(score_data, 'kilojoule', 0, (int, float))
+            total_calories = int(kilojoules * 0.239006) if kilojoules else None
+            
+            # Create activity record
+            record = ActivityRecord(
+                timestamp=start_time,
+                date=record_date,
+                source=DataSource.WHOOP,
+                steps=None,  # Whoop doesn't track steps
+                active_calories=None,  # Not available in cycles data
+                total_calories=total_calories  # Converted from kilojoules
+            )
+            
+            records.append(record)
+            
+        return records
