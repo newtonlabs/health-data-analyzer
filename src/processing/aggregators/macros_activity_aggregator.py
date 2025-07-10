@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from src.models.raw_data import NutritionRecord, ActivityRecord, WeightRecord, WorkoutRecord
 from src.models.aggregations import MacrosAndActivityRecord
-from src.models.enums import SportType
+from src.models.enums import SportType, DataSource
 
 
 class MacrosActivityAggregator:
@@ -35,10 +35,18 @@ class MacrosActivityAggregator:
         Returns:
             Aggregated daily macros and activity record
         """
+        # Debug: Show what activity records we have
+        self.logger.info(f"🔍 Activity records for {target_date}: {len(activity_records)} total")
+        for i, record in enumerate(activity_records):  # Show all records
+            self.logger.info(f"  Activity {i+1}: date={getattr(record, 'date', 'N/A')}, steps={getattr(record, 'steps', 'N/A')}, source={getattr(record, 'source', 'N/A')}")
+        
         # Find records for target date
         nutrition = self._find_nutrition_for_date(nutrition_records, target_date)
         activity = self._find_activity_for_date(activity_records, target_date)
         weight = self._find_weight_for_date(weight_records, target_date)
+        
+        # Debug: Show what we found
+        self.logger.info(f"🎯 Found for {target_date}: nutrition={'✅' if nutrition else '❌'}, activity={'✅' if activity else '❌'} (steps={getattr(activity, 'steps', 'N/A') if activity else 'N/A'}, source={getattr(activity, 'source', 'N/A') if activity else 'N/A'}), weight={'✅' if weight else '❌'}")
         
         # Debug logging for workout records
         self.logger.info(f"🔍 MacrosActivityAggregator for {target_date}: received {len(workout_records) if workout_records else 0} workout records")
@@ -77,11 +85,19 @@ class MacrosActivityAggregator:
         return None
     
     def _find_activity_for_date(self, records: List[ActivityRecord], target_date: date) -> Optional[ActivityRecord]:
-        """Find activity record for specific date."""
-        for record in records:
-            if record.date == target_date:
-                return record
-        return None
+        """Find activity record for specific date, prioritizing Oura over Whoop."""
+        matching_records = [record for record in records if record.date == target_date]
+        
+        if not matching_records:
+            return None
+            
+        # Always prefer Oura data over Whoop data
+        oura_records = [record for record in matching_records if record.source == DataSource.OURA]
+        if oura_records:
+            return oura_records[0]  # Return first Oura record
+            
+        # Fallback to any matching record if no Oura data
+        return matching_records[0]
     
     def _find_weight_for_date(self, records: List[WeightRecord], target_date: date) -> Optional[WeightRecord]:
         """Find weight record for specific date (closest to date)."""
