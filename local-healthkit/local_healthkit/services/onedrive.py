@@ -81,7 +81,7 @@ class OneDriveService(BaseAPIService):
         try:
             data['files'] = self.list_files()
             self.log_api_call('list_files', {}, 
-                            len(data['files'].get('value', [])))
+                            len(data['files']) if isinstance(data['files'], list) else 0)
         except Exception as e:
             self.handle_api_error(e, 'list_files')
         

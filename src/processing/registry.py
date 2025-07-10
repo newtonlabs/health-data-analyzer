@@ -1,5 +1,6 @@
 """Processing component registry for transformers and aggregators."""
 
+import logging
 from typing import Dict, List, Optional, Any
 from .transformers.workout_transformer import WorkoutTransformer
 from .transformers.activity_transformer import ActivityTransformer
@@ -18,6 +19,7 @@ class ProcessorRegistry:
     """Registry for managing transformers and aggregators with their capabilities."""
     
     def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
         """Initialize registry and register all components."""
         self.transformers: Dict[str, Any] = {}
         self.aggregators: Dict[str, Any] = {}
@@ -111,11 +113,11 @@ class ProcessorRegistry:
         
         # Debug: Show what's in transformed_data
         if aggregator_name == 'macros':
-            print(f"DEBUG: Required types for macros: {required_types}")
+            self.logger.info(f"DEBUG: Required types for macros: {required_types}")
             for service_name, service_data in transformed_data.items():
-                print(f"DEBUG: Service {service_name} has keys: {list(service_data.keys())}")
+                self.logger.info(f"DEBUG: Service {service_name} has keys: {list(service_data.keys())}")
                 for key, records in service_data.items():
-                    print(f"  {key}: {len(records) if isinstance(records, list) else 'not a list'}")
+                    self.logger.info(f"  {key}: {len(records) if isinstance(records, list) else 'not a list'}")
         
         # Collect data of each required type from all services
         for data_type in required_types:

@@ -36,71 +36,73 @@ class WithingsExtractor(BaseExtractor):
         Returns:
             List of raw WeightRecord objects
         """
-        if not raw_data or "body" not in raw_data:
-            print("No weight data found in Withings response")
+        # Handle both old format (raw_data["body"]) and new format (raw_data["weight"])
+        weight_data = None
+        if "body" in raw_data:
+            weight_data = raw_data["body"]
+        elif "weight" in raw_data:
+            weight_data = raw_data["weight"]
+        
+        if not raw_data or not weight_data:
+            self.logger.info("No weight data found in Withings response")
             return []
         
         weight_records = []
         
         # Direct conversion from raw API data to WeightRecord objects
-        if "measuregrps" in raw_data["body"]:
-            for group in raw_data["body"]["measuregrps"]:
-                try:
-                    # Parse timestamp from API response
-                    timestamp = datetime.fromtimestamp(group.get("date", 0))
-                    
-                    # Filter by date range
-                    if not (start_date.date() <= timestamp.date() <= end_date.date()):
-                        continue
-                    
-                    # Initialize measurement values
-                    weight_kg = None
-                    body_fat_percentage = None
-                    muscle_mass_kg = None
-                    bone_mass_kg = None
-                    water_percentage = None
-                    
-                    # Extract measurements from the group
-                    for measure in group.get("measures", []):
-                        measure_type = measure.get("type")
-                        value = measure.get("value", 0)
-                        unit = measure.get("unit", 0)
-                        
-                        # Convert value based on unit
-                        actual_value = value * (10 ** unit) if value and unit else value
-                        
-                        # Map measurement types to fields
-                        if measure_type == 1:  # Weight
-                            weight_kg = actual_value
-                        elif measure_type == 6:  # Body fat percentage
-                            body_fat_percentage = actual_value
-                        elif measure_type == 76:  # Muscle mass
-                            muscle_mass_kg = actual_value
-                        elif measure_type == 88:  # Bone mass
-                            bone_mass_kg = actual_value
-                        elif measure_type == 77:  # Water percentage
-                            water_percentage = actual_value
-                    
-                    # Only create record if we have weight data
-                    if weight_kg is not None:
-                        calculated_date = self._calculate_date_from_timestamp(timestamp)
-                        record = WeightRecord(
-                            timestamp=timestamp,
-                            date=calculated_date,  # Calculate date in extractor
-                            source=DataSource.WITHINGS,
-                            weight_kg=weight_kg,
-                            body_fat_percentage=body_fat_percentage,
-                            muscle_mass_kg=muscle_mass_kg,
-                            bone_mass_kg=bone_mass_kg,
-                            water_percentage=water_percentage
-                        )
-                        weight_records.append(record)
-                        
-                except Exception as e:
-                    print(f"Error creating WeightRecord from Withings data: {e}")
+        if "measuregrps" in weight_data:
+            for group in weight_data["measuregrps"]:
+                # Parse timestamp from API response
+                timestamp = datetime.fromtimestamp(group.get("date", 0))
+                
+                # Filter by date range
+                if not (start_date.date() <= timestamp.date() <= end_date.date()):
                     continue
+                
+                # Initialize measurement values
+                weight_kg = None
+                body_fat_percentage = None
+                muscle_mass_kg = None
+                bone_mass_kg = None
+                water_percentage = None
+                
+                # Extract measurements from the group
+                for measure in group.get("measures", []):
+                    measure_type = measure.get("type")
+                    value = measure.get("value", 0)
+                    unit = measure.get("unit", 0)
+                    
+                    # Convert value based on unit
+                    actual_value = value * (10 ** unit) if value and unit else value
+                    
+                    # Map measurement types to fields
+                    if measure_type == 1:  # Weight
+                        weight_kg = actual_value
+                    elif measure_type == 6:  # Body fat percentage
+                        body_fat_percentage = actual_value
+                    elif measure_type == 76:  # Muscle mass
+                        muscle_mass_kg = actual_value
+                    elif measure_type == 88:  # Bone mass
+                        bone_mass_kg = actual_value
+                    elif measure_type == 77:  # Water percentage
+                        water_percentage = actual_value
+                
+                # Only create record if we have weight data
+                if weight_kg is not None:
+                    calculated_date = self._calculate_date_from_timestamp(timestamp)
+                    record = WeightRecord(
+                        timestamp=timestamp,
+                        date=calculated_date,  # Calculate date in extractor
+                        source=DataSource.WITHINGS,
+                        weight_kg=weight_kg,
+                        body_fat_percentage=body_fat_percentage,
+                        muscle_mass_kg=muscle_mass_kg,
+                        bone_mass_kg=bone_mass_kg,
+                        water_percentage=water_percentage
+                    )
+                    weight_records.append(record)
         
-        print(f"Extracted {len(weight_records)} raw weight records from Withings")
+        self.logger.info(f"Extracted {len(weight_records)} raw weight records from Withings")
         return weight_records
     
     def extract_all_data(
@@ -126,7 +128,7 @@ class WithingsExtractor(BaseExtractor):
         if weight_records:
             extracted_data["weight"] = weight_records
         
-        print(f"Extracted Withings data with {len(extracted_data)} data types")
+        self.logger.info(f"Extracted Withings data with {len(extracted_data)} data types")
         return extracted_data
 
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
@@ -141,7 +143,7 @@ class WithingsExtractor(BaseExtractor):
             Dictionary with keys like 'weight', etc.
             and values as lists of structured records
         """
-        print("Starting Withings data extraction")
+        self.logger.info("Starting Withings data extraction")
         
         extracted_data = {}
         
@@ -155,8 +157,8 @@ class WithingsExtractor(BaseExtractor):
         if weight_records:
             extracted_data["weight"] = weight_records
         
-        print(f"Extracted {len(weight_records)} raw weight records from Withings")
-        print(f"Extracted Withings data with {len(extracted_data)} data types")
+        self.logger.info(f"Extracted {len(weight_records)} raw weight records from Withings")
+        self.logger.info(f"Extracted Withings data with {len(extracted_data)} data types")
         return extracted_data
     
 
@@ -173,9 +175,4 @@ class WithingsExtractor(BaseExtractor):
         if not timestamp:
             return None
             
-        try:
-            return timestamp.date()
-        except Exception as e:
-            self.logger.warning(f"Error calculating date from timestamp {timestamp}: {e}")
-        
-        return None
+        return timestamp.date()

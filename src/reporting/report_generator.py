@@ -51,7 +51,12 @@ class ReportGenerator:
                 continue
 
             # Convert to numeric and apply consistent formatting
-            formatted_df[col] = pd.to_numeric(formatted_df[col], errors="ignore")
+            try:
+                formatted_df[col] = pd.to_numeric(formatted_df[col])
+            except (ValueError, TypeError):
+                # Column contains non-numeric data, skip numeric formatting
+                continue
+            
             if formatted_df[col].dtype.kind in "ifc":
                 # Use vectorized operations for better performance
                 is_integer_col = col in integer_columns
@@ -437,8 +442,8 @@ class ReportGenerator:
 
         # Count strength days using the STRENGTH_ACTIVITIES list from AppConfig
         strength_days = len(
-            training_df[
-                training_df["sport"].isin(AppConfig.ANALYSIS_STRENGTH_ACTIVITIES)
+            macros_df[
+                macros_df["activity"].isin(AppConfig.ANALYSIS_STRENGTH_ACTIVITIES)
             ]
         )
 

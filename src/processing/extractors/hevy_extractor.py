@@ -1,7 +1,7 @@
 """Hevy data extractor for processing workout data from Hevy API."""
 
 from datetime import datetime, timedelta, date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from .base_extractor import BaseExtractor
 from src.models.raw_data import WorkoutRecord, ExerciseRecord
@@ -42,7 +42,7 @@ class HevyExtractor(BaseExtractor):
         if exercise_records:
             extracted_data["exercises"] = exercise_records
         
-        print(f"Extracted Hevy data with {len(extracted_data)} data types")
+        self.logger.info(f"Extracted Hevy data with {len(extracted_data)} data types")
         return extracted_data
     
     def _extract_workouts(self, raw_data: Dict[str, Any]) -> List[WorkoutRecord]:
@@ -58,80 +58,76 @@ class HevyExtractor(BaseExtractor):
         Returns:
             List of raw WorkoutRecord objects
         """
-        if not raw_data or "workouts" not in raw_data:
-            print("No workout data found in Hevy response")
+        # Handle nested structure: raw_data["workouts"] might contain {"workouts": [...]}
+        workouts_data = raw_data.get("workouts", [])
+        
+        # If workouts_data is a dict with "workouts" key, extract the list
+        if isinstance(workouts_data, dict) and "workouts" in workouts_data:
+            workouts_list = workouts_data["workouts"]
+        elif isinstance(workouts_data, list):
+            workouts_list = workouts_data
+        else:
+            self.logger.info("No workout data found in Hevy response")
             return []
         
         workout_records = []
         
         # Direct conversion from raw API data to WorkoutRecord objects
-        for workout in raw_data["workouts"]:
-            try:
-                # Extract basic workout info
-                workout_date = workout.get("start_time")
-                if not workout_date:
-                    print(f"No start_time found in Hevy workout data, skipping record")
-                    continue
-                
-                # Parse timestamp string to datetime object
-                try:
-                    workout_timestamp = datetime.fromisoformat(workout_date.replace('Z', '+00:00'))
-                except Exception as e:
-                    print(f"Error parsing workout timestamp: {e}")
-                    continue
-                
-                # Calculate duration in minutes
-                start_time = workout.get("start_time")
-                end_time = workout.get("end_time")
-                duration_minutes = 0
-                
-                if start_time and end_time:
-                    try:
-                        start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                        end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                        duration_minutes = (end_dt - start_dt).total_seconds() / 60
-                    except Exception as e:
-                        print(f"Error calculating workout duration: {e}")
-                
-                # Count sets and calculate volume
-                set_count = 0
-                total_volume = 0.0
-                
-                for exercise in workout.get("exercises", []):
-                    for set_data in exercise.get("sets", []):
-                        set_count += 1
-                        # Calculate volume (weight * reps)
-                        weight = set_data.get("weight_kg", 0) or 0
-                        reps = set_data.get("reps", 0) or 0
-                        total_volume += weight * reps
-                
-                # Get sport type using config system (Hevy is strength training)
-                sport_name = "Strength Training"
-                sport_type = self.config.get_sport_type_from_name(sport_name)
-                
-                # Extract workout title from raw data
-                workout_title = workout.get("title")
-                
-                # Create WorkoutRecord
-                calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
-                record = WorkoutRecord(
-                    timestamp=workout_timestamp,
-                    date=calculated_date,  # Calculate date in extractor
-                    source=DataSource.HEVY,
-                    sport_type=sport_type,
-                    sport_name=sport_name,
-                    title=workout_title,
-                    duration_minutes=duration_minutes,
-                    set_count=set_count,
-                    volume_kg=total_volume
-                )
-                workout_records.append(record)
-                
-            except Exception as e:
-                print(f"Error creating WorkoutRecord from Hevy data: {e}")
+        for workout in workouts_list:
+            # Extract basic workout info
+            workout_date = workout.get("start_time")
+            if not workout_date:
+                self.logger.info(f"No start_time found in Hevy workout data, skipping record")
                 continue
+            
+            # Parse timestamp string to datetime object
+            workout_timestamp = datetime.fromisoformat(workout_date.replace('Z', '+00:00'))
+            
+            # Calculate duration in minutes
+            start_time = workout.get("start_time")
+            end_time = workout.get("end_time")
+            duration_minutes = 0
+            
+            if start_time and end_time:
+                start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                duration_minutes = (end_dt - start_dt).total_seconds() / 60
+            
+            # Count sets and calculate volume
+            set_count = 0
+            total_volume = 0.0
+            
+            for exercise in workout.get("exercises", []):
+                for set_data in exercise.get("sets", []):
+                    set_count += 1
+                    # Calculate volume (weight * reps)
+                    weight = set_data.get("weight_kg", 0) or 0
+                    reps = set_data.get("reps", 0) or 0
+                    total_volume += weight * reps
+            
+            # Get sport type using config system (Hevy is strength training)
+            sport_name = "Strength Training"
+            sport_type = self.config.get_sport_type_from_name(sport_name)
+            
+            # Extract workout title from raw data
+            workout_title = workout.get("title")
+            
+            # Create WorkoutRecord
+            calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
+            record = WorkoutRecord(
+                timestamp=workout_timestamp,
+                date=calculated_date,  # Calculate date in extractor
+                source=DataSource.HEVY,
+                sport_type=sport_type,
+                sport_name=sport_name,
+                title=workout_title,
+                duration_minutes=duration_minutes,
+                set_count=set_count,
+                volume_kg=total_volume
+            )
+            workout_records.append(record)
         
-        print(f"Extracted {len(workout_records)} raw workout records from Hevy")
+        self.logger.info(f"Extracted {len(workout_records)} raw workout records from Hevy")
         return workout_records
     
     def _extract_exercises(self, raw_data: Dict[str, Any]) -> List[ExerciseRecord]:
@@ -146,69 +142,63 @@ class HevyExtractor(BaseExtractor):
         Returns:
             List of raw ExerciseRecord objects
         """
-        if not raw_data or "workouts" not in raw_data:
-            print("No workout data found in Hevy response")
+        # Handle nested structure: raw_data["workouts"] might contain {"workouts": [...]}
+        workouts_data = raw_data.get("workouts", [])
+        
+        # If workouts_data is a dict with "workouts" key, extract the list
+        if isinstance(workouts_data, dict) and "workouts" in workouts_data:
+            workouts_list = workouts_data["workouts"]
+        elif isinstance(workouts_data, list):
+            workouts_list = workouts_data
+        else:
+            self.logger.info("No workout data found in Hevy response")
             return []
         
         exercise_records = []
         
         # Process each workout and extract exercises
-        for workout in raw_data["workouts"]:
-            try:
-                workout_date = workout.get("start_time")
-                if not workout_date:
-                    continue
-                
-                # Parse timestamp string to datetime object
-                try:
-                    workout_timestamp = datetime.fromisoformat(workout_date.replace('Z', '+00:00'))
-                except Exception as e:
-                    print(f"Error parsing workout timestamp: {e}")
-                    continue
-                
-                # Process each exercise in the workout
-                for exercise in workout.get("exercises", []):
-                    exercise_name = exercise.get("title", "Unknown Exercise")
-                    
-                    # Process each set in the exercise
-                    for set_index, set_data in enumerate(exercise.get("sets", []), 1):
-                        try:
-                            # Extract set data
-                            weight = set_data.get("weight_kg", 0) or 0
-                            reps = set_data.get("reps", 0) or 0
-                            set_type = set_data.get("type", "normal")
-                            
-                            # Create ExerciseRecord for each set
-                            calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
-                            record = ExerciseRecord(
-                                timestamp=workout_timestamp,
-                                date=calculated_date,  # Calculate date in extractor
-                                source=DataSource.HEVY,
-                                workout_id=workout.get("id", ""),
-                                exercise_name=exercise_name,
-                                set_number=set_index,
-                                set_type=set_type,
-                                weight_kg=weight if weight > 0 else None,
-                                reps=reps if reps > 0 else None
-                            )
-                            exercise_records.append(record)
-                            
-                        except Exception as e:
-                            print(f"Error creating ExerciseRecord from Hevy set data: {e}")
-                            continue
-                            
-            except Exception as e:
-                print(f"Error processing Hevy workout for exercises: {e}")
+        for workout in workouts_list:
+            workout_date = workout.get("start_time")
+            if not workout_date:
                 continue
+            
+            # Parse timestamp string to datetime object
+            workout_timestamp = datetime.fromisoformat(workout_date.replace('Z', '+00:00'))
+            
+            # Process each exercise in the workout
+            for exercise in workout.get("exercises", []):
+                exercise_name = exercise.get("title", "Unknown Exercise")
+                
+                # Process each set in the exercise
+                for set_index, set_data in enumerate(exercise.get("sets", []), 1):
+                    # Extract set data
+                    weight = set_data.get("weight_kg", 0) or 0
+                    reps = set_data.get("reps", 0) or 0
+                    set_type = set_data.get("type", "normal")
+                    
+                    # Create ExerciseRecord for each set
+                    calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
+                    record = ExerciseRecord(
+                        timestamp=workout_timestamp,
+                        date=calculated_date,  # Calculate date in extractor
+                        source=DataSource.HEVY,
+                        workout_id=workout.get("id", ""),
+                        exercise_name=exercise_name,
+                        set_number=set_index,
+                        set_type=set_type,
+                        weight_kg=weight if weight > 0 else None,
+                        reps=reps if reps > 0 else None
+                    )
+                    exercise_records.append(record)
         
-        print(f"Extracted {len(exercise_records)} raw exercise records from Hevy")
+        self.logger.info(f"Extracted {len(exercise_records)} raw exercise records from Hevy")
         return exercise_records
     
-    def _calculate_date_from_timestamp(self, timestamp: str) -> Optional[date]:
-        """Calculate date from timestamp string.
+    def _calculate_date_from_timestamp(self, timestamp: Union[str, datetime]) -> Optional[date]:
+        """Calculate date from timestamp string or datetime object.
         
         Args:
-            timestamp: ISO timestamp string
+            timestamp: ISO timestamp string or datetime object
             
         Returns:
             Date or None if parsing fails
@@ -216,11 +206,13 @@ class HevyExtractor(BaseExtractor):
         if not timestamp:
             return None
             
-        try:
-            # Parse ISO timestamp
+        # Handle datetime object directly
+        if isinstance(timestamp, datetime):
+            return timestamp.date()
+        
+        # Handle string timestamp
+        if isinstance(timestamp, str):
             parsed_datetime = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             return parsed_datetime.date()
-        except Exception as e:
-            self.logger.warning(f"Error calculating date from timestamp {timestamp}: {e}")
-        
+            
         return None

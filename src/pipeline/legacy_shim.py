@@ -129,7 +129,7 @@ class MemoryBasedLegacyShim:
             
             # Convert weight from kg to lb (legacy format expects pounds)
             if 'weight' in df.columns:
-                df['weight'] = df['weight'] * 2.20462  # kg to lb conversion
+                df['weight'] = (df['weight'] * 2.20462).round(1)  # kg to lb conversion, rounded to 1 decimal
         
         return df
     

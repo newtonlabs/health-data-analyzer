@@ -77,14 +77,10 @@ class BaseExtractor(ABC):
         if timestamp is None:
             return None
             
-        try:
-            result = DateUtils.parse_timestamp(timestamp, to_local)
-            if result is None:
-                self.logger.warning(f"Failed to parse timestamp: {timestamp}")
-            return result
-        except Exception as e:
-            self.logger.warning(f"Error parsing timestamp {timestamp}: {e}")
-            return None
+        result = DateUtils.parse_timestamp(timestamp, to_local)
+        if result is None:
+            self.logger.warning(f"Failed to parse timestamp: {timestamp}")
+        return result
     
     def parse_date(self, date_value: Union[str, date, None]) -> Optional[date]:
         """Parse date value to date object.
@@ -102,16 +98,12 @@ class BaseExtractor(ABC):
             return date_value
         
         if isinstance(date_value, str):
-            try:
-                # Try parsing as ISO date
+            # Try parsing as ISO date first
+            if 'T' in date_value or 'Z' in date_value:
                 return datetime.fromisoformat(date_value.replace('Z', '+00:00')).date()
-            except ValueError:
-                try:
-                    # Try parsing as date only
-                    return datetime.strptime(date_value, '%Y-%m-%d').date()
-                except ValueError:
-                    self.logger.warning(f"Failed to parse date: {date_value}")
-                    return None
+            else:
+                # Parse as date only
+                return datetime.strptime(date_value, '%Y-%m-%d').date()
         
         return None
     
@@ -160,11 +152,7 @@ class BaseExtractor(ABC):
         if value is None:
             return default
         
-        try:
-            return int(float(value))  # Handle string numbers
-        except (ValueError, TypeError):
-            self.logger.warning(f"Failed to convert to int: {value}")
-            return default
+        return int(float(value))  # Handle string numbers
     
     def safe_float(self, value: Any, default: float = 0.0) -> float:
         """Safely convert value to float.
@@ -179,11 +167,7 @@ class BaseExtractor(ABC):
         if value is None:
             return default
         
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            self.logger.warning(f"Failed to convert to float: {value}")
-            return default
+        return float(value)
     
     def log_extraction_stats(
         self, 

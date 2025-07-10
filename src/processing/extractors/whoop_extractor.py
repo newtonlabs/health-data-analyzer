@@ -88,13 +88,9 @@ class WhoopExtractor(BaseExtractor):
         raw_workouts = raw_data.get('records', [])  # Whoop API uses 'records' not 'data'
         
         for workout_data in raw_workouts:
-            try:
-                workout_record = self._extract_single_workout(workout_data)
-                if workout_record:
-                    workouts.append(workout_record)
-            except Exception as e:
-                self.logger.warning(f"Failed to extract workout: {e}")
-                continue
+            workout_record = self._extract_single_workout(workout_data)
+            if workout_record:
+                workouts.append(workout_record)
         
         self.log_extraction_stats('workouts', len(workouts), len(raw_workouts))
         return workouts
@@ -192,13 +188,9 @@ class WhoopExtractor(BaseExtractor):
         raw_recovery = raw_data.get('records', [])  # Whoop API uses 'records' not 'data'
         
         for recovery_data in raw_recovery:
-            try:
-                recovery_record = self._extract_single_recovery(recovery_data, cycles_data)
-                if recovery_record:
-                    recovery_records.append(recovery_record)
-            except Exception as e:
-                self.logger.warning(f"Failed to extract recovery: {e}")
-                continue
+            recovery_record = self._extract_single_recovery(recovery_data, cycles_data)
+            if recovery_record:
+                recovery_records.append(recovery_record)
         
         self.log_extraction_stats('recovery', len(recovery_records), len(raw_recovery))
         return recovery_records
@@ -222,17 +214,14 @@ class WhoopExtractor(BaseExtractor):
         # Convert cycle_id to string if it's an integer
         cycle_id_str = str(cycle_id)
         
-        try:
+        # Try parsing cycle_id as date first
+        if len(cycle_id_str) == 10 and '-' in cycle_id_str:
             record_date = datetime.strptime(cycle_id_str, '%Y-%m-%d').date()
-        except ValueError:
+        else:
             # If cycle_id is not in date format, try to extract date from created_at
             created_at = self.safe_get(recovery_data, 'created_at', '', str)
             if created_at:
-                try:
-                    record_date = self.parse_timestamp(created_at).date()
-                except:
-                    self.logger.warning(f"Could not parse date from cycle_id: {cycle_id} or created_at: {created_at}")
-                    return None
+                record_date = self.parse_timestamp(created_at).date()
             else:
                 self.logger.warning(f"Invalid cycle_id format and no created_at: {cycle_id}")
                 return None
@@ -293,13 +282,9 @@ class WhoopExtractor(BaseExtractor):
         raw_sleep = raw_data.get('records', [])  # Whoop API uses 'records' not 'data'
         
         for sleep_data in raw_sleep:
-            try:
-                sleep_record = self._extract_single_sleep(sleep_data)
-                if sleep_record:
-                    sleep_records.append(sleep_record)
-            except Exception as e:
-                self.logger.warning(f"Failed to extract sleep: {e}")
-                continue
+            sleep_record = self._extract_single_sleep(sleep_data)
+            if sleep_record:
+                sleep_records.append(sleep_record)
         
         self.log_extraction_stats('sleep', len(sleep_records), len(raw_sleep))
         return sleep_records
@@ -413,14 +398,11 @@ class WhoopExtractor(BaseExtractor):
         if not timestamp:
             return None
             
-        try:
-            from src.utils.date_utils import DateUtils
-            # Parse timestamp and apply Whoop 4 AM cutoff rule
-            parsed_datetime = DateUtils.parse_timestamp(timestamp, to_local=True)
-            if parsed_datetime:
-                normalized_datetime = DateUtils.normalize_recovery_date(parsed_datetime)
-                return normalized_datetime.date()
-        except Exception as e:
-            self.logger.warning(f"Error applying Whoop {data_type} date normalization: {e}")
+        from src.utils.date_utils import DateUtils
+        # Parse timestamp and apply Whoop 4 AM cutoff rule
+        parsed_datetime = DateUtils.parse_timestamp(timestamp, to_local=True)
+        if parsed_datetime:
+            normalized_datetime = DateUtils.normalize_recovery_date(parsed_datetime)
+            return normalized_datetime.date()
         
         return None

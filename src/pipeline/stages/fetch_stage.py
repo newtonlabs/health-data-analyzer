@@ -1,10 +1,9 @@
 """Fetch stage for retrieving raw data from health services."""
 
 from .base_stage import PipelineStage, PipelineContext, StageResult
-from src.api.services.whoop_service import WhoopService
-from src.api.services.oura_service import OuraService
-from src.api.services.withings_service import WithingsService
-from src.api.services.hevy_service import HevyService
+from local_healthkit import (
+    WhoopService, OuraService, WithingsService, HevyService
+)
 from src.api.services.nutrition_service import NutritionService
 from src.utils.pipeline_persistence import PipelinePersistence
 from datetime import datetime
@@ -143,29 +142,14 @@ class FetchStage(PipelineStage):
             # It's a date, convert to datetime
             start_dt = datetime.combine(start_date, datetime.min.time())
             end_dt = datetime.combine(end_date, datetime.max.time())
-        if service_name == 'whoop':
-            # Whoop service has multiple data types (expects datetime objects)
-            return {
-                'workouts': service_instance.get_workouts_data(start_dt, end_dt),
-                'recovery': service_instance.get_recovery_data(start_dt, end_dt),
-                'sleep': service_instance.get_sleep_data(start_dt, end_dt),
-                'cycles': service_instance.get_cycles_data(start_dt, end_dt)
-            }
-        elif service_name == 'oura':
-            # Oura service has multiple data types (now expects datetime objects for consistency)
-            return {
-                'activities': service_instance.get_activity_data(start_dt, end_dt),
-                'resilience': service_instance.get_resilience_data(start_dt, end_dt),
-                'workouts': service_instance.get_workouts_data(start_dt, end_dt)
-            }
-        elif service_name == 'withings':
-            # Withings service has weight data (expects datetime objects)
-            return service_instance.get_weight_data(start_dt, end_dt)
-        elif service_name == 'hevy':
-            # Hevy service has workout data (no date parameters)
-            return service_instance.get_workouts_data()
-        elif service_name == 'nutrition':
+        if service_name == 'nutrition':
             # Nutrition service has nutrition data (expects datetime objects)
             return service_instance.get_nutrition_data(start_dt, end_dt)
+        elif service_name in ['whoop', 'oura', 'withings', 'hevy']:
+            # Local HealthKit services use unified fetch_data() interface
+            # Convert datetime back to date for the service interface
+            start_date = start_dt.date() if hasattr(start_dt, 'date') else start_dt
+            end_date = end_dt.date() if hasattr(end_dt, 'date') else end_dt
+            return service_instance.fetch_data(start_date, end_date)
         else:
             raise ValueError(f"Unknown service: {service_name}")
