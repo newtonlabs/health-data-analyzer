@@ -1,100 +1,146 @@
-"""Main script to collect and combine health data from multiple sources."""
+"""Lightweight health data pipeline CLI."""
 
-# Suppress all warnings
-import warnings
-
-warnings.simplefilter("ignore")
-
-# Standard library imports
 import argparse
 import sys
 from pathlib import Path
-
-# Third-party imports
-from dotenv import load_dotenv
+from datetime import datetime
 
 # Add project root to Python path
 project_root = str(Path(__file__).parent.parent)
 sys.path.insert(0, project_root)
 
-from src.pipeline import Workflow
-from src.utils.logging_utils import configure_logging
-from src.utils.progress_indicators import Colors, ProgressIndicator
-
-# Load environment variables
-load_dotenv()
+from src.pipeline.orchestrator import HealthDataOrchestrator
+from src.reporting.pdf_converter import PDFConverter
+from src.utils.progress_indicators import ProgressIndicator, Colors
 
 
-def get_version() -> str:
-    """Get the application version from version.txt file.
-
-    Returns:
-        The version string from version.txt, or '0.0.0' if file not found
+def fetch_data(days: int = 8) -> None:
+    """Fetch health data and generate report.
+    
+    Args:
+        days: Number of days to fetch data for
     """
+    ProgressIndicator.section_header("Health Data Pipeline")
+    
     try:
-        version_file = Path(__file__).parent.parent / "version.txt"
-        with open(version_file) as f:
-            return f.read().strip()
-    except Exception:
-        return "0.0.0"
+        # Initialize orchestrator
+        ProgressIndicator.step_start("Initializing pipeline...")
+        orchestrator = HealthDataOrchestrator()
+        ProgressIndicator.step_complete("Pipeline initialized")
+        
+        # Run pipeline
+        ProgressIndicator.step_start(f"Fetching {days} days of health data...")
+        result = orchestrator.run_pipeline(
+            days=days,
+            services=['whoop', 'oura', 'withings', 'hevy', 'nutrition'],
+            enable_csv=True,
+            enable_report=True
+        )
+        ProgressIndicator.step_complete(f"Pipeline completed in {result.total_duration:.2f}s")
+        
+        # Show results
+        ProgressIndicator.bullet_item(f"Stages completed: {result.stages_completed}/{result.total_stages}")
+        ProgressIndicator.bullet_item(f"Services processed: {len(result.services_processed)}")
+        
+        # Find generated report
+        reports_dir = Path("data/05_reports")
+        if reports_dir.exists():
+            md_files = list(reports_dir.glob("health_report_*.md"))
+            if md_files:
+                latest_report = max(md_files, key=lambda f: f.stat().st_mtime)
+                ProgressIndicator.step_complete(f"Report generated: {latest_report.name}")
+            else:
+                ProgressIndicator.step_warning("No report files found")
+        
+    except Exception as e:
+        ProgressIndicator.step_error(f"Pipeline failed: {e}")
+        sys.exit(1)
 
 
-def display_welcome_banner() -> None:
-    """Display a welcome banner with application information."""
-    app_name = "Health Data Analyzer"
-    version = get_version()
-    banner = f"""
-{Colors.BLUE}{Colors.BOLD}{app_name} v{version}{Colors.RESET}
-{'=' * (len(app_name) + len(version) + 3)}
-"""
-    # Print directly instead of using bullet_item to avoid the bullet point
-    sys.stdout.write(banner + "\n")
-    sys.stdout.flush()
+def convert_to_pdf() -> None:
+    """Convert the latest markdown report to PDF."""
+    ProgressIndicator.section_header("PDF Generation")
+    
+    try:
+        # Find latest report
+        ProgressIndicator.step_start("Looking for latest report...")
+        reports_dir = Path("data/05_reports")
+        
+        if not reports_dir.exists():
+            ProgressIndicator.step_error("Reports directory not found. Run 'fetch' first.")
+            sys.exit(1)
+        
+        md_files = list(reports_dir.glob("health_report_*.md"))
+        if not md_files:
+            ProgressIndicator.step_error("No markdown reports found. Run 'fetch' first.")
+            sys.exit(1)
+        
+        latest_report = max(md_files, key=lambda f: f.stat().st_mtime)
+        ProgressIndicator.step_complete(f"Found report: {latest_report.name}")
+        
+        # Convert to PDF
+        ProgressIndicator.step_start("Converting to PDF...")
+        pdf_converter = PDFConverter()
+        pdf_path = pdf_converter.markdown_to_pdf(
+            str(latest_report), 
+            str(latest_report).replace('.md', '.pdf')
+        )
+        
+        # Get file size
+        pdf_file = Path(pdf_path)
+        file_size = pdf_file.stat().st_size
+        size_kb = file_size / 1024
+        
+        ProgressIndicator.step_complete(f"PDF generated: {pdf_file.name} ({size_kb:,.0f} KB)")
+        
+    except Exception as e:
+        ProgressIndicator.step_error(f"PDF generation failed: {e}")
+        sys.exit(1)
 
 
 def main() -> None:
-    """Main entry point."""
-    # Display welcome banner
-    display_welcome_banner()
-
-    parser = argparse.ArgumentParser(description="Health Data Pipeline")
-    parser.add_argument(
-        "--fetch", action="store_true", help="Fetch new data and generate report"
+    """Main entry point for the health data pipeline CLI."""
+    parser = argparse.ArgumentParser(
+        description="Lightweight Health Data Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  python src/main.py --fetch          # Fetch 8 days of data and generate report
+  python src/main.py --fetch --days 3 # Fetch 3 days of data
+  python src/main.py --pdf            # Convert latest report to PDF
+  python src/main.py --fetch --pdf    # Fetch data and convert to PDF"""
     )
-    parser.add_argument("--pdf", action="store_true", help="Convert report to PDF")
-    parser.add_argument("--upload", action="store_true", help="Upload PDF to OneDrive")
-    # Debug mode removed in favor of LOG_LEVEL environment variable
-
+    
+    # Add flag arguments
+    parser.add_argument(
+        '--fetch', 
+        action='store_true', 
+        help='Fetch health data and generate report'
+    )
+    parser.add_argument(
+        '--pdf', 
+        action='store_true', 
+        help='Convert latest markdown report to PDF'
+    )
+    parser.add_argument(
+        '--days', 
+        type=int, 
+        default=8, 
+        help='Number of days to fetch (default: 8, only used with --fetch)'
+    )
+    
     args = parser.parse_args()
-
-    # Default to help if no arguments
-    if len(sys.argv) == 1:
+    
+    # Show help if no flags provided
+    if not args.fetch and not args.pdf:
         parser.print_help()
         return
-
-    # Configure logging based on LOG_LEVEL environment variable
-    configure_logging()
-
-    # Skip authentication if only PDF conversion is requested
-    skip_auth = args.pdf and not (args.fetch or args.upload)
-
-    # Run pipeline with progress indicators
-    try:
-        workflow = Workflow(skip_auth=skip_auth)
-        workflow.run(args)
-        # Show success message at the end
-        if args.fetch or args.pdf or args.upload:
-            ProgressIndicator.print_message(
-                f"\n{Colors.GREEN}Process completed successfully!{Colors.RESET}"
-            )
-    except KeyboardInterrupt:
-        ProgressIndicator.bullet_item(
-            f"{Colors.YELLOW}Process interrupted by user.{Colors.RESET}"
-        )
-    except Exception as e:
-        ProgressIndicator.bullet_item(f"{Colors.RED}Error: {str(e)}{Colors.RESET}")
-        # Always raise exception for debugging
-        raise
+    
+    # Execute commands
+    if args.fetch:
+        fetch_data(args.days)
+    
+    if args.pdf:
+        convert_to_pdf()
 
 
 if __name__ == "__main__":
