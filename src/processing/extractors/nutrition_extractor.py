@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 from .base_extractor import BaseExtractor
 from src.models.raw_data import NutritionRecord
 from src.models.enums import DataSource
+from src.utils.date_utils import DateUtils
 
 
 class NutritionExtractor(BaseExtractor):
@@ -44,7 +45,10 @@ class NutritionExtractor(BaseExtractor):
             if not record_date_str:
                 continue
             
-            record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
+            record_date = DateUtils.parse_date_string(record_date_str)
+            if not record_date:
+                self.logger.warning(f"Failed to parse date: {record_date_str}")
+                continue
             
             # Create NutritionRecord (pure extraction - no cleaning)
             nutrition_record = NutritionRecord(

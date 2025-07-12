@@ -18,6 +18,7 @@ from src.models import (
     RecoveryLevel
 )
 from src.config import default_config
+from src.utils.date_utils import DateUtils
 
 
 class WhoopExtractor(BaseExtractor):
@@ -92,7 +93,7 @@ class WhoopExtractor(BaseExtractor):
             if workout_record:
                 workouts.append(workout_record)
         
-        self.log_extraction_stats('workouts', len(workouts), len(raw_workouts))
+
         return workouts
     
     def _extract_single_workout(self, workout_data: Dict[str, Any]) -> WorkoutRecord:
@@ -105,17 +106,17 @@ class WhoopExtractor(BaseExtractor):
             WorkoutRecord instance or None if extraction fails
         """
         # Get sport information using configuration
-        sport_id = self.safe_get(workout_data, 'sport_id', 0, int)
+        sport_id = workout_data.get('sport_id', 0)
         sport_info = self.config.get_whoop_sport_info(sport_id)
         
         # Parse timestamp
-        start_time = self.parse_timestamp(workout_data.get('start'))
+        start_time = DateUtils.parse_timestamp(workout_data.get('start'))
         if not start_time:
             self.logger.warning(f"Invalid start time in workout: {workout_data.get('start')}")
             return None
         
         # Calculate duration from start and end times
-        end_time = self.parse_timestamp(workout_data.get('end'))
+        end_time = DateUtils.parse_timestamp(workout_data.get('end'))
         if not end_time:
             self.logger.warning(f"Invalid end time in workout: {workout_data.get('end')}")
             return None
@@ -124,25 +125,25 @@ class WhoopExtractor(BaseExtractor):
         duration_minutes = int(duration_seconds // 60) if duration_seconds > 0 else 0
         
         # Extract score data
-        score_data = self.safe_get(workout_data, 'score', {}, dict)
-        strain_score = self.safe_get(score_data, 'strain', None, (int, float))
-        kilojoules = self.safe_get(score_data, 'kilojoule', None, (int, float))
+        score_data = workout_data.get('score', {})
+        strain_score = score_data.get('strain')
+        kilojoules = score_data.get('kilojoule')
         
         # Convert kilojoules to calories (1 kJ = 0.239 calories)
         calories = int(kilojoules * 0.239) if kilojoules else None
         
         # Extract heart rate data
-        average_heart_rate = self.safe_get(score_data, 'average_heart_rate', None, (int, float))
-        max_heart_rate = self.safe_get(score_data, 'max_heart_rate', None, (int, float))
+        average_heart_rate = score_data.get('average_heart_rate')
+        max_heart_rate = score_data.get('max_heart_rate')
         
         # Extract heart rate zone durations (convert from seconds to minutes)
-        zone_duration = self.safe_get(score_data, 'zone_duration', {}, dict)
-        zone_0_minutes = self.safe_get(zone_duration, 'zone_zero_milli', 0, int) / 60000.0 if zone_duration else None
-        zone_1_minutes = self.safe_get(zone_duration, 'zone_one_milli', 0, int) / 60000.0 if zone_duration else None
-        zone_2_minutes = self.safe_get(zone_duration, 'zone_two_milli', 0, int) / 60000.0 if zone_duration else None
-        zone_3_minutes = self.safe_get(zone_duration, 'zone_three_milli', 0, int) / 60000.0 if zone_duration else None
-        zone_4_minutes = self.safe_get(zone_duration, 'zone_four_milli', 0, int) / 60000.0 if zone_duration else None
-        zone_5_minutes = self.safe_get(zone_duration, 'zone_five_milli', 0, int) / 60000.0 if zone_duration else None
+        zone_duration = score_data.get('zone_duration', {})
+        zone_0_minutes = zone_duration.get('zone_zero_milli', 0) / 60000.0 if zone_duration else None
+        zone_1_minutes = zone_duration.get('zone_one_milli', 0) / 60000.0 if zone_duration else None
+        zone_2_minutes = zone_duration.get('zone_two_milli', 0) / 60000.0 if zone_duration else None
+        zone_3_minutes = zone_duration.get('zone_three_milli', 0) / 60000.0 if zone_duration else None
+        zone_4_minutes = zone_duration.get('zone_four_milli', 0) / 60000.0 if zone_duration else None
+        zone_5_minutes = zone_duration.get('zone_five_milli', 0) / 60000.0 if zone_duration else None
         
         # Get sport name and determine type using config system
         sport_name = sport_info.get('name')
@@ -192,7 +193,7 @@ class WhoopExtractor(BaseExtractor):
             if recovery_record:
                 recovery_records.append(recovery_record)
         
-        self.log_extraction_stats('recovery', len(recovery_records), len(raw_recovery))
+
         return recovery_records
     
     def _extract_single_recovery(self, recovery_data: Dict[str, Any], cycles_data: Dict[str, Any] = None) -> RecoveryRecord:
@@ -206,7 +207,7 @@ class WhoopExtractor(BaseExtractor):
             RecoveryRecord instance or None if extraction fails
         """
         # Parse date from cycle_id (format: YYYY-MM-DD or integer)
-        cycle_id = self.safe_get(recovery_data, 'cycle_id', '', (str, int))
+        cycle_id = recovery_data.get('cycle_id', '')
         if not cycle_id:
             self.logger.warning("Missing cycle_id in recovery data")
             return None
@@ -219,18 +220,18 @@ class WhoopExtractor(BaseExtractor):
             record_date = datetime.strptime(cycle_id_str, '%Y-%m-%d').date()
         else:
             # If cycle_id is not in date format, try to extract date from created_at
-            created_at = self.safe_get(recovery_data, 'created_at', '', str)
+            created_at = recovery_data.get('created_at', '')
             if created_at:
-                record_date = self.parse_timestamp(created_at).date()
+                record_date = DateUtils.parse_timestamp(created_at).date()
             else:
                 self.logger.warning(f"Invalid cycle_id format and no created_at: {cycle_id}")
                 return None
         
         # Extract score data
-        score_data = self.safe_get(recovery_data, 'score', {}, dict)
-        recovery_score = self.safe_get(score_data, 'recovery_score', None, (int, float))
-        hrv_rmssd = self.safe_get(score_data, 'hrv_rmssd_milli', None, (int, float))
-        resting_hr = self.safe_get(score_data, 'resting_heart_rate', None, (int, float))
+        score_data = recovery_data.get('score', {})
+        recovery_score = score_data.get('recovery_score')
+        hrv_rmssd = score_data.get('hrv_rmssd_milli')
+        resting_hr = score_data.get('resting_heart_rate')
         
         # Convert to integers if they exist
         if recovery_score is not None:
@@ -248,7 +249,7 @@ class WhoopExtractor(BaseExtractor):
             cycle_records = cycles_data.get('records', []) if isinstance(cycles_data, dict) else []
             for cycle_record in cycle_records:
                 if str(cycle_record.get('id', '')) == str(cycle_id):
-                    cycle_timestamp = self.safe_get(cycle_record, 'start', None, str)
+                    cycle_timestamp = cycle_record.get('start')
                     break
         
         # Use cycle start timestamp only (no fallback)
@@ -286,7 +287,7 @@ class WhoopExtractor(BaseExtractor):
             if sleep_record:
                 sleep_records.append(sleep_record)
         
-        self.log_extraction_stats('sleep', len(sleep_records), len(raw_sleep))
+
         return sleep_records
     
     def _extract_single_sleep(self, sleep_data: Dict[str, Any]) -> SleepRecord:
@@ -299,25 +300,25 @@ class WhoopExtractor(BaseExtractor):
             SleepRecord instance or None if extraction fails
         """
         # Parse date from start time
-        start_time = self.parse_timestamp(sleep_data.get('start'))
+        start_time = DateUtils.parse_timestamp(sleep_data.get('start'))
         if not start_time:
             self.logger.warning("Invalid start time in sleep data")
             return None
         
         # Extract score data
-        score_data = self.safe_get(sleep_data, 'score', {}, dict)
-        sleep_score = self.safe_get(score_data, 'sleep_performance_percentage', None, (int, float))
+        score_data = sleep_data.get('score', {})
+        sleep_score = score_data.get('sleep_performance_percentage')
         
         # Extract sleep stages from nested stage_summary (convert from milliseconds to minutes)
-        stage_summary = self.safe_get(score_data, 'stage_summary', {}, dict)
+        stage_summary = score_data.get('stage_summary', {})
         
-        light_sleep_ms = self.safe_get(stage_summary, 'total_light_sleep_time_milli', None, int)
+        light_sleep_ms = stage_summary.get('total_light_sleep_time_milli')
         light_sleep_minutes = light_sleep_ms // 60000 if light_sleep_ms else None
         
-        deep_sleep_ms = self.safe_get(stage_summary, 'total_slow_wave_sleep_time_milli', None, int)
+        deep_sleep_ms = stage_summary.get('total_slow_wave_sleep_time_milli')
         deep_sleep_minutes = deep_sleep_ms // 60000 if deep_sleep_ms else None
         
-        rem_sleep_ms = self.safe_get(stage_summary, 'total_rem_sleep_time_milli', None, int)
+        rem_sleep_ms = stage_summary.get('total_rem_sleep_time_milli')
         rem_sleep_minutes = rem_sleep_ms // 60000 if rem_sleep_ms else None
         
         # Calculate total sleep time from sleep stages
@@ -326,21 +327,21 @@ class WhoopExtractor(BaseExtractor):
             total_sleep_minutes = light_sleep_minutes + deep_sleep_minutes + rem_sleep_minutes
         
         # Extract time in bed from stage_summary (convert from milliseconds to minutes)
-        time_in_bed_ms = self.safe_get(stage_summary, 'total_in_bed_time_milli', None, int)
+        time_in_bed_ms = stage_summary.get('total_in_bed_time_milli')
         time_in_bed_minutes = time_in_bed_ms // 60000 if time_in_bed_ms else None
         
         # Extract awake time from stage_summary (convert from milliseconds to minutes)
-        awake_time_ms = self.safe_get(stage_summary, 'total_awake_time_milli', None, int)
+        awake_time_ms = stage_summary.get('total_awake_time_milli')
         awake_minutes = awake_time_ms // 60000 if awake_time_ms else None
         
         # Calculate sleep need from nested sleep_needed components (convert from milliseconds to minutes)
-        sleep_needed = self.safe_get(score_data, 'sleep_needed', {}, dict)
+        sleep_needed = score_data.get('sleep_needed', {})
         sleep_need_minutes = None
         
-        baseline_ms = self.safe_get(sleep_needed, 'baseline_milli', None, int)
-        need_from_debt_ms = self.safe_get(sleep_needed, 'need_from_sleep_debt_milli', None, int)
-        need_from_strain_ms = self.safe_get(sleep_needed, 'need_from_recent_strain_milli', None, int)
-        need_from_nap_ms = self.safe_get(sleep_needed, 'need_from_recent_nap_milli', None, int)
+        baseline_ms = sleep_needed.get('baseline_milli')
+        need_from_debt_ms = sleep_needed.get('need_from_sleep_debt_milli')
+        need_from_strain_ms = sleep_needed.get('need_from_recent_strain_milli')
+        need_from_nap_ms = sleep_needed.get('need_from_recent_nap_milli')
         
         if baseline_ms is not None:
             sleep_need_minutes = baseline_ms // 60000
@@ -352,14 +353,14 @@ class WhoopExtractor(BaseExtractor):
                 sleep_need_minutes += need_from_nap_ms // 60000
         
         # Parse bedtime and wake time
-        bedtime = self.parse_timestamp(sleep_data.get('start'))
-        wake_time = self.parse_timestamp(sleep_data.get('end'))
+        bedtime = DateUtils.parse_timestamp(sleep_data.get('start'))
+        wake_time = DateUtils.parse_timestamp(sleep_data.get('end'))
         
         # Get nap field directly from Whoop API data
-        is_nap = self.safe_get(sleep_data, 'nap', None, bool)
+        is_nap = sleep_data.get('nap')
         
         # Calculate date using Whoop-specific 4 AM cutoff rule
-        sleep_timestamp = self.safe_get(sleep_data, 'start', None, str)
+        sleep_timestamp = sleep_data.get('start')
         final_date = self._normalize_whoop_date(sleep_timestamp, "sleep")
         
         # Create sleep record
@@ -426,7 +427,7 @@ class WhoopExtractor(BaseExtractor):
                 continue
                 
             # Extract basic cycle information
-            cycle_id = self.safe_get(cycle, 'id', '', (str, int))
+            cycle_id = cycle.get('id', '')
             if not cycle_id:
                 continue
             
@@ -434,9 +435,9 @@ class WhoopExtractor(BaseExtractor):
             cycle_id = str(cycle_id)
             
             # Parse date from cycle data
-            start_time = self.safe_get(cycle, 'start', '', str)
+            start_time = cycle.get('start', '')
             if start_time:
-                record_date = self.parse_timestamp(start_time).date()
+                record_date = DateUtils.parse_timestamp(start_time).date()
             else:
                 # Fallback to cycle_id if it's in date format
                 try:
@@ -447,10 +448,10 @@ class WhoopExtractor(BaseExtractor):
             
             # Extract activity metrics from cycle data
             # Whoop cycles contain strain and activity data
-            score_data = self.safe_get(cycle, 'score', {}, dict)
+            score_data = cycle.get('score', {})
             
             # Convert kilojoules to calories (1 kJ = 0.239006 calories)
-            kilojoules = self.safe_get(score_data, 'kilojoule', 0, (int, float))
+            kilojoules = score_data.get('kilojoule', 0)
             total_calories = int(kilojoules * 0.239006) if kilojoules else None
             
             # Create activity record

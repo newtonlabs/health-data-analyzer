@@ -7,6 +7,7 @@ from .base_extractor import BaseExtractor
 from src.models.raw_data import WorkoutRecord, ExerciseRecord
 from src.models.enums import DataSource, SportType
 from src.config import default_config
+from src.utils.date_utils import DateUtils
 
 
 class HevyExtractor(BaseExtractor):
@@ -81,7 +82,7 @@ class HevyExtractor(BaseExtractor):
                 continue
             
             # Parse timestamp string to datetime object
-            workout_timestamp = datetime.fromisoformat(workout_date.replace('Z', '+00:00'))
+            workout_timestamp = DateUtils.parse_iso_timestamp(workout_date)
             
             # Calculate duration in minutes
             start_time = workout.get("start_time")
@@ -89,8 +90,8 @@ class HevyExtractor(BaseExtractor):
             duration_minutes = 0
             
             if start_time and end_time:
-                start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-                end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                start_dt = DateUtils.parse_iso_timestamp(start_time)
+                end_dt = DateUtils.parse_iso_timestamp(end_time)
                 duration_minutes = (end_dt - start_dt).total_seconds() / 60
             
             # Count sets and calculate volume
@@ -163,7 +164,7 @@ class HevyExtractor(BaseExtractor):
                 continue
             
             # Parse timestamp string to datetime object
-            workout_timestamp = datetime.fromisoformat(workout_date.replace('Z', '+00:00'))
+            workout_timestamp = DateUtils.parse_iso_timestamp(workout_date)
             
             # Process each exercise in the workout
             for exercise in workout.get("exercises", []):
@@ -212,7 +213,7 @@ class HevyExtractor(BaseExtractor):
         
         # Handle string timestamp
         if isinstance(timestamp, str):
-            parsed_datetime = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            parsed_datetime = DateUtils.parse_iso_timestamp(timestamp)
             return parsed_datetime.date()
             
         return None

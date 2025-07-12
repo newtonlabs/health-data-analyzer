@@ -3,6 +3,7 @@
 
 # Activate virtual environment
 source .venv/bin/activate
+export $(grep -v '^#' .env | xargs)   
 
 # Set library paths for WeasyPrint
 export DYLD_LIBRARY_PATH="/opt/homebrew/lib:/opt/homebrew/opt/glib/lib:/opt/homebrew/opt/pango/lib:$DYLD_LIBRARY_PATH"

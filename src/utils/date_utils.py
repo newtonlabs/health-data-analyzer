@@ -1,6 +1,6 @@
 """Utility functions for date operations."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 from enum import Enum, auto
 import logging
 from typing import Optional, Union
@@ -292,4 +292,20 @@ class DateUtils:
             return None
         except Exception:
             # Silent failure, return None
+            return None
+    
+    @staticmethod
+    def parse_date_string(date_str: str, date_format: str = "%Y-%m-%d") -> Optional[date]:
+        """Parse date string to date object.
+        
+        Args:
+            date_str: Date string to parse
+            date_format: Format string (default: "%Y-%m-%d" for "2025-07-11")
+            
+        Returns:
+            Date object or None if parsing fails
+        """
+        try:
+            return datetime.strptime(date_str, date_format).date()
+        except Exception:
             return None

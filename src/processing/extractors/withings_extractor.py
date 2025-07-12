@@ -8,6 +8,7 @@ import pandas as pd
 from .base_extractor import BaseExtractor
 from src.models.raw_data import WeightRecord
 from src.models.enums import DataSource
+from src.utils.date_utils import DateUtils
 
 
 class WithingsExtractor(BaseExtractor):
@@ -53,7 +54,7 @@ class WithingsExtractor(BaseExtractor):
         if "measuregrps" in weight_data:
             for group in weight_data["measuregrps"]:
                 # Parse timestamp from API response
-                timestamp = datetime.fromtimestamp(group.get("date", 0))
+                timestamp = DateUtils.parse_timestamp(group.get("date", 0))
                 
                 # Filter by date range
                 if not (start_date.date() <= timestamp.date() <= end_date.date()):

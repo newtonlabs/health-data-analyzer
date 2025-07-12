@@ -13,7 +13,6 @@ from src.pipeline.orchestrator import HealthDataOrchestrator
 from src.reporting.pdf_converter import PDFConverter
 from src.utils.progress_indicators import ProgressIndicator, Colors
 
-
 def fetch_data(days: int = 8) -> None:
     """Fetch health data and generate report.
     
