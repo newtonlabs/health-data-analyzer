@@ -20,6 +20,7 @@ from .hevy import HevyClient
 from .whoop import WhoopClient
 from .withings import WithingsClient
 from .onedrive import OneDriveClient
+from .nutrition import NutritionClient
 
 __all__ = [
     "OuraClient",
@@ -27,4 +28,5 @@ __all__ = [
     "WhoopClient",
     "WithingsClient",
     "OneDriveClient",
+    "NutritionClient",
 ]

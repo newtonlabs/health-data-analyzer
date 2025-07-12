@@ -2,9 +2,8 @@
 
 from .base_stage import PipelineStage, PipelineContext, StageResult
 from local_healthkit import (
-    WhoopService, OuraService, WithingsService, HevyService
+    WhoopService, OuraService, WithingsService, HevyService, NutritionService
 )
-from src.api.services.nutrition_service import NutritionService
 from src.utils.pipeline_persistence import PipelinePersistence
 from datetime import datetime
 

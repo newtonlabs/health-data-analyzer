@@ -21,6 +21,7 @@ from .hevy import HevyService
 from .whoop import WhoopService
 from .withings import WithingsService
 from .onedrive import OneDriveService
+from .nutrition import NutritionService
 
 __all__ = [
     "BaseAPIService",
@@ -28,5 +29,6 @@ __all__ = [
     "HevyService",
     "WhoopService",
     "WithingsService",
+    "NutritionService",
     "OneDriveService",
 ]

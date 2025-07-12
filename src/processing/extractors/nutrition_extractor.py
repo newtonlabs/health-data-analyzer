@@ -32,14 +32,14 @@ class NutritionExtractor(BaseExtractor):
         Returns:
             Dictionary containing nutrition records
         """
-        if not raw_data or "data" not in raw_data:
+        if not raw_data or "nutrition" not in raw_data:
             self.logger.warning("No nutrition data found in response")
             return {}
         
         nutrition_records = []
         
         # Direct conversion from raw data to NutritionRecord objects
-        for record in raw_data["data"]:
+        for record in raw_data["nutrition"]:
             # Parse date
             record_date_str = record.get("date")
             if not record_date_str:

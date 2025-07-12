@@ -21,6 +21,7 @@ from .clients import (
     WhoopClient,
     WithingsClient,
     OneDriveClient,
+    NutritionClient,
 )
 
 from .services import (
@@ -29,6 +30,7 @@ from .services import (
     WhoopService,
     WithingsService,
     OneDriveService,
+    NutritionService,
 )
 
 from .exceptions import (
@@ -49,12 +51,14 @@ __all__ = [
     "WhoopClient",
     "WithingsClient",
     "OneDriveClient",
+    "NutritionClient",
     # Services
     "OuraService",
     "HevyService",
     "WhoopService",
     "WithingsService",
     "OneDriveService",
+    "NutritionService",
     # Exceptions
     "LocalHealthKitError",
     "APIClientError",
