@@ -106,32 +106,6 @@ class WithingsExtractor(BaseExtractor):
         self.logger.info(f"Extracted {len(weight_records)} raw weight records from Withings")
         return weight_records
     
-    def extract_all_data(
-        self, 
-        raw_data: Dict[str, Any], 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> Dict[str, Any]:
-        """Extract all available data from Withings API response.
-        
-        Args:
-            raw_data: Raw response from Withings API
-            start_date: Start date for filtering data
-            end_date: End date for filtering data
-            
-        Returns:
-            Dictionary containing all extracted data
-        """
-        extracted_data = {}
-        
-        # Extract weight data
-        weight_records = self.extract_weight_data(raw_data, start_date, end_date)
-        if weight_records:
-            extracted_data["weight"] = weight_records
-        
-        self.logger.info(f"Extracted Withings data with {len(extracted_data)} data types")
-        return extracted_data
-
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Withings API response.
         

@@ -128,8 +128,8 @@ class AppConfig:
 
     # Caloric targets by activity type
     REPORTING_CALORIC_TARGETS = {
-        "strength": 2400,  # Target calories for strength training days
-        "rest": 1800,  # Target calories for rest days
+        "strength": 1800,  # Target calories for strength training days
+        "rest": 1545,  # Target calories for rest days
     }
 
     # Calorie conversion factors for macronutrients
@@ -145,44 +145,79 @@ class AppConfig:
     # Hevy API configuration
     HEVY_DEFAULT_PAGE_SIZE = 10
 
-    # Whoop API configuration - Sport IDs observed in user data
-    WHOOP_SPORT_NAMES = {
-        18: "Rowing",
-        63: "Walking",
-        65: "Elliptical",
-        66: "Stairmaster",
-        45: "Weightlifting",
-        123: "Strength",
+    # Whoop Sport ID Mappings
+    WHOOP_SPORT_MAPPINGS = {
+        0: {"name": "Running"}, 
+        18: {"name": "Rowing"},
+        63: {"name": "Walking"},
+        65: {"name": "Elliptical"},
+        66: {"name": "Stairmaster"},
+        45: {"name": "Weightlifting"},
+        123: {"name": "Strength"},
     }
 
-    # Withings API configuration - Measurement types
-    WITHINGS_MEASUREMENT_TYPE_WEIGHT = 1
-    WITHINGS_MEASUREMENT_TYPE_HEIGHT = 4
-    WITHINGS_MEASUREMENT_TYPE_FAT_FREE_MASS = 5
-    WITHINGS_MEASUREMENT_TYPE_FAT_RATIO = 6
-    WITHINGS_MEASUREMENT_TYPE_FAT_MASS_WEIGHT = 8
-    WITHINGS_MEASUREMENT_TYPE_DIASTOLIC_BLOOD_PRESSURE = 9
-    WITHINGS_MEASUREMENT_TYPE_SYSTOLIC_BLOOD_PRESSURE = 10
-    WITHINGS_MEASUREMENT_TYPE_HEART_RATE = 11
-    WITHINGS_MEASUREMENT_TYPE_TEMPERATURE = 12
-    WITHINGS_MEASUREMENT_TYPE_SP02 = 54
-    WITHINGS_MEASUREMENT_TYPE_BODY_TEMPERATURE = 71
-    WITHINGS_MEASUREMENT_TYPE_SKIN_TEMPERATURE = 73
-    WITHINGS_MEASUREMENT_TYPE_MUSCLE_MASS = 76
-    WITHINGS_MEASUREMENT_TYPE_WATER_PERCENTAGE = 77
-    WITHINGS_MEASUREMENT_TYPE_BONE_MASS = 88
-    WITHINGS_MEASUREMENT_TYPE_PULSE_WAVE_VELOCITY = 91
+    # Sport Type Classification Arrays
+    STRENGTH_SPORTS = [
+        "weightlifting", "strength training", "weight training", 
+        "resistance training", "lifting", "strength", "weights",
+        "powerlifting", "bodybuilding", "crossfit", "functional training"
+    ]
+
+    CARDIO_SPORTS = [
+        "running", "jogging", "cycling", "biking", "swimming", 
+        "rowing", "elliptical", "stairmaster", "treadmill",
+        "spinning", "cardio", "aerobic", "hiit", "interval training"
+    ]
+
+    WALKING_SPORTS = [
+        "walking", "walk", "hiking", "trekking", "stroll", "housework"
+    ]
 
     # ===== Helper Methods =====
 
     @staticmethod
-    def get_whoop_sport_name(sport_id: int) -> str:
-        """Get sport name from sport ID.
-
+    def get_whoop_sport_info(sport_id: int) -> dict[str, str]:
+        """Get sport information from Whoop sport ID.
+        
         Args:
-            sport_id: The Whoop sport ID
-
+            sport_id: Whoop API sport ID
+            
         Returns:
-            The sport name or a default string if not found
+            Dictionary with 'name' key
         """
-        return AppConfig.WHOOP_SPORT_NAMES.get(sport_id, f"Unknown Sport ({sport_id})")
+        return AppConfig.WHOOP_SPORT_MAPPINGS.get(sport_id, {
+            "name": f"Unknown Sport {sport_id}"
+        })
+
+    @staticmethod
+    def get_sport_type_from_name(sport_name: str) -> 'SportType':
+        """Map sport name to SportType enum with configurable fallback logic.
+        
+        Args:
+            sport_name: Human-readable sport name (e.g., "Walking", "Weightlifting")
+            
+        Returns:
+            SportType enum value
+        """
+        from src.models.enums import SportType
+        
+        if not sport_name:
+            return SportType.UNKNOWN  # Default fallback
+        
+        # Convert to lowercase for case-insensitive matching
+        name_lower = sport_name.lower()
+        
+        # Check strength sports
+        if any(pattern in name_lower for pattern in AppConfig.STRENGTH_SPORTS):
+            return SportType.STRENGTH_TRAINING
+        
+        # Check walking sports
+        if any(pattern in name_lower for pattern in AppConfig.WALKING_SPORTS):
+            return SportType.WALKING
+        
+        # Check cardio sports
+        if any(pattern in name_lower for pattern in AppConfig.CARDIO_SPORTS):
+            return SportType.CARDIO
+        
+        # Final fallback for unrecognized activities
+        return SportType.UNKNOWN

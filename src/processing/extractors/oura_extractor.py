@@ -7,9 +7,9 @@ import pandas as pd
 
 from .base_extractor import BaseExtractor
 from src.models.raw_data import ActivityRecord, ResilienceRecord, WorkoutRecord
+from src.app_config import AppConfig
 from src.models.enums import DataSource, SportType
 from src.utils.date_utils import DateUtils
-from src.config import default_config
 
 
 class OuraExtractor(BaseExtractor):
@@ -18,7 +18,6 @@ class OuraExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the Oura extractor."""
         super().__init__(DataSource.OURA)
-        self.config = default_config
     
     def extract_activity_data(self, raw_data: Dict[str, Any]) -> List[ActivityRecord]:
         """Extract activity records from Oura API response.
@@ -149,7 +148,7 @@ class OuraExtractor(BaseExtractor):
             
             # Get sport name and determine type using config system
             sport_name = workout_item.get('activity', 'unknown')
-            sport_type = self.config.get_sport_type_from_name(sport_name)
+            sport_type = AppConfig.get_sport_type_from_name(sport_name)
             
             # Create WorkoutRecord with raw data (no transformation or filtering)
             calculated_date = self._calculate_date_from_timestamp(start_datetime_str)
@@ -170,42 +169,7 @@ class OuraExtractor(BaseExtractor):
     
 
     
-    def extract_all_data(
-        self, 
-        raw_data: Dict[str, Any], 
-        start_date: datetime, 
-        end_date: datetime
-    ) -> Dict[str, Any]:
-        """Extract all available data from Oura API response.
-        
-        Args:
-            raw_data: Raw response from Oura API
-            start_date: Start date for filtering data
-            end_date: End date for filtering data
-            
-        Returns:
-            Dictionary containing all extracted data
-        """
-        extracted_data = {}
-        
-        # Extract activity data
-        activity_records = self.extract_activity_data(raw_data, start_date, end_date)
-        if activity_records:
-            extracted_data["activity"] = activity_records
-        
-        # Extract resilience data
-        resilience_records = self.extract_resilience_data(raw_data, start_date, end_date)
-        if resilience_records:
-            extracted_data["resilience"] = resilience_records
-        
-        # Extract workout data
-        workout_records = self.extract_workout_data(raw_data, start_date, end_date)
-        if workout_records:
-            extracted_data["workouts"] = workout_records
-        
-        self.logger.info(f"Extracted Oura data with {len(extracted_data)} data types")
-        return extracted_data
-    
+
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Oura API response.
         

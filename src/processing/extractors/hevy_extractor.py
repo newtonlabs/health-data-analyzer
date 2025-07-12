@@ -1,12 +1,12 @@
 """Hevy data extractor for processing workout data from Hevy API."""
 
 from datetime import datetime, timedelta, date
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from .base_extractor import BaseExtractor
 from src.models.raw_data import WorkoutRecord, ExerciseRecord
 from src.models.enums import DataSource, SportType
-from src.config import default_config
+from src.app_config import AppConfig
 from src.utils.date_utils import DateUtils
 
 
@@ -16,7 +16,6 @@ class HevyExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the Hevy extractor."""
         super().__init__(DataSource.HEVY)
-        self.config = default_config
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Hevy API response.
@@ -108,13 +107,14 @@ class HevyExtractor(BaseExtractor):
             
             # Get sport type using config system (Hevy is strength training)
             sport_name = "Strength Training"
-            sport_type = self.config.get_sport_type_from_name(sport_name)
+            sport_type = AppConfig.get_sport_type_from_name(sport_name)
             
             # Extract workout title from raw data
             workout_title = workout.get("title")
             
             # Create WorkoutRecord
-            calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
+            calculated_date = DateUtils.parse_timestamp(workout_timestamp, to_local=True)
+            calculated_date = calculated_date.date() if calculated_date else None
             record = WorkoutRecord(
                 timestamp=workout_timestamp,
                 date=calculated_date,  # Calculate date in extractor
@@ -178,7 +178,8 @@ class HevyExtractor(BaseExtractor):
                     set_type = set_data.get("type", "normal")
                     
                     # Create ExerciseRecord for each set
-                    calculated_date = self._calculate_date_from_timestamp(workout_timestamp)
+                    calculated_date = DateUtils.parse_timestamp(workout_timestamp, to_local=True)
+                    calculated_date = calculated_date.date() if calculated_date else None
                     record = ExerciseRecord(
                         timestamp=workout_timestamp,
                         date=calculated_date,  # Calculate date in extractor
@@ -194,26 +195,3 @@ class HevyExtractor(BaseExtractor):
         
         self.logger.info(f"Extracted {len(exercise_records)} raw exercise records from Hevy")
         return exercise_records
-    
-    def _calculate_date_from_timestamp(self, timestamp: Union[str, datetime]) -> Optional[date]:
-        """Calculate date from timestamp string or datetime object.
-        
-        Args:
-            timestamp: ISO timestamp string or datetime object
-            
-        Returns:
-            Date or None if parsing fails
-        """
-        if not timestamp:
-            return None
-            
-        # Handle datetime object directly
-        if isinstance(timestamp, datetime):
-            return timestamp.date()
-        
-        # Handle string timestamp
-        if isinstance(timestamp, str):
-            parsed_datetime = DateUtils.parse_iso_timestamp(timestamp)
-            return parsed_datetime.date()
-            
-        return None

@@ -17,7 +17,7 @@ from src.models import (
     SportType, 
     RecoveryLevel
 )
-from src.config import default_config
+from src.app_config import AppConfig
 from src.utils.date_utils import DateUtils
 
 
@@ -31,7 +31,6 @@ class WhoopExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the Whoop extractor."""
         super().__init__(DataSource.WHOOP)
-        self.config = default_config
     
     def extract_data(self, raw_data: Dict[str, Any]) -> Dict[str, List]:
         """Extract all data types from raw Whoop API response.
@@ -52,23 +51,19 @@ class WhoopExtractor(BaseExtractor):
             'cycles': []
         }
         
-        # Extract workouts (pure conversion, no transformation)
         if 'workouts' in raw_data:
             extracted['workouts'] = self.extract_workouts(raw_data['workouts'])
             self.logger.info(f"Extracted {len(extracted['workouts'])} raw workout records")
         
-        # Extract recovery (pure conversion, no transformation)
         if 'recovery' in raw_data:
             cycles_data = raw_data.get('cycles')  # Get cycles data for timestamp lookup
             extracted['recovery'] = self.extract_recovery(raw_data['recovery'], cycles_data)
             self.logger.info(f"Extracted {len(extracted['recovery'])} raw recovery records")
         
-        # Extract sleep (pure conversion, no transformation)
         if 'sleep' in raw_data:
             extracted['sleep'] = self.extract_sleep(raw_data['sleep'])
             self.logger.info(f"Extracted {len(extracted['sleep'])} raw sleep records")
         
-        # Extract cycles as activity data (daily activity summaries)
         if 'cycles' in raw_data:
             extracted['activity'] = self.extract_cycles_as_activity(raw_data['cycles'])
             self.logger.info(f"Extracted {len(extracted['activity'])} activity records from cycles data")
@@ -107,7 +102,7 @@ class WhoopExtractor(BaseExtractor):
         """
         # Get sport information using configuration
         sport_id = workout_data.get('sport_id', 0)
-        sport_info = self.config.get_whoop_sport_info(sport_id)
+        sport_info = AppConfig.get_whoop_sport_info(sport_id)
         
         # Parse timestamp
         start_time = DateUtils.parse_timestamp(workout_data.get('start'))
@@ -147,7 +142,7 @@ class WhoopExtractor(BaseExtractor):
         
         # Get sport name and determine type using config system
         sport_name = sport_info.get('name')
-        sport_type = self.config.get_sport_type_from_name(sport_name)
+        sport_type = AppConfig.get_sport_type_from_name(sport_name)
         
         # Calculate date using Whoop-specific 4 AM cutoff rule
         final_date = self._normalize_whoop_date(start_time, "workout")
