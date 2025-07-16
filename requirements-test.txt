@@ -1,6 +1,0 @@
-# Testing dependencies
-pytest>=7.0.0
-pytest-cov>=3.0.0
-pytest-mock>=3.7.0
-responses>=0.17.0
-freezegun>=1.2.0
